@@ -40,3 +40,9 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# local AI coding assistant config
+/.claude/
+
+# archived previous prototype (kept locally for reference only)
+/_archive_*/
