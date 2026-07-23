@@ -1,98 +1,225 @@
-# vinext-starter
+# 모여밥
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+> **문서 상태: 가작성안(Draft)**
+>
+> 이 문서는 팀 논의를 위한 첫 작성안입니다. 서비스 이름, 운영 규칙, 데이터
+> 형식과 개발 방향은 팀원 검토 후 변경될 수 있습니다.
 
-## Prerequisites
+서울대학교 시흥캠퍼스 구성원이 음식점과 메뉴를 고르면, 같은 음식점을 선택한
+사람들의 수요를 익명으로 집계해 공동주문 가능성을 보여주는 웹앱입니다.
 
-- Node.js `>=22.13.0`
+- 프로토타입: [모여밥 열기](https://moyeobap-si-heung.fame.chatgpt.site)
+- GitHub 저장소: [famegon/moyeobap](https://github.com/famegon/moyeobap)
+- 문서 최종 수정일: 2026-07-23
 
-## Quick Start
+프로토타입 링크는 현재 비공개이며, 접속 시 ChatGPT 로그인이 필요합니다.
+
+## 해결하려는 문제
+
+약 40명이 함께 생활하는 교육·연구 공간에서 매일 점심과 카페 주문을 배달로
+해결하고 있습니다. 현재는 다음과 같은 불편이 있습니다.
+
+- 누가 어느 음식점을 원하는지 알기 어렵습니다.
+- 공동주문에 필요한 인원이 모였는지 확인하기 어렵습니다.
+- 주문을 제안하거나 주문방을 만드는 사람에게 부담이 집중됩니다.
+- 최소 주문금액, 배달비와 실제 주문 담당자를 따로 조율해야 합니다.
+
+모여밥은 사용자가 별도의 주문방을 만들지 않아도 음식점과 메뉴만 선택하면
+익명 수요가 자동으로 모이는 방식을 목표로 합니다.
+
+## 핵심 이용 흐름
+
+```text
+음식점 목록 확인
+→ 음식점별 익명 수요 상황 확인
+→ 원하는 메뉴와 수량 선택
+→ 같은 음식점 수요에 자동 합산
+→ 최소 주문금액과 담당자 조건 충족
+→ 공동주문 확정
+→ 주문·수령·정산
+```
+
+## 현재 프로토타입에서 확인할 수 있는 기능
+
+- 점심과 카페 시간대 전환
+- 음식점 검색 및 음식 종류별 필터
+- 음식점별 익명 선택 인원
+- 현재 주문 예정 금액과 최소 주문금액 진행률
+- 주문 가능, 성립 임박, 담당자 필요 등의 상태
+- 음식점별 메뉴·수량 선택
+- 선택 결과의 인원·금액 즉시 반영
+- 메뉴별 소수 선택자의 익명성 보호 표현
+- 공동주문 참여자용 익명 대화 화면
+- 모바일과 PC에 대응하는 반응형 화면
+
+## 현재 구현 상태
+
+| 항목 | 현재 상태 |
+|---|---|
+| 음식점·메뉴 데이터 | 화면 확인용 예시 데이터 |
+| 사용자 선택 | 브라우저 화면에만 임시 저장 |
+| 새로고침 후 선택 | 초기화됨 |
+| 실시간 다중 사용자 반영 | 미구현 |
+| 회원 및 권한 | 배포 링크의 ChatGPT 로그인만 적용 |
+| 실제 주문·결제 | 미연동 |
+| 정산 | 미구현 |
+| 주문 담당자 자동 선정 | 화면 상태만 표현 |
+
+현재 버전은 서비스 방향과 화면 흐름을 검증하기 위한 프로토타입입니다. 실제
+운영 전에는 데이터베이스, 사용자 인증, 실시간 수요 동기화와 운영 규칙을
+추가해야 합니다.
+
+## 팀 데이터 협업 제안
+
+> 아래 구조와 필드 역시 **가작성안**입니다. 팀이 수집한 자료를 확인한 후
+> 실제 데이터 형식에 맞춰 확정합니다.
+
+팀원들이 수집한 음식점과 카페 자료는 음식점 정보와 메뉴 정보를 분리해
+관리하는 방식을 제안합니다.
+
+```text
+data/
+├─ raw/                  팀원들이 수집한 원본 파일
+├─ restaurants.csv      검토가 끝난 음식점·카페 정보
+├─ menus.csv            검토가 끝난 메뉴·가격 정보
+└─ DATA_GUIDE.md        데이터 입력 및 검수 규칙
+```
+
+### 음식점·카페 데이터 제안
+
+`restaurants.csv`
+
+```csv
+restaurant_id,name,type,category,address,phone,min_order_amount,delivery_fee,estimated_delivery_min,order_url,last_verified_at
+rest_001,배곧 짬뽕관,restaurant,중식,경기도 시흥시 배곧동,,15000,4000,40,,2026-07-23
+rest_002,오후커피 로스터스,cafe,카페,경기도 시흥시 배곧동,,15000,2500,30,,2026-07-23
+```
+
+주요 필드:
+
+- `restaurant_id`: 음식점의 고유 ID
+- `type`: `restaurant` 또는 `cafe`
+- `category`: 한식, 중식, 일식, 분식, 샐러드, 카페 등
+- `min_order_amount`: 최소 주문금액
+- `delivery_fee`: 확인 시점의 배달비
+- `estimated_delivery_min`: 예상 배달 소요시간
+- `last_verified_at`: 마지막 정보 확인일
+
+### 메뉴 데이터 제안
+
+`menus.csv`
+
+```csv
+menu_id,restaurant_id,name,price,description,is_available,last_verified_at
+menu_001,rest_001,불향 짬뽕,12000,해산물 짬뽕,true,2026-07-23
+menu_002,rest_001,옛날 짜장면,9000,기본 짜장면,true,2026-07-23
+menu_003,rest_002,아메리카노,4500,하우스 블렌드,true,2026-07-23
+```
+
+각 메뉴는 `restaurant_id`를 사용해 해당 음식점과 연결합니다.
+
+### 데이터 작성 시 주의사항
+
+- 음식점과 메뉴 ID는 한 번 정한 뒤 임의로 변경하지 않습니다.
+- 가격, 배달비와 영업정보에는 마지막 확인일을 기록합니다.
+- 확인하지 못한 값은 추측하지 않고 비워둡니다.
+- 계정 비밀번호, API 키, 계좌번호 등 민감한 정보는 올리지 않습니다.
+- 메뉴 사진의 저작권과 사용 허가를 확인합니다.
+- 엑셀 원본은 보관할 수 있지만, 최종 데이터는 협업이 쉬운 UTF-8 CSV를
+  우선 검토합니다.
+
+## 팀원 협업 방식 제안
+
+`main` 브랜치는 현재 확인 가능한 안정 버전으로 사용합니다. 팀원은 기능이나
+데이터를 수정할 때 개인 브랜치를 만든 뒤 Pull Request로 검토를 요청합니다.
+
+```bash
+git switch -c data/restaurant-update
+```
+
+작업을 마친 뒤:
+
+```bash
+git add data/
+git commit -m "배곧 지역 음식점 데이터 추가"
+git push -u origin data/restaurant-update
+```
+
+Pull Request에서는 다음 항목을 확인합니다.
+
+- 음식점 및 메뉴 ID 중복 여부
+- 메뉴와 음식점 연결 여부
+- 가격과 숫자 형식
+- 마지막 확인 날짜
+- 개인정보 또는 민감정보 포함 여부
+- 기존 화면에서 데이터가 정상적으로 표시되는지
+
+## 로컬 실행 방법
+
+### 준비 사항
+
+- Node.js 22.13 이상
+- npm
+
+### 실행
 
 ```bash
 npm install
 npm run dev
+```
+
+터미널에 표시되는 로컬 주소를 브라우저에서 엽니다.
+
+### 배포용 빌드 확인
+
+```bash
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+## 프로젝트 구조
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```text
+moyeobap/
+├─ app/
+│  ├─ page.tsx           프로토타입 화면과 예시 데이터
+│  ├─ globals.css        전체 화면 스타일
+│  └─ layout.tsx         페이지 정보와 공유 이미지 설정
+├─ public/
+│  └─ og.png             링크 공유 미리보기 이미지
+├─ db/                   향후 데이터베이스 연결 위치
+├─ .openai/
+│  └─ hosting.json       현재 사이트 배포 설정
+├─ package.json
+└─ README.md
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+현재 예시 음식점과 메뉴는 `app/page.tsx`의 `INITIAL_RESTAURANTS`에 들어
+있습니다. 실제 데이터를 연결할 때는 별도 데이터 파일 또는 데이터베이스로
+분리할 예정입니다.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## 다음 개발 단계 제안
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+1. 팀이 수집한 음식점·메뉴 데이터 형식 통일
+2. 예시 데이터를 실제 데이터로 교체
+3. 사용자 및 캠퍼스 구성원 인증 방식 결정
+4. 데이터베이스를 통한 선택 내역 저장
+5. 실시간 익명 수요 상황판 구현
+6. 주문 담당자 선정 및 수락 기능
+7. 공동주문 확정, 도착 안내와 정산 상태 구현
+8. 소규모 사용자 테스트 후 운영 규칙 보완
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## 팀 논의가 필요한 사항
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+- 익명성을 어느 단계까지 유지할지
+- 주문 담당자를 어떤 규칙으로 선정할지
+- 주문 마감 시간과 취소 규칙
+- 배달비와 할인금액을 어떻게 나눌지
+- 실제 주문은 기존 배달앱을 사용할지
+- 메뉴와 가격 정보를 누가, 얼마나 자주 갱신할지
+- 팀이 수집한 데이터에서 필수로 유지해야 할 항목
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## 문서 변경 안내
 
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+이 README는 확정된 제품 명세서가 아니라 **팀 검토를 위한 가작성안**입니다.
+팀원 의견과 실제 수집 데이터 구조를 확인한 뒤 내용을 수정하고, 합의가 끝나면
+문서 상태를 `Draft`에서 `Approved` 또는 팀이 정한 상태로 변경합니다.
