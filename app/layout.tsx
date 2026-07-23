@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
   const title = "모여밥 | 시흥캠퍼스 익명 공동주문";
   const description =
-    "음식점별 실시간 익명 수요를 보고 메뉴를 선택하면 공동주문이 자동으로 연결되는 시흥캠퍼스 점심 앱";
+    "음식점별 현재 인원을 보고 이미지, 이름과 가격으로 메뉴를 고르는 시흥캠퍼스 익명 수요 상황판";
 
   return {
     title,
@@ -26,10 +26,10 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: "ko_KR",
       images: [
         {
-          url: `${origin}/og.png`,
+          url: `${origin}/og-v2.png`,
           width: 1734,
           height: 907,
-          alt: "모여밥 — 먹고 싶은 메뉴를 고르면, 함께 주문돼요.",
+          alt: "모여밥 — 몇 명이 골랐을까요?",
         },
       ],
     },
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: [`${origin}/og.png`],
+      images: [`${origin}/og-v2.png`],
     },
   };
 }
