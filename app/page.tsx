@@ -1,766 +1,518 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 type OrderPeriod = "lunch" | "cafe";
-type Category = "전체" | "한식" | "중식" | "일식" | "샐러드" | "카페";
-
-type Menu = {
-  id: string;
-  name: string;
-  price: number;
-  visual: string;
-  tone: string;
-};
 
 type Restaurant = {
   id: string;
   name: string;
-  category: Exclude<Category, "전체">;
-  period: OrderPeriod;
-  visual: string;
-  tone: string;
-  demand: number;
-  menus: Menu[];
+  category: string;
+  address: string;
+  businessHours: string;
+  closedDays: string;
+  phone: string;
+  rating: number;
+  estimatedDelivery: string;
+  minimumOrder: number;
+  representativeMenu: string;
+  representativeMenuPrice: number;
 };
 
-type ConfirmedOrder = {
+type Recruitment = {
+  id: string;
   restaurantId: string;
-  items: Record<string, number>;
+  period: OrderPeriod;
+  deadline: string;
+  participants: number;
 };
 
 const money = new Intl.NumberFormat("ko-KR");
 
-const INITIAL_RESTAURANTS: Restaurant[] = [
+const RESTAURANTS: Restaurant[] = [
   {
     id: "jjambbong",
     name: "배곧 짬뽕관",
     category: "중식",
-    period: "lunch",
-    visual: "面",
-    tone: "orange",
-    demand: 6,
-    menus: [
-      {
-        id: "spicy-jjambbong",
-        name: "불향 짬뽕",
-        price: 12000,
-        visual: "🍜",
-        tone: "orange",
-      },
-      {
-        id: "jjajang",
-        name: "옛날 짜장면",
-        price: 9000,
-        visual: "🥢",
-        tone: "brown",
-      },
-      {
-        id: "soft-tofu",
-        name: "순두부 짬뽕밥",
-        price: 13000,
-        visual: "🍲",
-        tone: "red",
-      },
-      {
-        id: "fried-rice",
-        name: "새우 볶음밥",
-        price: 10000,
-        visual: "🍚",
-        tone: "gold",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "11:00~21:00",
+    closedDays: "정보 확인 중",
+    phone: "정보 확인 중",
+    rating: 4.6,
+    estimatedDelivery: "35~45분",
+    minimumOrder: 15000,
+    representativeMenu: "불향 짬뽕",
+    representativeMenuPrice: 12000,
   },
   {
     id: "greenbowl",
     name: "그린보울 샐러드",
     category: "샐러드",
-    period: "lunch",
-    visual: "葉",
-    tone: "green",
-    demand: 3,
-    menus: [
-      {
-        id: "chicken-bowl",
-        name: "닭가슴살 웜볼",
-        price: 10500,
-        visual: "🥗",
-        tone: "green",
-      },
-      {
-        id: "salmon-salad",
-        name: "훈제연어 샐러드",
-        price: 12500,
-        visual: "🥑",
-        tone: "mint",
-      },
-      {
-        id: "tofu-bowl",
-        name: "두부 버섯볼",
-        price: 9500,
-        visual: "🥬",
-        tone: "lime",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "10:30~20:30",
+    closedDays: "정보 확인 중",
+    phone: "정보 확인 중",
+    rating: 4.8,
+    estimatedDelivery: "25~35분",
+    minimumOrder: 12000,
+    representativeMenu: "닭가슴살 웜볼",
+    representativeMenuPrice: 10500,
   },
   {
     id: "tokyo-katsu",
     name: "도쿄카츠 배곧점",
     category: "일식",
-    period: "lunch",
-    visual: "豚",
-    tone: "gold",
-    demand: 2,
-    menus: [
-      {
-        id: "sirloin",
-        name: "등심 돈카츠",
-        price: 12500,
-        visual: "🍛",
-        tone: "gold",
-      },
-      {
-        id: "cheese",
-        name: "치즈 돈카츠",
-        price: 14500,
-        visual: "🧀",
-        tone: "yellow",
-      },
-      {
-        id: "curry",
-        name: "카츠 카레",
-        price: 13000,
-        visual: "🍛",
-        tone: "brown",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "11:00~21:00",
+    closedDays: "정보 확인 중",
+    phone: "정보 확인 중",
+    rating: 4.5,
+    estimatedDelivery: "30~40분",
+    minimumOrder: 14000,
+    representativeMenu: "등심 돈카츠",
+    representativeMenuPrice: 12500,
   },
   {
     id: "stew",
     name: "오늘의 김치찌개",
     category: "한식",
-    period: "lunch",
-    visual: "湯",
-    tone: "red",
-    demand: 1,
-    menus: [
-      {
-        id: "pork-stew",
-        name: "돼지 김치찌개",
-        price: 12000,
-        visual: "🍲",
-        tone: "red",
-      },
-      {
-        id: "tuna-stew",
-        name: "참치 김치찌개",
-        price: 11000,
-        visual: "🥘",
-        tone: "orange",
-      },
-      {
-        id: "bulgogi",
-        name: "제육볶음 정식",
-        price: 13000,
-        visual: "🍱",
-        tone: "brown",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "10:30~20:00",
+    closedDays: "일요일",
+    phone: "정보 확인 중",
+    rating: 4.4,
+    estimatedDelivery: "30~45분",
+    minimumOrder: 13000,
+    representativeMenu: "돼지 김치찌개",
+    representativeMenuPrice: 12000,
   },
   {
     id: "afternoon-coffee",
     name: "오후커피 로스터스",
     category: "카페",
-    period: "cafe",
-    visual: "豆",
-    tone: "coffee",
-    demand: 5,
-    menus: [
-      {
-        id: "americano",
-        name: "아메리카노",
-        price: 4500,
-        visual: "☕",
-        tone: "coffee",
-      },
-      {
-        id: "latte",
-        name: "카페라떼",
-        price: 5200,
-        visual: "🥛",
-        tone: "cream",
-      },
-      {
-        id: "lemon-ade",
-        name: "수제 레몬에이드",
-        price: 5800,
-        visual: "🍋",
-        tone: "yellow",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "09:00~20:00",
+    closedDays: "정보 확인 중",
+    phone: "정보 확인 중",
+    rating: 4.7,
+    estimatedDelivery: "20~30분",
+    minimumOrder: 10000,
+    representativeMenu: "아메리카노",
+    representativeMenuPrice: 4500,
   },
   {
     id: "studio-bakery",
     name: "스튜디오 베이커리",
     category: "카페",
-    period: "cafe",
-    visual: "麦",
-    tone: "brown",
-    demand: 2,
-    menus: [
-      {
-        id: "salt-bread",
-        name: "버터 소금빵",
-        price: 3800,
-        visual: "🥐",
-        tone: "gold",
-      },
-      {
-        id: "sandwich",
-        name: "바질 치킨 샌드위치",
-        price: 7600,
-        visual: "🥪",
-        tone: "green",
-      },
-      {
-        id: "vanilla-latte",
-        name: "바닐라빈 라떼",
-        price: 5700,
-        visual: "☕",
-        tone: "cream",
-      },
-    ],
+    address: "경기 시흥시 배곧동 (예시 주소)",
+    businessHours: "08:30~19:30",
+    closedDays: "월요일",
+    phone: "정보 확인 중",
+    rating: 4.6,
+    estimatedDelivery: "25~35분",
+    minimumOrder: 12000,
+    representativeMenu: "버터 소금빵",
+    representativeMenuPrice: 3800,
   },
 ];
 
+const INITIAL_RECRUITMENTS: Recruitment[] = [
+  {
+    id: "lunch-1",
+    restaurantId: "greenbowl",
+    period: "lunch",
+    deadline: "12:15",
+    participants: 3,
+  },
+  {
+    id: "lunch-2",
+    restaurantId: "jjambbong",
+    period: "lunch",
+    deadline: "12:30",
+    participants: 6,
+  },
+  {
+    id: "lunch-3",
+    restaurantId: "tokyo-katsu",
+    period: "lunch",
+    deadline: "12:40",
+    participants: 2,
+  },
+  {
+    id: "cafe-1",
+    restaurantId: "afternoon-coffee",
+    period: "cafe",
+    deadline: "14:20",
+    participants: 5,
+  },
+  {
+    id: "cafe-2",
+    restaurantId: "studio-bakery",
+    period: "cafe",
+    deadline: "15:00",
+    participants: 2,
+  },
+];
+
+function restaurantsForPeriod(period: OrderPeriod) {
+  return RESTAURANTS.filter((restaurant) =>
+    period === "cafe"
+      ? restaurant.category === "카페"
+      : restaurant.category !== "카페",
+  );
+}
+
 export default function Home() {
   const [period, setPeriod] = useState<OrderPeriod>("lunch");
-  const [category, setCategory] = useState<Category>("전체");
   const [query, setQuery] = useState("");
-  const [restaurants, setRestaurants] = useState(INITIAL_RESTAURANTS);
-  const [selectedRestaurantId, setSelectedRestaurantId] =
-    useState("jjambbong");
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [confirmedOrder, setConfirmedOrder] =
-    useState<ConfirmedOrder | null>(null);
-  const [toast, setToast] = useState("");
-
-  const periodRestaurants = useMemo(
-    () =>
-      restaurants
-        .filter((restaurant) => restaurant.period === period)
-        .sort((a, b) => b.demand - a.demand || a.name.localeCompare(b.name)),
-    [period, restaurants],
+  const [recruitments, setRecruitments] = useState(INITIAL_RECRUITMENTS);
+  const [joined, setJoined] = useState<Record<string, boolean>>({});
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [draftRestaurantId, setDraftRestaurantId] = useState(
+    restaurantsForPeriod("lunch")[0].id,
   );
+  const [draftDeadline, setDraftDeadline] = useState("12:30");
+  const [message, setMessage] = useState("");
 
-  const visibleRestaurants = useMemo(
-    () =>
-      periodRestaurants
-        .filter(
-          (restaurant) =>
-            category === "전체" || restaurant.category === category,
-        )
-        .filter((restaurant) =>
-          restaurant.name.toLowerCase().includes(query.trim().toLowerCase()),
-        ),
-    [category, periodRestaurants, query],
-  );
+  const visibleRecruitments = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
-  const selectedRestaurant =
-    restaurants.find(
-      (restaurant) => restaurant.id === selectedRestaurantId,
-    ) ?? periodRestaurants[0];
+    return recruitments
+      .filter((recruitment) => recruitment.period === period)
+      .filter((recruitment) => {
+        const restaurant = RESTAURANTS.find(
+          (item) => item.id === recruitment.restaurantId,
+        );
+        if (!restaurant || !normalizedQuery) return Boolean(restaurant);
 
-  const cartItems = selectedRestaurant
-    ? selectedRestaurant.menus
-        .filter((menu) => (cart[menu.id] ?? 0) > 0)
-        .map((menu) => ({ ...menu, quantity: cart[menu.id] }))
-    : [];
+        return [restaurant.name, restaurant.category, restaurant.address].some(
+          (value) => value.toLowerCase().includes(normalizedQuery),
+        );
+      })
+      .sort((a, b) => a.deadline.localeCompare(b.deadline));
+  }, [period, query, recruitments]);
 
-  const cartCount = cartItems.reduce(
-    (sum, menu) => sum + menu.quantity,
-    0,
-  );
-  const cartTotal = cartItems.reduce(
-    (sum, menu) => sum + menu.price * menu.quantity,
-    0,
-  );
-  const totalDemand = periodRestaurants.reduce(
-    (sum, restaurant) => sum + restaurant.demand,
-    0,
-  );
-  const activeRestaurants = periodRestaurants.filter(
-    (restaurant) => restaurant.demand > 0,
-  ).length;
-  const categories: Category[] =
-    period === "lunch"
-      ? ["전체", "한식", "중식", "일식", "샐러드"]
-      : ["전체", "카페"];
-
-  const confirmedRestaurant = confirmedOrder
-    ? restaurants.find(
-        (restaurant) => restaurant.id === confirmedOrder.restaurantId,
-      )
-    : null;
-  const confirmedCount =
-    confirmedRestaurant && confirmedOrder
-      ? confirmedRestaurant.menus.reduce(
-          (sum, menu) => sum + (confirmedOrder.items[menu.id] ?? 0),
-          0,
-        )
-      : 0;
-  const confirmedTotal =
-    confirmedRestaurant && confirmedOrder
-      ? confirmedRestaurant.menus.reduce(
-          (sum, menu) =>
-            sum + menu.price * (confirmedOrder.items[menu.id] ?? 0),
-          0,
-        )
-      : 0;
-
-  function selectRestaurant(id: string) {
-    setSelectedRestaurantId(id);
-    if (confirmedOrder?.restaurantId === id) {
-      setCart({ ...confirmedOrder.items });
-    } else {
-      setCart({});
-    }
-    document
-      .getElementById("menu-panel")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  const periodParticipantCount = recruitments
+    .filter((recruitment) => recruitment.period === period)
+    .reduce((sum, recruitment) => sum + recruitment.participants, 0);
 
   function changePeriod(nextPeriod: OrderPeriod) {
     setPeriod(nextPeriod);
-    setCategory("전체");
     setQuery("");
-    const first = restaurants
-      .filter((restaurant) => restaurant.period === nextPeriod)
-      .sort((a, b) => b.demand - a.demand)[0];
-    if (first) {
-      setSelectedRestaurantId(first.id);
-      setCart(
-        confirmedOrder?.restaurantId === first.id
-          ? { ...confirmedOrder.items }
-          : {},
-      );
-    }
+    setShowCreateForm(false);
+    setDraftRestaurantId(restaurantsForPeriod(nextPeriod)[0].id);
+    setDraftDeadline(nextPeriod === "lunch" ? "12:30" : "14:30");
   }
 
-  function updateQuantity(menuId: string, delta: number) {
-    setCart((current) => {
-      const nextQuantity = Math.max(
-        0,
-        Math.min(9, (current[menuId] ?? 0) + delta),
-      );
-      const next = { ...current };
-      if (nextQuantity === 0) {
-        delete next[menuId];
-      } else {
-        next[menuId] = nextQuantity;
-      }
-      return next;
-    });
-  }
+  function toggleParticipation(recruitmentId: string) {
+    const isJoined = joined[recruitmentId] ?? false;
 
-  function confirmSelection() {
-    if (!selectedRestaurant || cartCount === 0) return;
-
-    setRestaurants((current) =>
-      current.map((restaurant) => {
-        if (
-          confirmedOrder?.restaurantId === restaurant.id &&
-          selectedRestaurant.id !== restaurant.id
-        ) {
-          return {
-            ...restaurant,
-            demand: Math.max(0, restaurant.demand - 1),
-          };
-        }
-        if (
-          selectedRestaurant.id === restaurant.id &&
-          confirmedOrder?.restaurantId !== restaurant.id
-        ) {
-          return { ...restaurant, demand: restaurant.demand + 1 };
-        }
-        return restaurant;
-      }),
+    setRecruitments((current) =>
+      current.map((recruitment) =>
+        recruitment.id === recruitmentId
+          ? {
+              ...recruitment,
+              participants: Math.max(
+                1,
+                recruitment.participants + (isJoined ? -1 : 1),
+              ),
+            }
+          : recruitment,
+      ),
     );
+    setJoined((current) => ({ ...current, [recruitmentId]: !isJoined }));
+    setMessage(isJoined ? "참여를 취소했어요." : "공동주문에 참여했어요.");
+  }
 
-    setConfirmedOrder({
-      restaurantId: selectedRestaurant.id,
-      items: { ...cart },
-    });
-    setToast("내 선택이 익명 인원에 반영됐어요");
-    window.setTimeout(() => setToast(""), 2600);
+  function createRecruitment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draftRestaurantId || !draftDeadline) return;
+
+    const id = `recruitment-${Date.now()}`;
+    setRecruitments((current) => [
+      ...current,
+      {
+        id,
+        restaurantId: draftRestaurantId,
+        period,
+        deadline: draftDeadline,
+        participants: 1,
+      },
+    ]);
+    setJoined((current) => ({ ...current, [id]: true }));
+    setShowCreateForm(false);
+    setMessage("새 모집을 만들고 첫 참여자로 등록했어요.");
   }
 
   return (
     <main className="app-shell">
-      <header className="topbar">
+      <header className="site-header">
         <a className="brand" href="#top" aria-label="모여밥 홈">
-          <span className="brand-mark">ㅁ</span>
+          <span className="brand-mark" aria-hidden="true">
+            ㅁ
+          </span>
           <span>
             모여밥
             <small>서울대 시흥캠퍼스</small>
           </span>
         </a>
-        <nav className="top-nav" aria-label="주요 메뉴">
-          <a className="active" href="#board">
-            수요 상황판
-          </a>
-          <a href="#restaurants">음식점</a>
-          <span className="prototype-badge">공개 프로토타입</span>
-        </nav>
+        <button
+          className="slack-login"
+          type="button"
+          onClick={() => setMessage("Slack 로그인은 다음 연동 단계에서 연결합니다.")}
+        >
+          <span aria-hidden="true">#</span>
+          Slack으로 로그인
+          <small>연동 예정</small>
+        </button>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <div className="eyebrow">
-            <span className="live-dot" />
-            익명 수요 상황판
-          </div>
+      <section className="intro" id="top">
+        <div className="intro-copy">
+          <span className="eyebrow">실시간 공동주문 현황</span>
           <h1>
-            몇 명이
+            같이 주문할 사람을
             <br />
-            <em>골랐을까요?</em>
+            지금 찾아보세요.
           </h1>
           <p>
-            음식점별 현재 인원을 보고 직접 판단하세요. 먹고 싶은 메뉴를
-            담으면 같은 선택에 익명으로 한 명이 더해져요.
+            모집 마감 시간을 확인하고 원하는 음식점에 참여하세요. 먹는 모임은
+            기존 점심조와 함께해도, 같이 주문한 사람들과 새로 만들어도 됩니다.
           </p>
         </div>
+        <div className="intro-summary" aria-label="현재 현황 요약">
+          <div>
+            <span>진행 중인 모집</span>
+            <strong>
+              {visibleRecruitments.length}<small>개</small>
+            </strong>
+          </div>
+          <div>
+            <span>현재 참여 인원</span>
+            <strong>
+              {periodParticipantCount}<small>명</small>
+            </strong>
+          </div>
+          <p>
+            <span className="live-dot" aria-hidden="true" />
+            화면 확인용 예시 데이터
+          </p>
+        </div>
+      </section>
 
-        <div className="hero-board" id="board">
-          <div className="period-switch" aria-label="주문 시간대 선택">
+      <section className="board" aria-labelledby="board-title">
+        <div className="board-heading">
+          <div>
+            <span className="section-label">LIVE BOARD</span>
+            <h2 id="board-title">마감이 가까운 모집</h2>
+            <p>참여 가능한 공동주문을 마감 시간 순서로 보여드려요.</p>
+          </div>
+          <button
+            className="create-button"
+            type="button"
+            aria-expanded={showCreateForm}
+            onClick={() => setShowCreateForm((current) => !current)}
+          >
+            {showCreateForm ? "닫기" : "새 모집 만들기"}
+            <span aria-hidden="true">{showCreateForm ? "×" : "+"}</span>
+          </button>
+        </div>
+
+        <div className="board-tools">
+          <div className="period-tabs" aria-label="주문 종류">
             <button
               className={period === "lunch" ? "active" : ""}
-              onClick={() => changePeriod("lunch")}
               type="button"
+              onClick={() => changePeriod("lunch")}
             >
               점심
-              <small>선택 마감 10:50</small>
+              <small>13:00~14:00</small>
             </button>
             <button
               className={period === "cafe" ? "active" : ""}
-              onClick={() => changePeriod("cafe")}
               type="button"
+              onClick={() => changePeriod("cafe")}
             >
               카페
-              <small>선택 마감 14:00</small>
+              <small>시간 자유</small>
             </button>
           </div>
-
-          <div className="ranking-head">
-            <span>지금 많이 고른 곳</span>
-            <strong>{period === "lunch" ? "점심" : "오후 카페"}</strong>
-          </div>
-
-          <div className="demand-ranking">
-            {periodRestaurants.slice(0, 3).map((restaurant, index) => (
-              <button
-                key={restaurant.id}
-                onClick={() => selectRestaurant(restaurant.id)}
-                type="button"
-              >
-                <span className="rank-number">{index + 1}</span>
-                <span className={`rank-visual tone-${restaurant.tone}`}>
-                  {restaurant.visual}
-                </span>
-                <span className="rank-name">{restaurant.name}</span>
-                <strong>
-                  {restaurant.demand}
-                  <small>명</small>
-                </strong>
-              </button>
-            ))}
-          </div>
-
-          <div className="summary-grid">
-            <div>
-              <span>현재 선택 인원</span>
-              <strong>
-                {totalDemand}
-                <small>명</small>
-              </strong>
-            </div>
-            <div>
-              <span>선택 모인 곳</span>
-              <strong>
-                {activeRestaurants}
-                <small>곳</small>
-              </strong>
-            </div>
-            <div>
-              <span>캠퍼스 참여율</span>
-              <strong>
-                {Math.min(100, Math.round((totalDemand / 40) * 100))}
-                <small>%</small>
-              </strong>
-            </div>
-          </div>
-
-          <div className="privacy-note">
-            <span aria-hidden="true">⌁</span>
-            이름과 개인 메뉴는 상황판에 공개되지 않아요
-          </div>
-        </div>
-      </section>
-
-      <section className="workspace" id="restaurants">
-        <div className="restaurant-column">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">LIVE BOARD</span>
-              <h2>{period === "lunch" ? "점심" : "카페"} 음식점</h2>
-              <p>인원이 많은 순서로 보여드려요.</p>
-            </div>
-            <span className="refresh-label">
-              <span className="live-dot" />
-              방금 갱신
-            </span>
-          </div>
-
-          <label className="search-box">
+          <label className="search-field">
             <span aria-hidden="true">⌕</span>
             <input
               type="search"
-              placeholder="음식점 검색"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              placeholder="음식점 또는 카테고리 검색"
             />
           </label>
+        </div>
 
-          <div className="filter-row" aria-label="음식 종류">
-            {categories.map((item) => (
-              <button
-                className={category === item ? "active" : ""}
-                key={item}
-                onClick={() => setCategory(item)}
-                type="button"
+        {showCreateForm && (
+          <form className="create-form" onSubmit={createRecruitment}>
+            <div className="form-copy">
+              <span>NEW ORDER</span>
+              <strong>공동주문 모집 만들기</strong>
+              <p>모집을 만들면 첫 참여자로 자동 등록됩니다.</p>
+            </div>
+            <label>
+              <span>음식점</span>
+              <select
+                value={draftRestaurantId}
+                onChange={(event) => setDraftRestaurantId(event.target.value)}
               >
-                {item}
-              </button>
-            ))}
-          </div>
+                {restaurantsForPeriod(period).map((restaurant) => (
+                  <option key={restaurant.id} value={restaurant.id}>
+                    {restaurant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>모집 마감 시간</span>
+              <input
+                type="time"
+                value={draftDeadline}
+                onChange={(event) => setDraftDeadline(event.target.value)}
+                required
+              />
+            </label>
+            <button type="submit">모집 시작하기</button>
+          </form>
+        )}
 
-          <div className="restaurant-list">
-            {visibleRestaurants.map((restaurant, index) => {
-              const isSelected = selectedRestaurantId === restaurant.id;
-              return (
-                <button
-                  className={`restaurant-card ${isSelected ? "selected" : ""}`}
-                  key={restaurant.id}
-                  onClick={() => selectRestaurant(restaurant.id)}
-                  type="button"
-                  aria-pressed={isSelected}
-                >
-                  <span
-                    className={`restaurant-visual tone-${restaurant.tone}`}
-                    aria-hidden="true"
+        <div className="recruitment-list">
+          {visibleRecruitments.map((recruitment) => {
+            const restaurant = RESTAURANTS.find(
+              (item) => item.id === recruitment.restaurantId,
+            );
+            if (!restaurant) return null;
+
+            const isJoined = joined[recruitment.id] ?? false;
+
+            return (
+              <article className="recruitment-card" key={recruitment.id}>
+                <div className="card-main">
+                  <div className="card-status">
+                    <span>참여 가능</span>
+                    <strong>{recruitment.deadline} 마감</strong>
+                  </div>
+                  <div className="restaurant-heading">
+                    <span className="category-chip">{restaurant.category}</span>
+                    <h3>{restaurant.name}</h3>
+                    <span className="rating" aria-label={`평점 ${restaurant.rating}`}>
+                      ★ {restaurant.rating}
+                    </span>
+                  </div>
+                  <p className="address">{restaurant.address}</p>
+
+                  <div className="restaurant-facts">
+                    <div>
+                      <span>예측 배달</span>
+                      <strong>{restaurant.estimatedDelivery}</strong>
+                    </div>
+                    <div>
+                      <span>최소 주문</span>
+                      <strong>{money.format(restaurant.minimumOrder)}원</strong>
+                    </div>
+                    <div>
+                      <span>대표 메뉴</span>
+                      <strong>
+                        {restaurant.representativeMenu} ·{" "}
+                        {money.format(restaurant.representativeMenuPrice)}원
+                      </strong>
+                    </div>
+                  </div>
+
+                  <details className="store-details">
+                    <summary>매장 정보 더보기</summary>
+                    <dl>
+                      <div>
+                        <dt>운영시간</dt>
+                        <dd>{restaurant.businessHours}</dd>
+                      </div>
+                      <div>
+                        <dt>휴무일</dt>
+                        <dd>{restaurant.closedDays}</dd>
+                      </div>
+                      <div>
+                        <dt>전화번호</dt>
+                        <dd>{restaurant.phone}</dd>
+                      </div>
+                    </dl>
+                  </details>
+                </div>
+
+                <div className="participation-panel">
+                  <span>현재 참여</span>
+                  <strong>
+                    {recruitment.participants}<small>명</small>
+                  </strong>
+                  <p>참여자 정보는 참여한 사람끼리만 확인해요.</p>
+                  <button
+                    className={isJoined ? "joined" : ""}
+                    type="button"
+                    onClick={() => toggleParticipation(recruitment.id)}
                   >
-                    <small>{index + 1}</small>
-                    {restaurant.visual}
-                  </span>
-                  <span className="restaurant-copy">
-                    <small>{restaurant.category}</small>
-                    <strong>{restaurant.name}</strong>
-                    <span>메뉴 보기</span>
-                  </span>
-                  <span className="demand-count">
-                    <strong>{restaurant.demand}</strong>
-                    <small>명 선택</small>
-                  </span>
-                  <span className="card-arrow" aria-hidden="true">
-                    →
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    {isJoined ? "참여 취소" : "참여하기"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
 
-          {visibleRestaurants.length === 0 && (
+          {visibleRecruitments.length === 0 && (
             <div className="empty-state">
-              <strong>검색 결과가 없어요</strong>
-              <span>다른 음식점 이름을 입력해보세요.</span>
+              <strong>조건에 맞는 모집이 없어요.</strong>
+              <p>검색어를 바꾸거나 새로운 공동주문 모집을 만들어 보세요.</p>
             </div>
           )}
         </div>
-
-        {selectedRestaurant && (
-          <aside className="menu-panel" id="menu-panel">
-            <div className={`menu-identity tone-${selectedRestaurant.tone}`}>
-              <span className="menu-identity-visual" aria-hidden="true">
-                {selectedRestaurant.visual}
-              </span>
-              <div>
-                <span>{selectedRestaurant.category}</span>
-                <h2>{selectedRestaurant.name}</h2>
-                <p>
-                  현재 <strong>{selectedRestaurant.demand}명</strong>이
-                  선택했어요
-                </p>
-              </div>
-            </div>
-
-            <div className="menu-header">
-              <div>
-                <span className="section-kicker">MENU</span>
-                <h3>메뉴를 골라주세요</h3>
-              </div>
-              <span>이미지 · 이름 · 가격</span>
-            </div>
-
-            <div className="menu-grid">
-              {selectedRestaurant.menus.map((menu) => {
-                const quantity = cart[menu.id] ?? 0;
-                return (
-                  <article
-                    className={`menu-card ${quantity > 0 ? "selected" : ""}`}
-                    key={menu.id}
-                  >
-                    <div
-                      className={`menu-image tone-${menu.tone}`}
-                      role="img"
-                      aria-label={`${menu.name} 예시 이미지 자리`}
-                    >
-                      <span>{menu.visual}</span>
-                      <small>예시 이미지</small>
-                    </div>
-                    <div className="menu-card-body">
-                      <strong>{menu.name}</strong>
-                      <b>{money.format(menu.price)}원</b>
-                      {quantity === 0 ? (
-                        <button
-                          className="add-button"
-                          onClick={() => updateQuantity(menu.id, 1)}
-                          type="button"
-                        >
-                          담기
-                          <span>+</span>
-                        </button>
-                      ) : (
-                        <div
-                          className="quantity-picker"
-                          aria-label={`${menu.name} 수량`}
-                        >
-                          <button
-                            onClick={() => updateQuantity(menu.id, -1)}
-                            type="button"
-                            aria-label={`${menu.name} 수량 줄이기`}
-                          >
-                            −
-                          </button>
-                          <strong>{quantity}</strong>
-                          <button
-                            onClick={() => updateQuantity(menu.id, 1)}
-                            type="button"
-                            aria-label={`${menu.name} 수량 늘리기`}
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-
-            <div className="cart-panel">
-              <div className="cart-copy">
-                <small>내 선택</small>
-                {cartCount > 0 ? (
-                  <>
-                    <strong>{cartCount}개 메뉴</strong>
-                    <span>{money.format(cartTotal)}원</span>
-                  </>
-                ) : (
-                  <strong>메뉴를 담아주세요</strong>
-                )}
-              </div>
-              <button
-                className="confirm-button"
-                onClick={confirmSelection}
-                type="button"
-                disabled={cartCount === 0}
-              >
-                익명 수요에 반영
-                <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </aside>
-        )}
       </section>
 
-      <section className="how-it-works">
-        <span className="section-kicker">HOW IT WORKS</span>
-        <h2>판단은 가볍게, 선택은 익명으로</h2>
-        <div className="steps">
+      <section className="simple-guide" aria-labelledby="guide-title">
+        <span className="section-label">HOW TO USE</span>
+        <h2 id="guide-title">모여밥은 이렇게 사용해요</h2>
+        <div>
           <article>
             <span>01</span>
-            <strong>현재 인원을 보고</strong>
-            <p>음식점별 몇 명이 선택했는지 한눈에 확인해요.</p>
+            <strong>현황 확인</strong>
+            <p>마감이 가까운 공동주문과 현재 참여 인원을 확인해요.</p>
           </article>
           <article>
             <span>02</span>
-            <strong>메뉴를 담고</strong>
-            <p>이미지, 이름과 가격을 보고 원하는 메뉴를 골라요.</p>
+            <strong>참여 또는 모집</strong>
+            <p>원하는 모집에 참여하거나 음식점과 마감 시간을 등록해요.</p>
           </article>
           <article>
             <span>03</span>
-            <strong>익명으로 반영해요</strong>
-            <p>개인 메뉴는 숨기고 음식점 인원에 한 명을 더해요.</p>
+            <strong>Slack에서 대화</strong>
+            <p>참여자끼리 주문 담당자와 실제 주문 내용을 정해요.</p>
           </article>
         </div>
       </section>
 
-      <footer className="site-footer">
+      <footer>
         <div className="brand footer-brand">
-          <span className="brand-mark">ㅁ</span>
+          <span className="brand-mark" aria-hidden="true">
+            ㅁ
+          </span>
           <span>모여밥</span>
         </div>
-        <p>시흥캠퍼스의 점심 선택을 조금 더 가볍게.</p>
-        <span>프로토타입 · 화면의 음식점과 수치는 예시입니다</span>
+        <p>시흥캠퍼스의 공동주문을 더 쉽게.</p>
+        <span>1차 구조 프로토타입 · 화면의 매장과 수치는 예시입니다</span>
       </footer>
 
-      {confirmedOrder && confirmedRestaurant && (
-        <div className="my-choice-bar" aria-live="polite">
-          <span
-            className={`choice-icon tone-${confirmedRestaurant.tone}`}
-            aria-hidden="true"
-          >
-            {confirmedRestaurant.visual}
-          </span>
-          <span className="choice-copy">
-            <small>나의 익명 선택</small>
-            <strong>
-              {confirmedRestaurant.name} · {confirmedCount}개
-            </strong>
-          </span>
-          <span className="choice-total">
-            {money.format(confirmedTotal)}원
-          </span>
-          <button
-            onClick={() => {
-              setSelectedRestaurantId(confirmedRestaurant.id);
-              setCart({ ...confirmedOrder.items });
-              document
-                .getElementById("menu-panel")
-                ?.scrollIntoView({ behavior: "smooth" });
-            }}
-            type="button"
-          >
-            변경
-          </button>
-        </div>
-      )}
-
-      {toast && (
-        <div className="toast" role="status">
-          <span>✓</span>
-          {toast}
-        </div>
+      {message && (
+        <button
+          className="toast"
+          type="button"
+          onClick={() => setMessage("")}
+          aria-live="polite"
+        >
+          {message}
+          <span aria-hidden="true">×</span>
+        </button>
       )}
     </main>
   );
