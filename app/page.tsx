@@ -195,116 +195,117 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
-  // CONCEPT: Scratch Light Pot (스크래치 /moyeobap 라이트 팟 프로토타입)
+  // CONCEPT: Scratch Light Pot (file:///Users/jihee/.gemini/antigravity/scratch/moyeobap/index.html)
   // ---------------------------------------------------------------------------
   if (concept === "scratch-light") {
     return (
-      <div style={{ background: "#F8FAFC", color: "#1E293B", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: "80px" }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 20px" }}>
+      <div className="scratch-app-wrapper">
+        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
           {/* Header */}
-          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "18px", borderBottom: "1px solid rgba(0,0,0,0.06)", position: "sticky", top: 0, background: "rgba(248,250,252,0.9)", backdropFilter: "blur(16px)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "24px" }}>🍚</span>
-              <span style={{ fontSize: "24px", fontWeight: "800", background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                모여밥 (Scratch Light)
-              </span>
+          <header className="scratch-header">
+            <div className="scratch-header__logo">
+              <span className="scratch-header__logo-emoji">🍚</span>
+              <span className="scratch-header__logo-text">모여밥</span>
             </div>
 
-            <div style={{ display: "flex", gap: "6px", background: "#EFF3F8", padding: "4px", borderRadius: "999px" }}>
+            <nav className="scratch-header__nav">
               <button
                 type="button"
-                style={{ padding: "8px 20px", borderRadius: "999px", border: 0, background: period === "lunch" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "lunch" ? "#fff" : "#64748B", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: period === "lunch" ? "0 2px 8px rgba(255,107,53,0.3)" : "none" }}
+                className={`scratch-header__tab ${period === "lunch" ? "scratch-header__tab--active" : ""}`}
                 onClick={() => setPeriod("lunch")}
               >
-                전체 팟
+                점심 🍱
               </button>
               <button
                 type="button"
-                style={{ padding: "8px 20px", borderRadius: "999px", border: 0, background: period === "cafe" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "cafe" ? "#fff" : "#64748B", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: period === "cafe" ? "0 2px 8px rgba(255,107,53,0.3)" : "none" }}
+                className={`scratch-header__tab ${period === "cafe" ? "scratch-header__tab--active" : ""}`}
                 onClick={() => setPeriod("cafe")}
               >
                 카페 ☕
               </button>
-            </div>
+            </nav>
 
             <button
               type="button"
+              className="scratch-header__auth-btn"
               onClick={currentUser ? logout : login}
-              style={{ background: "#ffffff", color: "#1E293B", border: "1px solid rgba(0,0,0,0.08)", padding: "8px 20px", borderRadius: "999px", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
             >
               {currentUser ? `${currentUser.name} (Slack)` : "Slack으로 로그인"}
             </button>
           </header>
 
           {/* Status Bar */}
-          <div style={{ display: "flex", gap: "20px", margin: "24px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "#64748B" }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16A34A" }} />
+          <div className="scratch-status-bar">
+            <div className="scratch-status-bar__item">
+              <span className="scratch-status-bar__dot--live" />
               <span>진행중인 팟</span>
-              <strong style={{ color: "#1E293B", fontSize: "16px", marginLeft: "2px" }}>{openRecruitments.length}</strong>
+              <span className="scratch-status-bar__count">{openRecruitments.length}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "#64748B" }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#FF6B35" }} />
+
+            <div className="scratch-status-bar__item">
+              <span className="scratch-status-bar__dot--total" />
               <span>총 참여인원</span>
-              <strong style={{ color: "#1E293B", fontSize: "16px", marginLeft: "2px" }}>{participantTotal}</strong>
+              <span className="scratch-status-bar__count">{participantTotal}</span>
             </div>
           </div>
 
           {/* Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-            {visibleRecruitments.map((recruitment) => {
+          <main className="scratch-grid">
+            {visibleRecruitments.map((recruitment, index) => {
               const res = getRestaurant(recruitment.restaurantId);
               const rel = getRelativeTime(recruitment.deadline);
+              const isUrgent = index === 0;
               const isJoined = Boolean(
                 currentUser && recruitment.participants.some((p) => p.id === currentUser.id),
               );
 
+              const categoryClass = recruitment.period === "lunch"
+                ? "scratch-card__category--lunch"
+                : "scratch-card__category--cafe";
+
+              const categoryLabel = recruitment.period === "lunch" ? "점심" : "카페";
+              const emoji = recruitment.period === "lunch" ? "🍗" : "☕";
+
               return (
-                <div
+                <article
                   key={recruitment.id}
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1px solid rgba(0,0,0,0.07)",
-                    borderRadius: "16px",
-                    padding: "24px",
-                    cursor: "pointer",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                    transition: "all 0.2s ease",
-                  }}
+                  className={`scratch-card ${isUrgent ? "scratch-card--urgent" : ""}`}
                   onClick={() => setActiveDrawerId(recruitment.id)}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <span style={{ background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)", color: "#FFFFFF", padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>
-                      {res?.category}
-                    </span>
-                    <span style={{ background: "#FEE2E2", color: "#DC2626", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>
-                      ⏱️ {rel} ({recruitment.deadline})
+                  <div className="scratch-card__header">
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <span className={`scratch-card__category ${categoryClass}`}>
+                        {categoryLabel}
+                      </span>
+                      <span className={isUrgent ? "scratch-card__status--urgent" : "scratch-card__status--open"}>
+                        {isUrgent ? "마감임박" : "모집중"}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "1.8rem", lineHeight: 1 }}>{emoji}</span>
+                  </div>
+
+                  <h3 className="scratch-card__name">{res?.name}</h3>
+                  <p className="scratch-card__meta">
+                    최소주문 {res?.minimumOrder.toLocaleString()}원 · {res?.estimatedDelivery}
+                  </p>
+
+                  <div className="scratch-card__timer-row">
+                    <span>⏱ 마감까지</span>
+                    <span className={`scratch-card__timer ${isUrgent ? "scratch-card__timer--urgent" : ""}`}>
+                      {rel} ({recruitment.deadline})
                     </span>
                   </div>
 
-                  <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#1E293B", margin: "0 0 6px 0" }}>{res?.name}</h3>
-                  <p style={{ color: "#64748B", fontSize: "13px", margin: "0 0 16px 0" }}>
-                    🍴 대표메뉴: {res?.representativeMenus[0]?.name} ({res?.representativeMenus[0]?.price.toLocaleString()}원)
-                  </p>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #F1F5F9", paddingTop: "14px" }}>
-                    <span style={{ fontSize: "13px", color: "#64748B" }}>
-                      👥 <strong style={{ color: "#1E293B" }}>{recruitment.participants.length}명</strong> 참여 중
-                    </span>
+                  <div className="scratch-card__footer">
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span className="card__count">
+                        <strong style={{ color: "#1E293B" }}>{recruitment.participants.length}</strong>명 참여
+                      </span>
+                    </div>
 
                     <button
                       type="button"
-                      style={{
-                        padding: "8px 18px",
-                        borderRadius: "999px",
-                        border: 0,
-                        background: isJoined ? "#94A3B8" : "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
-                        color: "#fff",
-                        fontWeight: "700",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        boxShadow: isJoined ? "none" : "0 2px 8px rgba(255,107,53,0.3)",
-                      }}
+                      className="scratch-card__join-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!currentUser) {
@@ -318,37 +319,20 @@ export default function Home() {
                         }
                       }}
                     >
-                      {isJoined ? "참여 취소" : "팟 탑승 🚀"}
+                      {isJoined ? "탑승중 ✓" : "탑승하기"}
                     </button>
                   </div>
-                </div>
+                </article>
               );
             })}
-          </div>
+          </main>
         </div>
 
-        {/* Floating Button */}
+        {/* Floating Action Button */}
         <button
           type="button"
           aria-label="새 팟 만들기"
-          style={{
-            position: "fixed",
-            bottom: "28px",
-            right: "28px",
-            width: "60px",
-            height: "60px",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
-            color: "#ffffff",
-            fontSize: "28px",
-            border: 0,
-            boxShadow: "0 6px 20px rgba(255,107,53,0.4)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 30,
-          }}
+          className="scratch-fab"
           onClick={() => {
             setIsCreatingDrawer(true);
             setActiveDrawerId(null);
