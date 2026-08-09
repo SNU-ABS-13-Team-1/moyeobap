@@ -17,7 +17,7 @@ type BoardView = "all" | "mine";
 
 export default function Home() {
   const searchParams = useSearchParams();
-  const concept = (searchParams.get("concept") as ConceptMode) || "live-lounge";
+  const concept = (searchParams.get("concept") as ConceptMode) || "hot-dashboard";
 
   const {
     currentUser,
@@ -34,7 +34,6 @@ export default function Home() {
   const [period, setPeriod] = useState<OrderPeriod>("lunch");
   const [view, setView] = useState<BoardView>("all");
   const [query, setQuery] = useState("");
-  const [selectedMood, setSelectedMood] = useState<string>("all");
 
   // Roulette States
   const [isSpinning, setIsSpinning] = useState(false);
@@ -57,15 +56,6 @@ export default function Home() {
   );
   const [createDeadline, setCreateDeadline] = useState("12:30");
 
-  const moodFilterOptions = [
-    { label: "전체", value: "all" },
-    { label: "🔥 매콤·칼칼", value: "매콤" },
-    { label: "🥗 가볍·클린", value: "가볍" },
-    { label: "🍱 든든·바삭", value: "든든" },
-    { label: "🍲 뜨끈·국물", value: "국물" },
-    { label: "☕ 디저트·카페", value: "커피" },
-  ];
-
   const visibleRecruitments = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -83,20 +73,13 @@ export default function Home() {
         const restaurant = getRestaurant(recruitment.restaurantId);
         if (!restaurant) return false;
 
-        if (concept === "roulette" && selectedMood !== "all") {
-          const hasMood = restaurant.moodTags?.some((t) =>
-            t.includes(selectedMood),
-          );
-          if (!hasMood) return false;
-        }
-
         if (!normalizedQuery) return true;
         return [restaurant.name, restaurant.category].some((value) =>
           value.toLowerCase().includes(normalizedQuery),
         );
       })
       .sort((a, b) => a.deadline.localeCompare(b.deadline));
-  }, [currentUser, period, query, recruitments, view, concept, selectedMood]);
+  }, [currentUser, period, query, recruitments, view]);
 
   const openRecruitments = recruitments.filter(
     (recruitment) => recruitment.period === period && recruitment.status === "open",
@@ -212,64 +195,62 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
-  // CONCEPT: Hot Dashboard (🔥 마감임박 카운트다운 + 테이블 뷰)
+  // CONCEPT: Hot Dashboard (🔥 마감임박 카운트다운 + 테이블 뷰 - 모여밥 앱 디자인 시스템 맞춤)
   // ---------------------------------------------------------------------------
   if (concept === "hot-dashboard") {
     const now = new Date();
     const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
     return (
-      <div className="min-h-screen bg-[#f6f7fb]">
-        {/* Header */}
-        <header className="bg-white border-b sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-green-600 flex items-center gap-2">
-                🍚 모여밥
-              </h1>
-              <p className="text-sm text-gray-500">같이 먹으면 더 맛있는 점심</p>
+      <div className="min-h-screen" style={{ background: "#f7f7f3" }}>
+        {/* Harmonized Inner Shell */}
+        <main className="app-shell" style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 20px 80px" }}>
+          {/* Stats Section */}
+          <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px", marginBottom: "28px" }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "20px", padding: "20px 24px", boxShadow: "0 4px 12px rgba(28,44,35,0.03)" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: "600" }}>진행 중 모집</span>
+              <h2 style={{ fontSize: "30px", fontWeight: "850", color: "var(--ink)", margin: "4px 0 0" }}>
+                {openRecruitments.length}<small style={{ fontSize: "16px", color: "var(--muted)", marginLeft: "4px" }}>개</small>
+              </h2>
             </div>
 
-            <button
-              type="button"
-              onClick={currentUser ? logout : login}
-              className="bg-[#4A154B] hover:bg-[#3b113c] text-white px-5 py-2 rounded-lg font-medium transition"
-            >
-              {currentUser ? `${currentUser.name} (Slack)` : "Slack 로그인"}
-            </button>
-          </div>
-        </header>
-
-        {/* Main */}
-        <main className="max-w-7xl mx-auto px-6 py-8">
-          {/* Stats */}
-          <section className="grid md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white rounded-2xl p-5 shadow-sm">
-              <p className="text-gray-500 text-sm">진행중 모집</p>
-              <h2 className="text-3xl font-bold mt-2">{openRecruitments.length}개</h2>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "20px", padding: "20px 24px", boxShadow: "0 4px 12px rgba(28,44,35,0.03)" }}>
+              <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: "600" }}>참여 인원 합계</span>
+              <h2 style={{ fontSize: "30px", fontWeight: "850", color: "var(--green-dark)", margin: "4px 0 0" }}>
+                {participantTotal}<small style={{ fontSize: "16px", color: "var(--muted)", marginLeft: "4px" }}>명</small>
+              </h2>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 shadow-sm">
-              <p className="text-gray-500 text-sm">참여 인원</p>
-              <h2 className="text-3xl font-bold mt-2">{participantTotal}명</h2>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 shadow-sm">
-              <p className="text-gray-500 text-sm">현재 시각</p>
-              <h2 className="text-3xl font-bold mt-2">{currentTimeStr}</h2>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "20px", padding: "20px 24px", boxShadow: "0 4px 12px rgba(28,44,35,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: "600" }}>현재 시각</span>
+                <h2 style={{ fontSize: "30px", fontWeight: "850", color: "var(--ink)", margin: "4px 0 0" }}>
+                  {currentTimeStr}
+                </h2>
+              </div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--green-soft)", color: "var(--green-dark)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                <span className="live-pulse-dot" /> LIVE
+              </span>
             </div>
           </section>
 
           {/* Filter Bar + Roulette Feature Button */}
-          <section className="flex items-center justify-between gap-3 mb-8 flex-wrap">
-            <div className="flex gap-3">
+          <section style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "28px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 type="button"
-                className={`px-6 py-3 rounded-xl font-medium transition ${
-                  period === "lunch"
-                    ? "bg-green-600 text-white"
-                    : "bg-white border text-gray-700 hover:bg-gray-50"
-                }`}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "14px",
+                  fontWeight: "800",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  border: period === "lunch" ? "1px solid var(--green-dark)" : "1px solid var(--line)",
+                  background: period === "lunch" ? "var(--green-dark)" : "var(--surface)",
+                  color: period === "lunch" ? "#ffffff" : "var(--ink)",
+                  boxShadow: period === "lunch" ? "0 4px 12px rgba(23,75,52,0.18)" : "none",
+                  transition: "all 0.15s ease",
+                }}
                 onClick={() => setPeriod("lunch")}
               >
                 점심 🍱 (13:00~14:00)
@@ -277,11 +258,18 @@ export default function Home() {
 
               <button
                 type="button"
-                className={`px-6 py-3 rounded-xl font-medium transition ${
-                  period === "cafe"
-                    ? "bg-green-600 text-white"
-                    : "bg-white border text-gray-700 hover:bg-gray-50"
-                }`}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: "14px",
+                  fontWeight: "800",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  border: period === "cafe" ? "1px solid var(--green-dark)" : "1px solid var(--line)",
+                  background: period === "cafe" ? "var(--green-dark)" : "var(--surface)",
+                  color: period === "cafe" ? "#ffffff" : "var(--ink)",
+                  boxShadow: period === "cafe" ? "0 4px 12px rgba(23,75,52,0.18)" : "none",
+                  transition: "all 0.15s ease",
+                }}
                 onClick={() => setPeriod("cafe")}
               >
                 카페 ☕
@@ -290,36 +278,46 @@ export default function Home() {
 
             <button
               type="button"
-              className={`px-5 py-3 rounded-xl font-bold transition flex items-center gap-2 text-sm ${
-                isSpinning
-                  ? "bg-amber-500 text-white animate-pulse"
-                  : "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
-              }`}
+              style={{
+                padding: "10px 18px",
+                borderRadius: "14px",
+                fontWeight: "800",
+                fontSize: "13px",
+                cursor: "pointer",
+                border: "1px solid #fcd34d",
+                background: isSpinning ? "var(--orange)" : "#fef3c7",
+                color: isSpinning ? "#ffffff" : "#78350f",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                boxShadow: "0 2px 8px rgba(245,158,11,0.15)",
+                transition: "all 0.15s ease",
+              }}
               onClick={spinRoulette}
               disabled={isSpinning || openRecruitments.length === 0}
             >
               <span>🎰</span>
-              <span>{isSpinning ? "오늘의 맛집 뽑는 중...!!" : "오늘 뭐 먹지? 룰렛 추천"}</span>
+              <span>{isSpinning ? "오늘의 맛집 추천 중...!!" : "오늘 뭐 먹지? 룰렛 추천"}</span>
             </button>
           </section>
 
-          {/* Hot Section */}
-          <section className="mb-10">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                🔥 마감 임박
+          {/* Hot Section (🔥 마감 임박) */}
+          <section style={{ marginBottom: "36px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: "850", color: "var(--ink)", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                🔥 마감 임박 공동주문
               </h2>
 
               <button
                 type="button"
-                className="text-green-600 font-medium hover:underline text-sm"
+                style={{ background: "transparent", border: 0, color: "var(--green-dark)", fontWeight: "800", fontSize: "13px", cursor: "pointer" }}
                 onClick={() => setView("all")}
               >
-                전체보기
+                전체보기 →
               </button>
             </div>
 
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
               {visibleRecruitments.slice(0, 3).map((recruitment, index) => {
                 const res = getRestaurant(recruitment.restaurantId);
                 const count = recruitment.participants.length;
@@ -330,65 +328,78 @@ export default function Home() {
                 );
 
                 const isHot = index === 0;
-                const timerColor = isHot
-                  ? "text-red-500 countdown"
-                  : count >= 3
-                  ? "text-yellow-500"
-                  : "text-green-500";
-
-                const barColor = isHot
-                  ? "bg-red-500"
-                  : count >= 3
-                  ? "bg-yellow-500"
-                  : "bg-green-500";
+                const timerColor = isHot ? "var(--danger)" : count >= 3 ? "var(--orange)" : "var(--green)";
+                const barColor = isHot ? "var(--danger)" : count >= 3 ? "var(--orange)" : "var(--green)";
 
                 return (
                   <div
                     key={recruitment.id}
-                    className={`bg-white rounded-3xl p-5 shadow-sm card-hover cursor-pointer ${
-                      isHot ? "hot-card" : ""
-                    }`}
+                    className={`card-hover ${isHot ? "hot-card" : ""}`}
                     onClick={() => setActiveDrawerId(recruitment.id)}
+                    style={{
+                      background: "var(--surface)",
+                      borderRadius: "22px",
+                      padding: "22px",
+                      border: isHot ? "2px solid var(--danger)" : "1px solid var(--line)",
+                      boxShadow: isHot ? "0 10px 28px rgba(167,42,56,0.12)" : "0 6px 18px rgba(28,44,35,0.04)",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                    }}
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-xl text-gray-900">
-                          {res?.name}
-                        </h3>
-                        <p className="text-gray-500 text-sm mt-0.5">{res?.category}</p>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                        <div>
+                          <span className="category-chip">{res?.category}</span>
+                          <h3 style={{ fontSize: "20px", fontWeight: "850", color: "var(--ink)", margin: "6px 0 0" }}>
+                            {res?.name}
+                          </h3>
+                        </div>
+
+                        <div style={{ textAlign: "right" }}>
+                          <p className={isHot ? "countdown" : ""} style={{ fontSize: "24px", fontWeight: "850", color: timerColor, margin: 0 }}>
+                            {getRelativeTime(recruitment.deadline) || "마감"}
+                          </p>
+                          <p style={{ fontSize: "11px", color: "var(--muted)", margin: "2px 0 0" }}>
+                            ⏰ {recruitment.deadline} 마감
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className={`text-3xl font-bold ${timerColor}`}>
-                          {getRelativeTime(recruitment.deadline) || "마감"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {recruitment.deadline} 마감
-                        </p>
-                      </div>
-                    </div>
+                      <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 16px" }}>
+                        🍴 대표메뉴: {res?.representativeMenus[0]?.name}
+                      </p>
 
-                    <div className="mt-5">
-                      <div className="flex justify-between text-sm mb-2 font-medium text-gray-700">
-                        <span>👥 {count}명 참여중</span>
-                        <span>{pct}%</span>
-                      </div>
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "var(--ink)", marginBottom: "6px" }}>
+                          <span>👥 {count}명 참여 중</span>
+                          <span>{pct}%</span>
+                        </div>
 
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${barColor} transition-all duration-300`}
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div style={{ height: "8px", background: "var(--surface-soft)", borderRadius: "999px", overflow: "hidden", border: "1px solid var(--line)" }}>
+                          <div
+                            style={{ width: `${pct}%`, height: "100%", background: barColor, borderRadius: "999px", transition: "width 0.3s ease" }}
+                          />
+                        </div>
                       </div>
                     </div>
 
                     <button
                       type="button"
-                      className={`w-full mt-5 text-white py-3 rounded-xl font-semibold transition ${
-                        isJoined
-                          ? "bg-gray-600 hover:bg-gray-700"
-                          : "bg-green-600 hover:bg-green-700"
-                      }`}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        borderRadius: "12px",
+                        border: 0,
+                        background: isJoined ? "var(--surface-soft)" : "var(--green-dark)",
+                        color: isJoined ? "var(--ink)" : "#ffffff",
+                        fontWeight: "800",
+                        fontSize: "13px",
+                        cursor: "pointer",
+                        boxShadow: isJoined ? "none" : "0 4px 12px rgba(23,75,52,0.2)",
+                        transition: "all 0.15s ease",
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!currentUser) {
@@ -402,7 +413,7 @@ export default function Home() {
                         }
                       }}
                     >
-                      {isJoined ? "참여 취소" : "탑승하기"}
+                      {isJoined ? "참여 취소" : "🚀 팟 바로 탑승하기"}
                     </button>
                   </div>
                 );
@@ -410,59 +421,69 @@ export default function Home() {
             </div>
           </section>
 
-          {/* All Pots Section */}
+          {/* All Pots Table Section */}
           <section>
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-bold text-gray-900">
-                전체 모집 ({visibleRecruitments.length})
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: "850", color: "var(--ink)", margin: 0 }}>
+                전체 모집 목록 ({visibleRecruitments.length})
               </h2>
 
               <button
                 type="button"
-                className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl font-medium transition"
+                style={{
+                  background: "var(--green-dark)",
+                  color: "#ffffff",
+                  padding: "10px 18px",
+                  borderRadius: "12px",
+                  border: 0,
+                  fontSize: "13px",
+                  fontWeight: "800",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(23,75,52,0.2)",
+                }}
                 onClick={() => {
                   setIsCreatingDrawer(true);
                   setActiveDrawerId(null);
                 }}
               >
-                + 새 팟 만들기
+                + 새 모집 만들기
               </button>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm overflow-hidden border">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-600 text-sm">
-                  <tr>
-                    <th className="p-4 font-semibold">매장</th>
-                    <th className="p-4 font-semibold">인원</th>
-                    <th className="p-4 font-semibold">남은시간</th>
-                    <th className="p-4 font-semibold">상태</th>
-                    <th className="p-4 font-semibold text-right">상세</th>
+            <div style={{ background: "var(--surface)", borderRadius: "20px", border: "1px solid var(--line)", overflow: "hidden", boxShadow: "0 6px 20px rgba(28,44,35,0.04)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "var(--surface-soft)", borderBottom: "1px solid var(--line)", color: "var(--muted)" }}>
+                    <th style={{ padding: "14px 20px", fontWeight: "700" }}>매장 정보</th>
+                    <th style={{ padding: "14px 20px", fontWeight: "700" }}>참여 인원</th>
+                    <th style={{ padding: "14px 20px", fontWeight: "700" }}>남은 시간</th>
+                    <th style={{ padding: "14px 20px", fontWeight: "700" }}>모집 상태</th>
+                    <th style={{ padding: "14px 20px", fontWeight: "700", textAlign: "right" }}>상세</th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y text-sm">
+                <tbody>
                   {visibleRecruitments.map((recruitment) => {
                     const res = getRestaurant(recruitment.restaurantId);
                     const rel = getRelativeTime(recruitment.deadline);
                     const count = recruitment.participants.length;
 
                     let statusBadge = (
-                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">
+                      <span style={{ background: "var(--green-soft)", color: "var(--green-dark)", padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
                         여유
                       </span>
                     );
 
                     if (rel.includes("임박")) {
                       statusBadge = (
-                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">
-                          임박
+                        <span style={{ background: "#fef2f2", color: "var(--danger)", border: "1px solid #fecaca", padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                          마감 임박
                         </span>
                       );
                     } else if (count >= 3) {
                       statusBadge = (
-                        <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-semibold">
-                          모집중
+                        <span style={{ background: "#fff7ed", color: "var(--orange)", padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                          모집 집중
                         </span>
                       );
                     }
@@ -470,23 +491,26 @@ export default function Home() {
                     return (
                       <tr
                         key={recruitment.id}
-                        className="hover:bg-gray-50 transition cursor-pointer"
+                        style={{ borderBottom: "1px solid var(--line)", cursor: "pointer", transition: "background 0.15s ease" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--green-soft)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         onClick={() => setActiveDrawerId(recruitment.id)}
                       >
-                        <td className="p-4 font-bold text-gray-900">
-                          {res?.name}
+                        <td style={{ padding: "16px 20px" }}>
+                          <span className="category-chip" style={{ fontSize: "10px", marginRight: "6px" }}>{res?.category}</span>
+                          <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{res?.name}</strong>
                         </td>
-                        <td className="p-4 text-gray-700 font-medium">
-                          {count}명
+                        <td style={{ padding: "16px 20px", fontWeight: "700", color: "var(--ink)" }}>
+                          👥 {count}명
                         </td>
-                        <td className="p-4 text-gray-700 font-medium">
-                          {rel} ({recruitment.deadline})
+                        <td style={{ padding: "16px 20px", color: "var(--muted)" }}>
+                          ⏱️ {rel} <small>({recruitment.deadline})</small>
                         </td>
-                        <td className="p-4">{statusBadge}</td>
-                        <td className="p-4 text-right">
+                        <td style={{ padding: "16px 20px" }}>{statusBadge}</td>
+                        <td style={{ padding: "16px 20px", textAlign: "right" }}>
                           <button
                             type="button"
-                            className="text-green-600 font-semibold hover:underline"
+                            style={{ background: "transparent", border: 0, color: "var(--green-dark)", fontWeight: "800", cursor: "pointer" }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveDrawerId(recruitment.id);
@@ -508,7 +532,25 @@ export default function Home() {
         <button
           type="button"
           aria-label="새 팟 만들기"
-          className="fixed bottom-6 right-6 w-16 h-16 rounded-full bg-green-600 text-white text-3xl shadow-lg hover:scale-105 transition flex items-center justify-center z-30"
+          style={{
+            position: "fixed",
+            bottom: "28px",
+            right: "28px",
+            width: "60px",
+            height: "60px",
+            borderRadius: "50%",
+            background: "var(--green-dark)",
+            color: "#ffffff",
+            fontSize: "28px",
+            border: 0,
+            boxShadow: "0 8px 24px rgba(23,75,52,0.35)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 30,
+            transition: "transform 0.15s ease",
+          }}
           onClick={() => {
             setIsCreatingDrawer(true);
             setActiveDrawerId(null);
@@ -633,158 +675,6 @@ export default function Home() {
               </button>
             </div>
           )}
-        </section>
-
-        {renderDrawerComponents()}
-      </main>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // CONCEPT 2: Lunch Roulette View
-  // ---------------------------------------------------------------------------
-  if (concept === "roulette") {
-    return (
-      <main className="app-shell roulette-shell">
-        <section className="roulette-hero">
-          <div className="roulette-hero-content">
-            <span className="hero-eyebrow">오늘의 점심 메뉴 결정 장애 해결!</span>
-            <h1>&quot;오늘 뭐 먹지?&quot; 고민된다면 룰렛을 돌려보세요! 🎰</h1>
-            <p>
-              시흥캠퍼스 구성원들이 함께 모집 중인 맛집 중 하나를 룰렛으로 추천해 드립니다.
-            </p>
-
-            <button
-              type="button"
-              className={`spin-roulette-btn ${isSpinning ? "spinning" : ""}`}
-              onClick={spinRoulette}
-              disabled={isSpinning || openRecruitments.length === 0}
-            >
-              {isSpinning ? "🎰 룰렛 돌아가는 중...!!" : "🎰 오늘의 메뉴 룰렛 돌리기!"}
-            </button>
-          </div>
-
-          <div className="roulette-hero-summary">
-            <div>
-              <span>열려있는 공동주문</span>
-              <strong>{openRecruitments.length}개</strong>
-            </div>
-            <div>
-              <span>총 참여 인원</span>
-              <strong>{participantTotal}명</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="mood-filter-section" style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: "18px", padding: "16px 20px", marginBottom: "24px" }}>
-          <span style={{ fontSize: "13px", fontWeight: "700", color: "#666", marginRight: "12px" }}>🏷️ 오늘 땡기는 기분/취향:</span>
-          <div style={{ display: "inline-flex", gap: "8px", flexWrap: "wrap" }}>
-            {moodFilterOptions.map((mood) => (
-              <button
-                key={mood.value}
-                type="button"
-                className={`mood-chip ${selectedMood === mood.value ? "active" : ""}`}
-                onClick={() => setSelectedMood(mood.value)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "999px",
-                  border: selectedMood === mood.value ? "2px solid #312e81" : "1px solid #e0e0e0",
-                  background: selectedMood === mood.value ? "#312e81" : "#fff",
-                  color: selectedMood === mood.value ? "#fff" : "#444",
-                  fontWeight: selectedMood === mood.value ? "700" : "500",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                }}
-              >
-                {mood.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="board-grid">
-          {visibleRecruitments.map((recruitment) => (
-            <RecruitmentCard
-              key={recruitment.id}
-              recruitment={recruitment}
-              onOpenDrawer={(id) => setActiveDrawerId(id)}
-            />
-          ))}
-        </section>
-
-        {renderDrawerComponents()}
-      </main>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // CONCEPT 3: Sticky Note & Visual Pinboard View
-  // ---------------------------------------------------------------------------
-  if (concept === "pinboard") {
-    return (
-      <main className="app-shell pinboard-shell">
-        <section className="pinboard-hero">
-          <div className="hero-badge">📌 시흥캠퍼스 모여밥 핀보드</div>
-          <h1>오늘 어떤 메뉴 핀하시겠어요? 📌</h1>
-          <p>함께 주문할 팀원을 찾고 스티키 메모에서 클릭 한 번으로 빠르게 참여해 보세요.</p>
-
-          <div className="pinboard-briefing">
-            <div className="brief-pill">
-              <span>진행 중 모집</span>
-              <strong>{openRecruitments.length}개</strong>
-            </div>
-            <div className="brief-pill">
-              <span>참여 멤버</span>
-              <strong>{participantTotal}명</strong>
-            </div>
-            {currentUser && (
-              <div className="brief-pill my-pill">
-                <span>내 참여 중</span>
-                <strong>{myJoinedRecruitments.length}개</strong>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <nav className="sticky-control-bar">
-          <div className="pill-tabs-group">
-            <button
-              className={view === "all" ? "pill-btn active" : "pill-btn"}
-              onClick={() => setView("all")}
-            >
-              전체 모집 ({openRecruitments.length})
-            </button>
-            <button
-              className={view === "mine" ? "pill-btn active" : "pill-btn"}
-              onClick={() => {
-                if (!currentUser) login();
-                setView("mine");
-              }}
-            >
-              내 참여 모집 ({myJoinedRecruitments.length})
-            </button>
-          </div>
-
-          <label className="sticky-search" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--surface-soft)", padding: "6px 12px", borderRadius: "999px", border: "1px solid var(--line)" }}>
-            <span aria-hidden="true">⌕</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="스티키 핀 검색..."
-              style={{ border: 0, background: "transparent", outline: "none", fontSize: "12px" }}
-            />
-          </label>
-        </nav>
-
-        <section className="pinboard-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-          {visibleRecruitments.map((recruitment) => (
-            <RecruitmentCard
-              key={recruitment.id}
-              recruitment={recruitment}
-              onOpenDrawer={(id) => setActiveDrawerId(id)}
-            />
-          ))}
         </section>
 
         {renderDrawerComponents()}
