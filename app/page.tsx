@@ -195,32 +195,32 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
-  // CONCEPT: Scratch Dark Pot (스크래치 /moyeobap 다크 팟 프로토타입)
+  // CONCEPT: Scratch Light Pot (스크래치 /moyeobap 라이트 팟 프로토타입)
   // ---------------------------------------------------------------------------
-  if (concept === "scratch-dark") {
+  if (concept === "scratch-light") {
     return (
-      <div style={{ background: "#0B1426", color: "#F8FAFC", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: "80px" }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ background: "#F8FAFC", color: "#1E293B", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: "80px" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 20px" }}>
           {/* Header */}
-          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "28px" }}>🍚</span>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "18px", borderBottom: "1px solid rgba(0,0,0,0.06)", position: "sticky", top: 0, background: "rgba(248,250,252,0.9)", backdropFilter: "blur(16px)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "24px" }}>🍚</span>
               <span style={{ fontSize: "24px", fontWeight: "800", background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                모여밥 (Scratch UI)
+                모여밥 (Scratch Light)
               </span>
             </div>
 
-            <div style={{ display: "flex", gap: "8px", background: "rgba(255,255,255,0.06)", padding: "4px", borderRadius: "999px" }}>
+            <div style={{ display: "flex", gap: "6px", background: "#EFF3F8", padding: "4px", borderRadius: "999px" }}>
               <button
                 type="button"
-                style={{ padding: "8px 18px", borderRadius: "999px", border: 0, background: period === "lunch" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "lunch" ? "#fff" : "#94A3B8", fontWeight: "700", cursor: "pointer" }}
+                style={{ padding: "8px 20px", borderRadius: "999px", border: 0, background: period === "lunch" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "lunch" ? "#fff" : "#64748B", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: period === "lunch" ? "0 2px 8px rgba(255,107,53,0.3)" : "none" }}
                 onClick={() => setPeriod("lunch")}
               >
-                점심 🍱
+                전체 팟
               </button>
               <button
                 type="button"
-                style={{ padding: "8px 18px", borderRadius: "999px", border: 0, background: period === "cafe" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "cafe" ? "#fff" : "#94A3B8", fontWeight: "700", cursor: "pointer" }}
+                style={{ padding: "8px 20px", borderRadius: "999px", border: 0, background: period === "cafe" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "cafe" ? "#fff" : "#64748B", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: period === "cafe" ? "0 2px 8px rgba(255,107,53,0.3)" : "none" }}
                 onClick={() => setPeriod("cafe")}
               >
                 카페 ☕
@@ -230,23 +230,23 @@ export default function Home() {
             <button
               type="button"
               onClick={currentUser ? logout : login}
-              style={{ background: "#4A154B", color: "#fff", border: 0, padding: "10px 20px", borderRadius: "999px", fontWeight: "700", cursor: "pointer" }}
+              style={{ background: "#ffffff", color: "#1E293B", border: "1px solid rgba(0,0,0,0.08)", padding: "8px 20px", borderRadius: "999px", fontWeight: "600", fontSize: "14px", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
             >
-              {currentUser ? `${currentUser.name} (Slack)` : "Slack 로그인"}
+              {currentUser ? `${currentUser.name} (Slack)` : "Slack으로 로그인"}
             </button>
           </header>
 
           {/* Status Bar */}
-          <div style={{ display: "flex", gap: "24px", margin: "24px 0", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px", padding: "16px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#94A3B8" }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e" }} />
+          <div style={{ display: "flex", gap: "20px", margin: "24px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "#64748B" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#16A34A" }} />
               <span>진행중인 팟</span>
-              <strong style={{ color: "#fff", fontSize: "18px", marginLeft: "4px" }}>{openRecruitments.length}개</strong>
+              <strong style={{ color: "#1E293B", fontSize: "16px", marginLeft: "2px" }}>{openRecruitments.length}</strong>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#94A3B8" }}>
-              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#a855f7" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "#64748B" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#FF6B35" }} />
               <span>총 참여인원</span>
-              <strong style={{ color: "#fff", fontSize: "18px", marginLeft: "4px" }}>{participantTotal}명</strong>
+              <strong style={{ color: "#1E293B", fontSize: "16px", marginLeft: "2px" }}>{participantTotal}</strong>
             </div>
           </div>
 
@@ -263,46 +263,47 @@ export default function Home() {
                 <div
                   key={recruitment.id}
                   style={{
-                    background: "rgba(30, 41, 59, 0.7)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: "24px",
+                    background: "#FFFFFF",
+                    border: "1px solid rgba(0,0,0,0.07)",
+                    borderRadius: "16px",
                     padding: "24px",
                     cursor: "pointer",
-                    transition: "transform 0.2s ease, border-color 0.2s ease",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                    transition: "all 0.2s ease",
                   }}
                   onClick={() => setActiveDrawerId(recruitment.id)}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <span style={{ background: "rgba(255, 107, 53, 0.15)", color: "#FF8C42", border: "1px solid rgba(255, 107, 53, 0.3)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                    <span style={{ background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)", color: "#FFFFFF", padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>
                       {res?.category}
                     </span>
-                    <span style={{ background: "rgba(239, 68, 68, 0.2)", color: "#f87171", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                    <span style={{ background: "#FEE2E2", color: "#DC2626", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>
                       ⏱️ {rel} ({recruitment.deadline})
                     </span>
                   </div>
 
-                  <h3 style={{ fontSize: "22px", fontWeight: "800", color: "#fff", margin: "0 0 6px 0" }}>{res?.name}</h3>
-                  <p style={{ color: "#94A3B8", fontSize: "13px", margin: "0 0 16px 0" }}>
+                  <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#1E293B", margin: "0 0 6px 0" }}>{res?.name}</h3>
+                  <p style={{ color: "#64748B", fontSize: "13px", margin: "0 0 16px 0" }}>
                     🍴 대표메뉴: {res?.representativeMenus[0]?.name} ({res?.representativeMenus[0]?.price.toLocaleString()}원)
                   </p>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "14px" }}>
-                    <span style={{ fontSize: "13px", color: "#cbd5e1" }}>
-                      👥 <strong>{recruitment.participants.length}명</strong> 참여중
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #F1F5F9", paddingTop: "14px" }}>
+                    <span style={{ fontSize: "13px", color: "#64748B" }}>
+                      👥 <strong style={{ color: "#1E293B" }}>{recruitment.participants.length}명</strong> 참여 중
                     </span>
 
                     <button
                       type="button"
                       style={{
-                        padding: "8px 16px",
+                        padding: "8px 18px",
                         borderRadius: "999px",
                         border: 0,
-                        background: isJoined ? "#475569" : "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
+                        background: isJoined ? "#94A3B8" : "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
                         color: "#fff",
                         fontWeight: "700",
-                        fontSize: "12px",
+                        fontSize: "13px",
                         cursor: "pointer",
+                        boxShadow: isJoined ? "none" : "0 2px 8px rgba(255,107,53,0.3)",
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -341,7 +342,7 @@ export default function Home() {
             color: "#ffffff",
             fontSize: "28px",
             border: 0,
-            boxShadow: "0 10px 25px rgba(255,107,53,0.4)",
+            boxShadow: "0 6px 20px rgba(255,107,53,0.4)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
