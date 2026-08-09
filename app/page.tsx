@@ -195,6 +195,173 @@ export default function Home() {
   }
 
   // ---------------------------------------------------------------------------
+  // CONCEPT: Scratch Dark Pot (스크래치 /moyeobap 다크 팟 프로토타입)
+  // ---------------------------------------------------------------------------
+  if (concept === "scratch-dark") {
+    return (
+      <div style={{ background: "#0B1426", color: "#F8FAFC", minHeight: "100vh", fontFamily: "sans-serif", paddingBottom: "80px" }}>
+        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "24px 20px" }}>
+          {/* Header */}
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "28px" }}>🍚</span>
+              <span style={{ fontSize: "24px", fontWeight: "800", background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                모여밥 (Scratch UI)
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", background: "rgba(255,255,255,0.06)", padding: "4px", borderRadius: "999px" }}>
+              <button
+                type="button"
+                style={{ padding: "8px 18px", borderRadius: "999px", border: 0, background: period === "lunch" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "lunch" ? "#fff" : "#94A3B8", fontWeight: "700", cursor: "pointer" }}
+                onClick={() => setPeriod("lunch")}
+              >
+                점심 🍱
+              </button>
+              <button
+                type="button"
+                style={{ padding: "8px 18px", borderRadius: "999px", border: 0, background: period === "cafe" ? "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)" : "transparent", color: period === "cafe" ? "#fff" : "#94A3B8", fontWeight: "700", cursor: "pointer" }}
+                onClick={() => setPeriod("cafe")}
+              >
+                카페 ☕
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={currentUser ? logout : login}
+              style={{ background: "#4A154B", color: "#fff", border: 0, padding: "10px 20px", borderRadius: "999px", fontWeight: "700", cursor: "pointer" }}
+            >
+              {currentUser ? `${currentUser.name} (Slack)` : "Slack 로그인"}
+            </button>
+          </header>
+
+          {/* Status Bar */}
+          <div style={{ display: "flex", gap: "24px", margin: "24px 0", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px", padding: "16px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#94A3B8" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e" }} />
+              <span>진행중인 팟</span>
+              <strong style={{ color: "#fff", fontSize: "18px", marginLeft: "4px" }}>{openRecruitments.length}개</strong>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#94A3B8" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#a855f7" }} />
+              <span>총 참여인원</span>
+              <strong style={{ color: "#fff", fontSize: "18px", marginLeft: "4px" }}>{participantTotal}명</strong>
+            </div>
+          </div>
+
+          {/* Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
+            {visibleRecruitments.map((recruitment) => {
+              const res = getRestaurant(recruitment.restaurantId);
+              const rel = getRelativeTime(recruitment.deadline);
+              const isJoined = Boolean(
+                currentUser && recruitment.participants.some((p) => p.id === currentUser.id),
+              );
+
+              return (
+                <div
+                  key={recruitment.id}
+                  style={{
+                    background: "rgba(30, 41, 59, 0.7)",
+                    backdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "24px",
+                    padding: "24px",
+                    cursor: "pointer",
+                    transition: "transform 0.2s ease, border-color 0.2s ease",
+                  }}
+                  onClick={() => setActiveDrawerId(recruitment.id)}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <span style={{ background: "rgba(255, 107, 53, 0.15)", color: "#FF8C42", border: "1px solid rgba(255, 107, 53, 0.3)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                      {res?.category}
+                    </span>
+                    <span style={{ background: "rgba(239, 68, 68, 0.2)", color: "#f87171", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "800" }}>
+                      ⏱️ {rel} ({recruitment.deadline})
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: "22px", fontWeight: "800", color: "#fff", margin: "0 0 6px 0" }}>{res?.name}</h3>
+                  <p style={{ color: "#94A3B8", fontSize: "13px", margin: "0 0 16px 0" }}>
+                    🍴 대표메뉴: {res?.representativeMenus[0]?.name} ({res?.representativeMenus[0]?.price.toLocaleString()}원)
+                  </p>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "14px" }}>
+                    <span style={{ fontSize: "13px", color: "#cbd5e1" }}>
+                      👥 <strong>{recruitment.participants.length}명</strong> 참여중
+                    </span>
+
+                    <button
+                      type="button"
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: "999px",
+                        border: 0,
+                        background: isJoined ? "#475569" : "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
+                        color: "#fff",
+                        fontWeight: "700",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!currentUser) {
+                          login();
+                          return;
+                        }
+                        if (isJoined) {
+                          leaveRecruitment(recruitment.id);
+                        } else {
+                          joinRecruitment(recruitment.id);
+                        }
+                      }}
+                    >
+                      {isJoined ? "참여 취소" : "팟 탑승 🚀"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Floating Button */}
+        <button
+          type="button"
+          aria-label="새 팟 만들기"
+          style={{
+            position: "fixed",
+            bottom: "28px",
+            right: "28px",
+            width: "60px",
+            height: "60px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
+            color: "#ffffff",
+            fontSize: "28px",
+            border: 0,
+            boxShadow: "0 10px 25px rgba(255,107,53,0.4)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 30,
+          }}
+          onClick={() => {
+            setIsCreatingDrawer(true);
+            setActiveDrawerId(null);
+          }}
+        >
+          +
+        </button>
+
+        {renderDrawerComponents()}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // CONCEPT: Hot Dashboard (🔥 마감임박 카운트다운 + 테이블 뷰 - 모여밥 앱 디자인 시스템 맞춤)
   // ---------------------------------------------------------------------------
   if (concept === "hot-dashboard") {

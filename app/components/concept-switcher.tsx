@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 export type ConceptMode =
   | "hot-dashboard"
   | "live-lounge"
+  | "scratch-dark"
   | "main"
   | "split-dashboard"
   | "quick-deck";
@@ -28,6 +29,12 @@ const CONCEPTS: ConceptOption[] = [
     label: "라이브 라운지",
     branch: "feature/live-lounge-app",
     description: "페이지 이동 0초! 슬라이드 드로어 형태의 파티룸 UI",
+  },
+  {
+    id: "scratch-dark",
+    label: "🌙 스크래치 다크 팟",
+    branch: "scratch/moyeobap",
+    description: "다크 네이비 / 오렌지 팟 카드 & 모달 레이어 스크래치 UI",
   },
   {
     id: "main",
