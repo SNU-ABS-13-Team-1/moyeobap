@@ -3,9 +3,9 @@
 import { useSearchParams, useRouter } from "next/navigation";
 
 export type ConceptMode =
-  | "live-lounge"
   | "hot-dashboard"
   | "main"
+  | "live-lounge"
   | "roulette"
   | "pinboard"
   | "split-dashboard"
@@ -16,50 +16,22 @@ interface ConceptOption {
   label: string;
   branch: string;
   description: string;
+  isRecommended?: boolean;
 }
 
 const CONCEPTS: ConceptOption[] = [
   {
-    id: "live-lounge",
-    label: "라이브 라운지",
-    branch: "feature/live-lounge-app",
-    description: "페이지 이동 0초! 슬라이드 드로어 형태의 파티룸 UI",
-  },
-  {
     id: "hot-dashboard",
-    label: "🔥 마감임박 & 테이블",
+    label: "🔥 모여밥 통합 완성판",
     branch: "feature/hot-dashboard-ui",
-    description: "🔥 마감 임박 카운트다운 카드 + 전체 모집 테이블 & 플로팅 팟 개설 UI",
+    description: "마감임박 카운트다운 카드 + 테이블 뷰 + 0초 슬라이드 드로어 + 룰렛 모달",
+    isRecommended: true,
   },
   {
     id: "main",
-    label: "기본 메인",
+    label: "기본 메인 (비교용)",
     branch: "main",
-    description: "표준 카드 목록 + 상세 페이지 이동 방식",
-  },
-  {
-    id: "roulette",
-    label: "런치 룰렛",
-    branch: "feature/lunch-roulette-ui",
-    description: "오늘 뭐먹지? 결정장애 해결 룰렛 & 태그 필터",
-  },
-  {
-    id: "pinboard",
-    label: "스티키 핀보드",
-    branch: "feature/sticky-feed-ui",
-    description: "포스트잇 게시판 느낌의 비주얼 피드 레이아웃",
-  },
-  {
-    id: "split-dashboard",
-    label: "2컬럼 대시보드",
-    branch: "feature/ux-improvements",
-    description: "좌측 목록 + 우측 상세의 2컬럼 대시보드 스플릿 뷰",
-  },
-  {
-    id: "quick-deck",
-    label: "퀵 매치 덱",
-    branch: "feature/quick-match-deck-ui",
-    description: "마감 임박 팟 스와이프 추천 카드 덱",
+    description: "오리지널 표준 카드 목록 & 페이지 직접 이동 방식",
   },
 ];
 
@@ -79,9 +51,9 @@ export function ConceptSwitcher() {
   return (
     <div className="concept-switcher-bar">
       <div className="concept-switcher-container">
-        <span className="concept-switcher-label">브랜치 화면 비교</span>
+        <span className="concept-switcher-label">화면 비교</span>
 
-        <nav className="concept-switcher-tabs" aria-label="아이디어 브랜치 전환">
+        <nav className="concept-switcher-tabs" aria-label="화면 비교 전환">
           {CONCEPTS.map((concept) => {
             const isActive = activeConcept === concept.id;
             return (
@@ -93,6 +65,7 @@ export function ConceptSwitcher() {
                 title={`브랜치: ${concept.branch} — ${concept.description}`}
               >
                 <span>{concept.label}</span>
+                {concept.isRecommended && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">추천</span>}
                 {isActive && <small className="branch-tag">{concept.branch}</small>}
               </button>
             );
@@ -101,7 +74,7 @@ export function ConceptSwitcher() {
       </div>
 
       <div className="concept-hint-banner">
-        <span>💡 현재 선택된 UI: <strong>{currentConcept.label}</strong> ({currentConcept.branch}) — {currentConcept.description}</span>
+        <span>💡 현재 선택: <strong>{currentConcept.label}</strong> ({currentConcept.branch}) — {currentConcept.description}</span>
       </div>
     </div>
   );
