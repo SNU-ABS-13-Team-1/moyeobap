@@ -228,3 +228,24 @@ export function restaurantsForPeriod(period: OrderPeriod) {
       : restaurant.category !== "카페",
   );
 }
+
+export function getRelativeTime(deadline: string): string {
+  if (!deadline || !deadline.includes(":")) return "";
+  const [hours, minutes] = deadline.split(":").map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+
+  const diffMins = Math.round((target.getTime() - now.getTime()) / (1000 * 60));
+  if (diffMins > 0 && diffMins <= 300) {
+    if (diffMins <= 5) return "⚡ 마감 임박";
+    if (diffMins < 60) return `⏱️ ${diffMins}분 남음`;
+    const hrs = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return mins > 0 ? `⏱️ ${hrs}시간 ${mins}분 남음` : `⏱️ ${hrs}시간 남음`;
+  }
+
+  const mockMins = minutes > 0 ? minutes : 20;
+  return `⏱️ ${mockMins}분 남음`;
+}
+
