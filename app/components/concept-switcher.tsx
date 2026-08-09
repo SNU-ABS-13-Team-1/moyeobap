@@ -3,12 +3,11 @@
 import { useSearchParams, useRouter } from "next/navigation";
 
 export type ConceptMode =
-  | "hot-dashboard"
-  | "live-lounge"
-  | "scratch-light"
   | "main"
+  | "live-lounge"
   | "split-dashboard"
-  | "quick-deck";
+  | "quick-deck"
+  | "scratch-light";
 
 interface ConceptOption {
   id: ConceptMode;
@@ -19,47 +18,41 @@ interface ConceptOption {
 
 const CONCEPTS: ConceptOption[] = [
   {
-    id: "hot-dashboard",
-    label: "🔥 마감임박 & 테이블",
-    branch: "feature/hot-dashboard-ui",
-    description: "🔥 마감 임박 카운트다운 카드 + 전체 모집 테이블 & 플로팅 팟 개설 UI",
+    id: "main",
+    label: "📦 기본 그리드 메인",
+    branch: "main",
+    description: "표준 그리드 카드 + 클릭 시 상세 페이지로 이동하는 베이스라인",
   },
   {
     id: "live-lounge",
-    label: "라이브 라운지",
+    label: "⚡ 0초 슬라이드 라운지",
     branch: "feature/live-lounge-app",
-    description: "페이지 이동 0초! 슬라이드 드로어 형태의 파티룸 UI",
-  },
-  {
-    id: "scratch-light",
-    label: "🍊 스크래치 라이트 팟",
-    branch: "scratch/moyeobap",
-    description: "오렌지 그래디언트 + #F8FAFC 라이트 테마 팟 카드 프로토타입",
-  },
-  {
-    id: "main",
-    label: "기본 메인",
-    branch: "main",
-    description: "표준 카드 목록 + 상세 페이지 이동 방식",
+    description: "페이지 이동 0초! 우측 슬라이드 드로어 파티룸 UI",
   },
   {
     id: "split-dashboard",
-    label: "2컬럼 대시보드",
+    label: "📊 2컬럼 대시보드",
     branch: "feature/ux-improvements",
-    description: "좌측 목록 + 우측 상세의 2컬럼 대시보드 스플릿 뷰",
+    description: "좌측 파티 목록 + 우측 고정 상세창을 한눈에 비교하는 대시보드",
   },
   {
     id: "quick-deck",
-    label: "퀵 매치 덱",
+    label: "🎯 퀵 매치 스와이프 덱",
     branch: "feature/quick-match-deck-ui",
-    description: "마감 임박 팟 스와이프 추천 카드 덱",
+    description: "가장 마감 임박한 배달 팟 1초 퀵 탑승 추천 덱",
+  },
+  {
+    id: "scratch-light",
+    label: "🍊 오렌지 팝업 모달",
+    branch: "scratch/moyeobap",
+    description: "오렌지 그래디언트 + 중앙 팝업 모달 인터랙션 프로토타입",
   },
 ];
 
 export function ConceptSwitcher() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeConcept = (searchParams.get("concept") as ConceptMode) || "hot-dashboard";
+  const activeConcept = (searchParams.get("concept") as ConceptMode) || "main";
 
   const currentConcept = CONCEPTS.find((c) => c.id === activeConcept) ?? CONCEPTS[0];
 
