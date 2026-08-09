@@ -24,6 +24,7 @@ export type Restaurant = {
   estimatedDelivery: string;
   minimumOrder: number;
   representativeMenus: Menu[];
+  moodTags?: string[];
 };
 
 export type Participant = {
