@@ -8,33 +8,41 @@ export function SiteHeader() {
 
   return (
     <header className="site-header">
-      <Link className="brand" href="/" aria-label="모여밥 실시간 현황판">
-        <span className="brand-mark" aria-hidden="true">
-          ㅁ
-        </span>
-        <span>
-          모여밥
-          <small>서울대 시흥캠퍼스</small>
-        </span>
-      </Link>
-
-      {currentUser ? (
-        <div className="account-actions">
-          <span>
-            <strong>{currentUser.name}</strong>
-            <small>Slack 인증 사용자</small>
+      <div className="header-left">
+        <Link className="brand" href="/" aria-label="모여밥 실시간 현황판">
+          <span className="brand-mark" aria-hidden="true">
+            🍱
           </span>
-          <button type="button" onClick={logout}>
-            로그아웃
+          <span>
+            <span className="brand-title">모여밥</span>
+            <small className="campus-badge">📍 시흥캠퍼스</small>
+          </span>
+        </Link>
+      </div>
+
+      <div className="header-right">
+        <Link href="/recruitments/new" className="header-create-btn">
+          <span>+ 새 모집 열기</span>
+        </Link>
+
+        {currentUser ? (
+          <div className="account-actions">
+            <span className="user-info">
+              <span className="slack-dot" title="Slack 로그인 됨" />
+              <strong>{currentUser.name}</strong>
+              <small>Slack 구성원</small>
+            </span>
+            <button type="button" className="logout-btn" onClick={logout}>
+              로그아웃
+            </button>
+          </div>
+        ) : (
+          <button className="slack-login" type="button" onClick={login}>
+            <span aria-hidden="true" className="slack-hash">#</span>
+            <span>Slack 로그인</span>
           </button>
-        </div>
-      ) : (
-        <button className="slack-login" type="button" onClick={login}>
-          <span aria-hidden="true">#</span>
-          Slack으로 로그인
-          <small>프로토타입</small>
-        </button>
-      )}
+        )}
+      </div>
     </header>
   );
 }

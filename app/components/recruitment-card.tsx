@@ -65,37 +65,31 @@ export function RecruitmentCard({
       </header>
 
       <div className="room-card-main">
-        <h3>{restaurant.name}</h3>
+        <div className="card-title-row">
+          <h3>{restaurant.name}</h3>
+          {isJoined && <span className="my-party-badge">참여중</span>}
+        </div>
         <p className="room-menu-summary">
           🍴 {restaurant.representativeMenus[0]?.name} ({restaurant.representativeMenus[0]?.price.toLocaleString()}원)
         </p>
 
         <div className="room-facts-row">
           <span className="time-tag">⏰ {recruitment.deadline} 마감</span>
-          {isOpen && relativeTime && <span className="relative-tag">{relativeTime}</span>}
+          {isOpen && relativeTime && (
+            <span className={`relative-tag ${relativeTime.includes("임박") ? "urgent" : ""}`}>
+              {relativeTime}
+            </span>
+          )}
         </div>
       </div>
 
       <footer className="room-card-bottom">
         <div className="lounge-members-stack">
-          <div className="lounge-avatars">
-            {recruitment.participants.slice(0, 4).map((p, idx) => (
-              <span
-                key={p.id}
-                className="lounge-avatar-circle"
-                style={{ zIndex: 10 - idx }}
-                title={p.name}
-              >
-                {p.name.slice(0, 1)}
-              </span>
-            ))}
-            {recruitment.participants.length > 4 && (
-              <span className="lounge-avatar-more">+{recruitment.participants.length - 4}</span>
-            )}
+          <div className="members-count-badge">
+            <span className="party-fire-icon">🔥</span>
+            <strong>{recruitment.participants.length}명</strong>
+            <span className="members-label">모임 중</span>
           </div>
-          <small className="members-count-label">
-            <strong>{recruitment.participants.length}명</strong> 파티원
-          </small>
         </div>
 
         <div className="room-action-buttons">
@@ -105,7 +99,7 @@ export function RecruitmentCard({
               className={`quick-join-pill ${isJoined ? "joined" : ""}`}
               onClick={handleQuickJoin}
             >
-              {isJoined ? "취소" : "참여"}
+              {isJoined ? "참여 취소" : "팟 탑승"}
             </button>
           )}
           <button
@@ -116,7 +110,7 @@ export function RecruitmentCard({
               onOpenDrawer?.(recruitment.id);
             }}
           >
-            🚪 룸 입장
+            상세 보기
           </button>
         </div>
       </footer>
