@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>모여밥 | 함께 시켜 같이 먹자!</title>
+  <meta name="description" content="시흥캠퍼스 배달 공동주문 매칭 서비스. 같은 음식점에서 함께 배달시킬 사람을 쉽게 찾아보세요.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍚</text></svg>">
+  <meta name="theme-color" content="#0B1426">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header" id="header">
+      <div class="header__logo">
+        <span class="header__logo-emoji">🍚</span>
+        <span class="header__logo-text text-gradient">모여밥</span>
+      </div>
+      
+      <nav class="header__nav" id="categoryNav">
+        <button class="header__tab header__tab--active" data-filter="all">전체</button>
+        <button class="header__tab" data-filter="lunch">점심 🍱</button>
+        <button class="header__tab" data-filter="cafe">카페 ☕</button>
+      </nav>
+      
+      <div class="header__auth" id="authArea">
+        <button class="header__auth-btn" id="authBtn" onclick="openAuthModal()">
+          <span>Slack으로 로그인</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+      <div class="status-bar__item">
+        <span class="status-bar__dot status-bar__dot--live"></span>
+        <span>진행중인 팟</span>
+        <span class="status-bar__count" id="liveCount">0</span>
+      </div>
+      <div class="status-bar__item">
+        <span class="status-bar__dot status-bar__dot--total"></span>
+        <span>총 참여인원</span>
+        <span class="status-bar__count" id="totalParticipants">0</span>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <main class="grid" id="potGrid">
+      <!-- Cards rendered by JS -->
+    </main>
+
+    <!-- Empty State (hidden by default) -->
+    <div class="empty" id="emptyState" style="display:none;">
+      <div class="empty__emoji">🍽️</div>
+      <h2 class="empty__title">아직 열린 팟이 없어요</h2>
+      <p class="empty__desc">첫 번째 팟을 만들어 동료들을 모아보세요!</p>
+    </div>
+  </div>
+
+  <!-- FAB Button -->
+  <button class="fab" id="fabBtn" onclick="handleFabClick()" aria-label="새 팟 만들기">
+    <span class="fab__icon">+</span>
+    <span class="fab__tooltip">새 팟 만들기</span>
+  </button>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModalOverlay" onclick="handleOverlayClick(event, 'detailModalOverlay')">
+    <div class="modal modal--detail" id="detailModal">
+      <div class="modal__header">
+        <h2 class="modal__title">팟 상세</h2>
+        <button class="modal__close" onclick="closeModal('detailModalOverlay')" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal__body" id="detailModalBody">
+        <!-- Populated by JS -->
+      </div>
+      <div class="modal__footer" id="detailModalFooter">
+        <!-- Action button populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal-overlay" id="createModalOverlay" onclick="handleOverlayClick(event, 'createModalOverlay')">
+    <div class="modal modal--create" id="createModal">
+      <div class="modal__header">
+        <h2 class="modal__title">🍚 새 팟 만들기</h2>
+        <button class="modal__close" onclick="closeModal('createModalOverlay')" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal__body">
+        <!-- Restaurant Search -->
+        <div class="create__search-wrap">
+          <span class="create__search-icon">🔍</span>
+          <input type="text" class="create__search" id="restaurantSearch" placeholder="매장 이름을 검색하세요..." autocomplete="off">
+        </div>
+        
+        <!-- Restaurant List -->
+        <div class="create__restaurant-list" id="restaurantList">
+          <!-- Populated by JS -->
+        </div>
+        
+        <!-- Time Selection -->
+        <div class="create__time-section" id="timeSection" style="display:none;">
+          <label class="create__time-label">⏰ 마감 시간 설정</label>
+          <div class="create__time-options" id="timeOptions">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="create__submit-btn" id="createSubmitBtn" disabled onclick="handleCreateSubmit()">
+          팟 만들기 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal-overlay" id="authModalOverlay" onclick="handleOverlayClick(event, 'authModalOverlay')">
+    <div class="modal modal--auth" id="authModal">
+      <div class="modal__header">
+        <h2 class="modal__title">로그인</h2>
+        <button class="modal__close" onclick="closeModal('authModalOverlay')" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal__body">
+        <div class="auth__content">
+          <div class="auth__emoji">🍚</div>
+          <h3 class="auth__title">모여밥에 오신 걸 환영해요!</h3>
+          <p class="auth__desc">Slack 계정으로 로그인하면<br>팟에 참여하고 새 팟을 만들 수 있어요.</p>
+          <button class="auth__slack-btn" onclick="mockLogin()">
+            <svg class="auth__slack-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z" fill="#E01E5A"/>
+              <path d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z" fill="#36C5F0"/>
+              <path d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.27 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.163 0a2.528 2.528 0 0 1 2.523 2.522v6.312z" fill="#2EB67D"/>
+              <path d="M15.163 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.163 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.27a2.527 2.527 0 0 1-2.52-2.523 2.527 2.527 0 0 1 2.52-2.52h6.315A2.528 2.528 0 0 1 24 15.163a2.528 2.528 0 0 1-2.522 2.523h-6.315z" fill="#ECB22E"/>
+            </svg>
+            Slack으로 계속하기
+          </button>
+          <div class="auth__divider">
+            <span>또는</span>
+          </div>
+          <p class="auth__guest-note">로그인 없이도 현재 진행중인 팟을 구경할 수 있어요 👀</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
