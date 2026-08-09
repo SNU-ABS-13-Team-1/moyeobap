@@ -260,30 +260,46 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Filter */}
-          <section className="flex gap-3 mb-8">
-            <button
-              type="button"
-              className={`px-6 py-3 rounded-xl font-medium transition ${
-                period === "lunch"
-                  ? "bg-green-600 text-white"
-                  : "bg-white border text-gray-700 hover:bg-gray-50"
-              }`}
-              onClick={() => setPeriod("lunch")}
-            >
-              점심 🍱
-            </button>
+          {/* Filter Bar + Roulette Feature Button */}
+          <section className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className={`px-6 py-3 rounded-xl font-medium transition ${
+                  period === "lunch"
+                    ? "bg-green-600 text-white"
+                    : "bg-white border text-gray-700 hover:bg-gray-50"
+                }`}
+                onClick={() => setPeriod("lunch")}
+              >
+                점심 🍱 (13:00~14:00)
+              </button>
+
+              <button
+                type="button"
+                className={`px-6 py-3 rounded-xl font-medium transition ${
+                  period === "cafe"
+                    ? "bg-green-600 text-white"
+                    : "bg-white border text-gray-700 hover:bg-gray-50"
+                }`}
+                onClick={() => setPeriod("cafe")}
+              >
+                카페 ☕
+              </button>
+            </div>
 
             <button
               type="button"
-              className={`px-6 py-3 rounded-xl font-medium transition ${
-                period === "cafe"
-                  ? "bg-green-600 text-white"
-                  : "bg-white border text-gray-700 hover:bg-gray-50"
+              className={`px-5 py-3 rounded-xl font-bold transition flex items-center gap-2 text-sm ${
+                isSpinning
+                  ? "bg-amber-500 text-white animate-pulse"
+                  : "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
               }`}
-              onClick={() => setPeriod("cafe")}
+              onClick={spinRoulette}
+              disabled={isSpinning || openRecruitments.length === 0}
             >
-              카페 ☕
+              <span>🎰</span>
+              <span>{isSpinning ? "오늘의 맛집 뽑는 중...!!" : "오늘 뭐 먹지? 룰렛 추천"}</span>
             </button>
           </section>
 
