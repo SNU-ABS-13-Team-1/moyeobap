@@ -59,7 +59,9 @@ export default function RootLayout({
           <Suspense fallback={<div className="concept-switcher-bar" style={{ minHeight: "40px" }} />}>
             <ConceptSwitcher />
           </Suspense>
-          <SiteHeader />
+          <Suspense fallback={null}>
+            <SiteHeader />
+          </Suspense>
           <Suspense fallback={<div>불러오는 중...</div>}>
             {children}
           </Suspense>

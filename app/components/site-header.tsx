@@ -1,10 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { usePrototype } from "@/app/prototype-context";
 
 export function SiteHeader() {
   const { currentUser, login, logout } = usePrototype();
+  const searchParams = useSearchParams();
+  const concept = searchParams.get("concept");
+
+  // Hide global SiteHeader for scratch prototype since it has its own built-in header
+  if (concept === "scratch-light") {
+    return null;
+  }
 
   return (
     <header className="site-header">
