@@ -50,3 +50,9 @@ next-env.d.ts
 # python cache (menu parsing script)
 __pycache__/
 *.pyc
+
+# 현장 촬영 원본 사진 (용량이 커서 로컬 보관만)
+/data/capture_*/
+
+# 백업 파일
+*.bak
