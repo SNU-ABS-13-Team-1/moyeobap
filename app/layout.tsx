@@ -1,10 +1,5 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { ConceptSwitcher } from "@/app/components/concept-switcher";
-import { NoticeToast } from "@/app/components/notice-toast";
-import { SiteHeader } from "@/app/components/site-header";
-import { PrototypeProvider } from "@/app/prototype-context";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,21 +50,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <PrototypeProvider>
-          <Suspense fallback={<div className="concept-switcher-bar" style={{ minHeight: "40px" }} />}>
-            <ConceptSwitcher />
-          </Suspense>
-          <Suspense fallback={null}>
-            <SiteHeader />
-          </Suspense>
-          <Suspense fallback={<div>불러오는 중...</div>}>
-            {children}
-          </Suspense>
-          <NoticeToast />
-        </PrototypeProvider>
+        {children}
       </body>
     </html>
   );
 }
-
-
