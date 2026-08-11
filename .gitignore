@@ -47,3 +47,7 @@ next-env.d.ts
 # python cache (menu parsing script)
 __pycache__/
 *.pyc
+
+# accidentally-committed build output from another tool (Cloudflare Workers / Vite)
+/.wrangler/
+/dist/
