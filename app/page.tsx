@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import './prototype.css';
 import { User, Pot, Restaurant, ToastNotice as ToastNoticeType } from './types/moyeobap';
 import { triggerConfetti } from './lib/moyeobap-utils';
+import { fetcher } from './lib/fetcher';
 import { Header } from './components/moyeobap/Header';
 import { StatusBar } from './components/moyeobap/StatusBar';
 import { PotCard } from './components/moyeobap/PotCard';
@@ -12,8 +13,6 @@ import { PotDetailModal } from './components/moyeobap/PotDetailModal';
 import { CreatePotModal } from './components/moyeobap/CreatePotModal';
 import { AuthModal } from './components/moyeobap/AuthModal';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
-
-const fetcher = (url: string) => fetch(url, { cache: 'no-store' }).then((r) => r.json());
 
 type ServerPot = Omit<Pot, 'deadline'> & { deadline: string };
 

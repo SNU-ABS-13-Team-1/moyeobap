@@ -1,8 +1,7 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { ChatMessage, User } from '../../types/moyeobap';
-
-const fetcher = (url: string) => fetch(url, { cache: 'no-store' }).then(res => res.json());
+import { fetcher } from '../../lib/fetcher';
 
 interface ChatPanelProps {
   potId: string;
