@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { NoticeToast } from "@/app/components/notice-toast";
-import { SiteHeader } from "@/app/components/site-header";
-import { PrototypeProvider } from "@/app/prototype-context";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -53,11 +50,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <PrototypeProvider>
-          <SiteHeader />
-          {children}
-          <NoticeToast />
-        </PrototypeProvider>
+        {children}
       </body>
     </html>
   );
