@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pot, Restaurant, User } from '../../types/moyeobap';
-import { getTimeRemaining, formatTime } from '../../lib/moyeobap-utils';
+import { estimateNeededParticipants, getTimeRemaining, formatTime } from '../../lib/moyeobap-utils';
+import { ChatPanel } from './ChatPanel';
 
 interface PotDetailModalProps {
   pot: Pot;
@@ -26,6 +27,7 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
   const { minutes, seconds, isUrgent } = getTimeRemaining(pot.deadline);
   const timeStr = pot.status === 'closed' ? '00:00' : formatTime(minutes, seconds);
   const isParticipating = isAuthenticated && currentUser && pot.participants.some(p => p.id === currentUser.id);
+  const neededForMinOrder = estimateNeededParticipants(restaurant.minOrder, restaurant.menus[0]?.price);
 
   return (
     <div className="modal-overlay modal-overlay--active" onClick={onClose}>
@@ -59,7 +61,9 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
             </div>
             <div className="detail__info-item">
               <span className="detail__info-label">참여인원</span>
-              <span className="detail__info-value">{pot.participants.length}명</span>
+              <span className="detail__info-value">
+                {pot.participants.length}명{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
+              </span>
             </div>
             <div className="detail__info-item">
               <span className="detail__info-label">상태</span>
@@ -68,6 +72,14 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
               </span>
             </div>
           </div>
+
+          {neededForMinOrder !== null && pot.status !== 'closed' && (
+            <p className="detail__feasibility">
+              {pot.participants.length >= neededForMinOrder
+                ? `✅ 대표메뉴 기준으로 최소주문금액을 채울 수 있어요.`
+                : `대표메뉴 1개씩 주문한다고 하면 최소 ${neededForMinOrder}명이면 최소주문금액을 채울 수 있을 것으로 보여요 (현재 ${pot.participants.length}명).`}
+            </p>
+          )}
 
           <div className="detail__menu-section">
             <h4 className="detail__section-title">📋 대표 메뉴</h4>
@@ -97,6 +109,13 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
               <div className="detail__participant-hidden">현재 {pot.participants.length}명이 참여하고 있어요! 👀</div>
             )}
           </div>
+
+          {isParticipating && currentUser && (
+            <div className="detail__chat-section">
+              <h4 className="detail__section-title">💬 팟 채팅</h4>
+              <ChatPanel potId={pot.id} currentUser={currentUser} />
+            </div>
+          )}
 
           <div className="modal__footer" style={{ padding: 0 }}>
             {pot.status === 'closed' ? (

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 import './prototype.css';
-import { User, Pot, ToastNotice as ToastNoticeType } from './types/moyeobap';
-import { RESTAURANTS, CURRENT_USER, createInitialPots } from './data/moyeobap-mock';
+import { User, Pot, Restaurant, ToastNotice as ToastNoticeType } from './types/moyeobap';
 import { triggerConfetti } from './lib/moyeobap-utils';
 import { Header } from './components/moyeobap/Header';
 import { StatusBar } from './components/moyeobap/StatusBar';
@@ -13,175 +13,167 @@ import { CreatePotModal } from './components/moyeobap/CreatePotModal';
 import { AuthModal } from './components/moyeobap/AuthModal';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
 
+const fetcher = (url: string) => fetch(url, { cache: 'no-store' }).then((r) => r.json());
+
+type ServerPot = Omit<Pot, 'deadline'> & { deadline: string };
+
+function toPot(serverPot: ServerPot): Pot {
+  return { ...serverPot, deadline: new Date(serverPot.deadline) };
+}
+
 export default function HomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'lunch' | 'cafe'>('all');
-  const [pots, setPots] = useState<Pot[]>([]);
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
 
-  // Modals
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  // Toast
   const [toast, setToast] = useState<ToastNoticeType | null>(null);
 
-  // Timer Tick Trigger
+  // 1초마다 리렌더시켜서 카운트다운이 실시간으로 흐르게 합니다 (서버 재조회는 아님).
   const [, setTick] = useState(0);
 
-  useEffect(() => {
-    setPots(createInitialPots());
-  }, []);
+  const { data: meData, mutate: mutateMe } = useSWR<{ user: User | null }>('/api/auth/me', fetcher);
+  const { data: restaurantsData, mutate: mutateRestaurants } = useSWR<{ restaurants: Restaurant[] }>(
+    '/api/restaurants',
+    fetcher,
+  );
+  const { data: potsData, mutate: mutatePots } = useSWR<{ pots: ServerPot[] }>('/api/pots', fetcher, {
+    refreshInterval: 4000,
+  });
+
+  const currentUser = meData?.user ?? null;
+  const isAuthenticated = Boolean(currentUser);
+  const restaurants = useMemo(() => restaurantsData?.restaurants ?? [], [restaurantsData]);
+  const pots = useMemo(() => (potsData?.pots ?? []).map(toPot), [potsData]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-
-      setPots(prevPots => {
-        let changed = false;
-        const updated = prevPots.map(pot => {
-          if (pot.status !== 'active') return pot;
-          const remaining = pot.deadline.getTime() - Date.now();
-
-          if (remaining <= 0) {
-            changed = true;
-            const r = RESTAURANTS.find(res => res.id === pot.restaurantId);
-            if (pot.participants.length >= 2) {
-              showToast(`${r?.name || ''} 팟이 마감되었습니다! Slack에서 주문을 진행해주세요 🎉`, 'success');
-              return { ...pot, status: 'closed' as const };
-            } else {
-              showToast(`${r?.name || ''} 팟이 인원 미달로 종료되었습니다`, 'error');
-              return { ...pot, status: 'failed' as const };
-            }
-          }
-          return pot;
-        });
-
-        if (changed) {
-          return updated.filter(p => p.status !== 'failed');
-        }
-        return prevPots;
-      });
-    }, 1000);
-
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+  function showToast(message: string, type: 'success' | 'warning' | 'error' = 'success') {
     setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 3000);
-  };
+    setTimeout(() => setToast(null), 3000);
+  }
 
-  const handleAuthToggle = () => {
+  async function handleAuthToggle() {
     if (isAuthenticated) {
-      setPots(prev => prev.map(p => {
-        if (p.status === 'active') {
-          return { ...p, participants: p.participants.filter(user => user.id !== currentUser?.id) };
-        }
-        return p;
-      }).filter(p => p.participants.length > 0));
-
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      await fetch('/api/auth/logout', { method: 'POST' });
+      await mutateMe();
+      await mutatePots();
       setIsDetailOpen(false);
       showToast('로그아웃 되었습니다.', 'success');
     } else {
       setIsAuthOpen(true);
     }
-  };
+  }
 
-  const mockLogin = () => {
-    setIsAuthenticated(true);
-    setCurrentUser({ ...CURRENT_USER });
+  async function handleLogin(email: string, name: string): Promise<string | null> {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) return data.error ?? '로그인에 실패했어요.';
+
+    await mutateMe();
     setIsAuthOpen(false);
-    showToast(`환영합니다, ${CURRENT_USER.name}님! 🎉`, 'success');
-  };
+    showToast(`환영합니다, ${data.user.name}님! 🎉`, 'success');
+    return null;
+  }
 
-  const handleJoinPot = (potId: string) => {
-    if (!isAuthenticated || !currentUser) {
+  async function handleJoinPot(potId: string) {
+    if (!isAuthenticated) {
       setIsAuthOpen(true);
       return;
     }
+    const resp = await fetch(`/api/pots/${potId}/join`, { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showToast(data.error ?? '참여하지 못했어요.', 'error');
+      return;
+    }
+    await mutatePots();
+    const r = restaurants.find((item) => item.id === data.pot.restaurantId);
+    showToast(`${r?.name || ''}에 탑승했어요! 🚀`, 'success');
+    triggerConfetti();
+  }
 
-    setPots(prev => prev.map(p => {
-      if (p.id === potId && p.status === 'active') {
-        if (!p.participants.some(user => user.id === currentUser.id)) {
-          const r = RESTAURANTS.find(res => res.id === p.restaurantId);
-          showToast(`${r?.name || ''}에 탑승했어요! 🚀`, 'success');
-          triggerConfetti();
-          return { ...p, participants: [...p.participants, currentUser] };
-        }
-      }
-      return p;
-    }));
-  };
+  async function handleLeavePot(potId: string) {
+    const resp = await fetch(`/api/pots/${potId}/leave`, { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showToast(data.error ?? '참여 취소에 실패했어요.', 'error');
+      return;
+    }
+    await mutatePots();
+    const r = restaurants.find((item) => item.id === data.pot.restaurantId);
+    if (data.pot.participants.length === 0) {
+      showToast(`${r?.name || ''} 팟이 종료되었습니다.`, 'error');
+      setIsDetailOpen(false);
+    } else {
+      showToast(`${r?.name || ''} 탑승을 취소했습니다.`, 'error');
+    }
+  }
 
-  const handleLeavePot = (potId: string) => {
-    if (!currentUser) return;
-    setPots(prev => {
-      const updated = prev.map(p => {
-        if (p.id === potId && p.status === 'active') {
-          const newParts = p.participants.filter(u => u.id !== currentUser.id);
-          return { ...p, participants: newParts };
-        }
-        return p;
-      });
-
-      const target = updated.find(p => p.id === potId);
-      const r = RESTAURANTS.find(res => res.id === target?.restaurantId);
-      if (target && target.participants.length === 0) {
-        showToast(`${r?.name || ''} 팟이 종료되었습니다.`, 'error');
-        setIsDetailOpen(false);
-        return updated.filter(p => p.id !== potId);
-      } else {
-        showToast(`${r?.name || ''} 탑승을 취소했습니다.`, 'error');
-        return updated;
-      }
+  async function handleCreateCustomRestaurant(input: {
+    name: string;
+    category: 'lunch' | 'cafe';
+  }): Promise<string | null> {
+    const resp = await fetch('/api/restaurants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
     });
-  };
+    const data = await resp.json();
+    if (!resp.ok) return null;
+    await mutateRestaurants();
+    return data.restaurant.id as string;
+  }
 
-  const handleCreateSubmit = (restaurantId: string, minutes: number) => {
-    if (!currentUser) return;
-    const r = RESTAURANTS.find(res => res.id === restaurantId);
-    if (!r) return;
-
-    const now = new Date();
-    const newPot: Pot = {
-      id: Math.random().toString(36).substring(2, 9),
-      restaurantId,
-      deadline: new Date(now.getTime() + minutes * 60000),
-      participants: [currentUser],
-      status: 'active'
-    };
-
-    setPots(prev => [...prev, newPot]);
+  async function handleCreateSubmit(restaurantId: string, minutes: number, maxParticipants: number | null) {
+    const resp = await fetch('/api/pots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId, minutes, maxParticipants }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      showToast(data.error ?? '팟을 만들지 못했어요.', 'error');
+      return;
+    }
+    await mutatePots();
     setIsCreateOpen(false);
-    if (activeFilter !== 'all' && activeFilter !== r.category) {
+    const r = restaurants.find((item) => item.id === restaurantId);
+    if (activeFilter !== 'all' && r && activeFilter !== r.category) {
       setActiveFilter('all');
     }
-    showToast(`${r.name} 팟이 생성되었습니다! ✨`, 'success');
+    showToast(`${r?.name || ''} 팟이 생성되었습니다! ✨`, 'success');
     triggerConfetti();
-  };
+  }
 
-  const filteredPots = pots.filter(p => {
-    if (activeFilter === 'all') return true;
-    const r = RESTAURANTS.find(res => res.id === p.restaurantId);
-    return r?.category === activeFilter;
-  }).sort((a, b) => {
-    if (a.status === 'closed' && b.status !== 'closed') return 1;
-    if (a.status !== 'closed' && b.status === 'closed') return -1;
-    return a.deadline.getTime() - b.deadline.getTime();
-  });
+  const filteredPots = pots
+    .filter((p) => {
+      if (activeFilter === 'all') return true;
+      const r = restaurants.find((item) => item.id === p.restaurantId);
+      return r?.category === activeFilter;
+    })
+    .sort((a, b) => {
+      if (a.status === 'closed' && b.status !== 'closed') return 1;
+      if (a.status !== 'closed' && b.status === 'closed') return -1;
+      return a.deadline.getTime() - b.deadline.getTime();
+    });
 
-  const activePotsCount = pots.filter(p => p.status === 'active').length;
+  const activePotsCount = pots.filter((p) => p.status === 'active').length;
   const totalParticipantsCount = pots.reduce((sum, p) => sum + p.participants.length, 0);
 
-  const selectedPot = pots.find(p => p.id === selectedPotId);
-  const selectedRestaurant = selectedPot ? RESTAURANTS.find(r => r.id === selectedPot.restaurantId) : null;
+  const selectedPot = pots.find((p) => p.id === selectedPotId);
+  const selectedRestaurant = selectedPot
+    ? restaurants.find((r) => r.id === selectedPot.restaurantId)
+    : null;
 
   return (
     <div className="moyeobap-body">
@@ -211,7 +203,7 @@ export default function HomePage() {
             </div>
           ) : (
             filteredPots.map((pot, index) => {
-              const r = RESTAURANTS.find(res => res.id === pot.restaurantId);
+              const r = restaurants.find((res) => res.id === pot.restaurantId);
               if (!r) return null;
 
               return (
@@ -267,18 +259,16 @@ export default function HomePage() {
         {/* Create Modal */}
         {isCreateOpen && (
           <CreatePotModal
-            restaurants={RESTAURANTS}
+            restaurants={restaurants}
             onClose={() => setIsCreateOpen(false)}
+            onCreateCustomRestaurant={handleCreateCustomRestaurant}
             onSubmit={handleCreateSubmit}
           />
         )}
 
         {/* Auth Modal */}
         {isAuthOpen && (
-          <AuthModal
-            onClose={() => setIsAuthOpen(false)}
-            onLogin={mockLogin}
-          />
+          <AuthModal onClose={() => setIsAuthOpen(false)} onLogin={handleLogin} />
         )}
 
         {/* Toast */}

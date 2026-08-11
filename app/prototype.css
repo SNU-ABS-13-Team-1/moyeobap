@@ -1096,3 +1096,193 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Email login form (added for real backend) ===== */
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.auth__input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.auth__input::placeholder {
+  color: var(--text-muted);
+}
+
+.auth__input:focus {
+  border-color: var(--primary);
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.auth__error {
+  color: var(--warning);
+  font-size: 0.85rem;
+}
+
+/* ===== Create pot: list vs custom restaurant tabs ===== */
+.create__mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-md);
+}
+
+.create__mode-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create__mode-tab--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.create__custom-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.create__custom-note {
+  margin-top: var(--space-md);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ===== Delivery feasibility note ===== */
+.detail__feasibility {
+  margin-top: var(--space-md);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* ===== In-room chat ===== */
+.detail__chat-section {
+  margin-top: var(--space-lg);
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.chat-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+}
+
+.chat-panel__empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  margin: auto;
+}
+
+.chat-panel__message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 80%;
+}
+
+.chat-panel__message--mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-panel__author {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.chat-panel__bubble {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.chat-panel__message--mine .chat-panel__bubble {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.chat-panel__form {
+  display: flex;
+  gap: 8px;
+  padding: var(--space-sm);
+  background: #fff;
+}
+
+.chat-panel__input {
+  flex: 1;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-full);
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.chat-panel__input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.chat-panel__send {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.chat-panel__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

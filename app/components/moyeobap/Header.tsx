@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         ) : (
           <button className="header__auth-btn" onClick={onAuthClick}>
-            <span>Slack으로 로그인</span>
+            <span>로그인</span>
           </button>
         )}
       </div>

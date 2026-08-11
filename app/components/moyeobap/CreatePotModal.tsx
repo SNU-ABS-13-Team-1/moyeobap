@@ -4,21 +4,56 @@ import { Restaurant } from '../../types/moyeobap';
 interface CreatePotModalProps {
   restaurants: Restaurant[];
   onClose: () => void;
-  onSubmit: (restaurantId: string, minutes: number) => void;
+  onCreateCustomRestaurant: (input: {
+    name: string;
+    category: 'lunch' | 'cafe';
+  }) => Promise<string | null>;
+  onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => void;
 }
+
+const CAP_OPTIONS = [2, 3, 4, 6, 8];
 
 export const CreatePotModal: React.FC<CreatePotModalProps> = ({
   restaurants,
   onClose,
+  onCreateCustomRestaurant,
   onSubmit,
 }) => {
+  const [mode, setMode] = useState<'list' | 'custom'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [selectedMinutes, setSelectedMinutes] = useState(30);
+  const [selectedCap, setSelectedCap] = useState<number | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [customCategory, setCustomCategory] = useState<'lunch' | 'cafe'>('lunch');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredRestaurants = restaurants.filter(r =>
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const canSubmit = mode === 'list' ? Boolean(selectedRestaurantId) : customName.trim().length > 0;
+
+  async function handleSubmit() {
+    setError(null);
+    if (mode === 'list') {
+      if (selectedRestaurantId) onSubmit(selectedRestaurantId, selectedMinutes, selectedCap);
+      return;
+    }
+
+    setSubmitting(true);
+    const restaurantId = await onCreateCustomRestaurant({
+      name: customName.trim(),
+      category: customCategory,
+    });
+    setSubmitting(false);
+    if (!restaurantId) {
+      setError('매장을 추가하지 못했어요. 다시 시도해주세요.');
+      return;
+    }
+    onSubmit(restaurantId, selectedMinutes, selectedCap);
+  }
 
   return (
     <div className="modal-overlay modal-overlay--active" onClick={onClose}>
@@ -28,63 +63,136 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
           <button className="modal__close" onClick={onClose}>✕</button>
         </div>
         <div className="modal__body">
-          <div className="create__search-wrap">
-            <span className="create__search-icon">🔍</span>
-            <input
-              type="text"
-              className="create__search"
-              placeholder="매장 이름을 검색하세요..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+          <div className="create__mode-tabs">
+            <button
+              type="button"
+              className={`create__mode-tab ${mode === 'list' ? 'create__mode-tab--active' : ''}`}
+              onClick={() => setMode('list')}
+            >
+              목록에서 선택
+            </button>
+            <button
+              type="button"
+              className={`create__mode-tab ${mode === 'custom' ? 'create__mode-tab--active' : ''}`}
+              onClick={() => setMode('custom')}
+            >
+              직접 입력
+            </button>
           </div>
 
-          <div className="create__restaurant-list">
-            {filteredRestaurants.map(r => (
-              <div
-                key={r.id}
-                className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
-                onClick={() => setSelectedRestaurantId(r.id)}
-              >
-                <span className="create__restaurant-emoji">{r.emoji}</span>
-                <div className="create__restaurant-info">
-                  <span className="create__restaurant-name">{r.name}</span>
-                  <span className="create__restaurant-meta">
-                    {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
-                  </span>
-                </div>
+          {mode === 'list' ? (
+            <>
+              <div className="create__search-wrap">
+                <span className="create__search-icon">🔍</span>
+                <input
+                  type="text"
+                  className="create__search"
+                  placeholder="매장 이름을 검색하세요..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
               </div>
-            ))}
-          </div>
 
-          {selectedRestaurantId && (
-            <div className="create__time-section">
-              <label className="create__time-label">⏰ 마감 시간 설정</label>
-              <div className="create__time-options">
-                {[15, 20, 30, 45, 60].map(mins => (
-                  <button
-                    key={mins}
-                    className={`create__time-option ${selectedMinutes === mins ? 'create__time-option--selected' : ''}`}
-                    onClick={() => setSelectedMinutes(mins)}
+              <div className="create__restaurant-list">
+                {filteredRestaurants.map(r => (
+                  <div
+                    key={r.id}
+                    className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
+                    onClick={() => setSelectedRestaurantId(r.id)}
                   >
-                    +{mins === 60 ? '1시간' : `${mins}분`}
-                  </button>
+                    <span className="create__restaurant-emoji">{r.emoji}</span>
+                    <div className="create__restaurant-info">
+                      <span className="create__restaurant-name">{r.name}</span>
+                      <span className="create__restaurant-meta">
+                        {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
+            </>
+          ) : (
+            <div className="create__custom-form">
+              <label className="create__time-label">매장 이름</label>
+              <input
+                type="text"
+                className="create__search"
+                placeholder="예: 배곧 이름없는 김밥집"
+                value={customName}
+                onChange={e => setCustomName(e.target.value)}
+              />
+              <label className="create__time-label" style={{ marginTop: 'var(--space-md)' }}>종류</label>
+              <div className="create__time-options">
+                <button
+                  type="button"
+                  className={`create__time-option ${customCategory === 'lunch' ? 'create__time-option--selected' : ''}`}
+                  onClick={() => setCustomCategory('lunch')}
+                >
+                  점심
+                </button>
+                <button
+                  type="button"
+                  className={`create__time-option ${customCategory === 'cafe' ? 'create__time-option--selected' : ''}`}
+                  onClick={() => setCustomCategory('cafe')}
+                >
+                  카페
+                </button>
+              </div>
+              <p className="create__custom-note">
+                목록에 없는 매장이에요. 대표메뉴·최소주문금액 같은 정보 없이 팟만 먼저 열립니다.
+              </p>
             </div>
           )}
+
+          {(mode === 'custom' || selectedRestaurantId) && (
+            <>
+              <div className="create__time-section">
+                <label className="create__time-label">⏰ 마감 시간 설정</label>
+                <div className="create__time-options">
+                  {[15, 20, 30, 45, 60].map(mins => (
+                    <button
+                      key={mins}
+                      className={`create__time-option ${selectedMinutes === mins ? 'create__time-option--selected' : ''}`}
+                      onClick={() => setSelectedMinutes(mins)}
+                    >
+                      +{mins === 60 ? '1시간' : `${mins}분`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="create__time-section">
+                <label className="create__time-label">👥 최대 인원 (선택)</label>
+                <div className="create__time-options">
+                  <button
+                    className={`create__time-option ${selectedCap === null ? 'create__time-option--selected' : ''}`}
+                    onClick={() => setSelectedCap(null)}
+                  >
+                    제한 없음
+                  </button>
+                  {CAP_OPTIONS.map(cap => (
+                    <button
+                      key={cap}
+                      className={`create__time-option ${selectedCap === cap ? 'create__time-option--selected' : ''}`}
+                      onClick={() => setSelectedCap(cap)}
+                    >
+                      {cap}명
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {error && <p className="auth__error">{error}</p>}
         </div>
         <div className="modal__footer">
           <button
             className="create__submit-btn"
-            disabled={!selectedRestaurantId}
-            onClick={() => {
-              if (selectedRestaurantId) {
-                onSubmit(selectedRestaurantId, selectedMinutes);
-              }
-            }}
+            disabled={!canSubmit || submitting}
+            onClick={handleSubmit}
           >
-            팟 만들기 🚀
+            {submitting ? '만드는 중...' : '팟 만들기 🚀'}
           </button>
         </div>
       </div>

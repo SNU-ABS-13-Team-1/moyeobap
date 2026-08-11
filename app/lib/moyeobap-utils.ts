@@ -15,6 +15,17 @@ export function formatTime(m: number, s: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * 개별 메뉴 선택은 없어서 실제 주문 총액은 알 수 없습니다. 대신 대표메뉴 1개당
+ * 1인분이라고 가정하고 최소주문금액을 채우는 데 필요한 인원을 추정치로 보여줍니다.
+ */
+export function estimateNeededParticipants(minOrder: number, firstMenuPrice: string | undefined): number | null {
+  if (minOrder <= 0 || !firstMenuPrice) return null;
+  const price = Number(firstMenuPrice.replace(/[^0-9]/g, ''));
+  if (!price) return null;
+  return Math.max(1, Math.ceil(minOrder / price));
+}
+
 export function triggerConfetti() {
   if (typeof window === 'undefined') return;
   const colors = ['#FF6B35', '#FF8C42', '#7C5CFC', '#22C55E', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#A78BFA', '#34D399'];

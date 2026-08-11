@@ -80,7 +80,9 @@ export const PotCard: React.FC<PotCardProps> = ({
               <div className="card__avatar card__avatar--more">+{pot.participants.length - 3}</div>
             )}
           </div>
-          <span className="card__count"><span>{pot.participants.length}</span>명 참여</span>
+          <span className="card__count">
+            <span>{pot.participants.length}</span>명 참여{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
+          </span>
         </div>
 
         <button
