@@ -42,9 +42,23 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const body = await req.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text.trim().slice(0, 500) : "";
-  if (!text) {
-    return NextResponse.json({ error: "메시지를 입력해주세요." }, { status: 400 });
+
+  let text: string;
+  let kind: ChatMessage["kind"] = "text";
+
+  if (body?.shareAccount === true) {
+    // 계좌번호는 클라이언트가 보낸 텍스트를 그대로 믿지 않고, 로그인 세션에 저장된
+    // 값에서만 가져옵니다 — 그래야 다른 사람 계좌인 척 보내는 걸 막을 수 있어요.
+    if (!user.bankAccount) {
+      return NextResponse.json({ error: "등록된 계좌번호가 없어요." }, { status: 400 });
+    }
+    text = `💳 ${user.name}님 계좌번호: ${user.bankAccount}`;
+    kind = "account";
+  } else {
+    text = typeof body?.text === "string" ? body.text.trim().slice(0, 500) : "";
+    if (!text) {
+      return NextResponse.json({ error: "메시지를 입력해주세요." }, { status: 400 });
+    }
   }
 
   const message: ChatMessage = {
@@ -54,6 +68,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     authorName: user.name,
     text,
     createdAt: new Date().toISOString(),
+    kind,
   };
   await addMessage(message);
 

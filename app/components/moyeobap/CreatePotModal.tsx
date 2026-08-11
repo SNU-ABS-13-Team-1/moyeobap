@@ -13,6 +13,26 @@ interface CreatePotModalProps {
 
 const CAP_OPTIONS = [2, 3, 4, 6, 8];
 
+// 카테고리 시트에 있는 소분류 순서와 맞춰뒀습니다. 여기 없는 값(직접 추가한 매장 등)은 뒤로 밀립니다.
+const SUB_CATEGORY_ORDER = [
+  '한식', '중식', '일식', '양식', '치킨', '피자', '족발', '보쌈', '분식', '패스트푸드', '카페', '디저트',
+];
+
+function groupBySubCategory(list: Restaurant[]) {
+  const groups = new Map<string, Restaurant[]>();
+  for (const r of list) {
+    const key = r.subCategory ?? '기타';
+    const bucket = groups.get(key) ?? [];
+    bucket.push(r);
+    groups.set(key, bucket);
+  }
+  const orderedKeys = [
+    ...SUB_CATEGORY_ORDER.filter(key => groups.has(key)),
+    ...[...groups.keys()].filter(key => !SUB_CATEGORY_ORDER.includes(key)),
+  ];
+  return orderedKeys.map(key => ({ key, items: groups.get(key)! }));
+}
+
 export const CreatePotModal: React.FC<CreatePotModalProps> = ({
   restaurants,
   onClose,
@@ -94,19 +114,24 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
               </div>
 
               <div className="create__restaurant-list">
-                {filteredRestaurants.map(r => (
-                  <div
-                    key={r.id}
-                    className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
-                    onClick={() => setSelectedRestaurantId(r.id)}
-                  >
-                    <span className="create__restaurant-emoji">{r.emoji}</span>
-                    <div className="create__restaurant-info">
-                      <span className="create__restaurant-name">{r.name}</span>
-                      <span className="create__restaurant-meta">
-                        {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
-                      </span>
-                    </div>
+                {groupBySubCategory(filteredRestaurants).map(group => (
+                  <div key={group.key} className="create__restaurant-group">
+                    <p className="create__restaurant-group-label">{group.key}</p>
+                    {group.items.map(r => (
+                      <div
+                        key={r.id}
+                        className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
+                        onClick={() => setSelectedRestaurantId(r.id)}
+                      >
+                        <span className="create__restaurant-emoji">{r.emoji}</span>
+                        <div className="create__restaurant-info">
+                          <span className="create__restaurant-name">{r.name}</span>
+                          <span className="create__restaurant-meta">
+                            {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>

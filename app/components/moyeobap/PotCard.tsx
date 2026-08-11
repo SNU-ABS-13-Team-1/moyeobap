@@ -30,8 +30,10 @@ export const PotCard: React.FC<PotCardProps> = ({
 
   let cardClasses = 'card';
   if (isUrgent && !isClosed) cardClasses += ' card--urgent';
-  if (isClosed) cardClasses += ' card--closed';
-  if (isParticipating && !isClosed) cardClasses += ' card--mine';
+  // 마감된 방은 카드 전체가 pointer-events: none이라 참여자도 못 들어가서 채팅을 못 치는
+  // 문제가 있었습니다. 참여 중인 사람에게는 이 비활성 스타일을 주지 않습니다.
+  if (isClosed && !isParticipating) cardClasses += ' card--closed';
+  if (isParticipating) cardClasses += ' card--mine';
 
   const catLabel = restaurant.category === 'lunch' ? '점심' : '카페';
   const catClass = restaurant.category === 'lunch' ? 'card__category--lunch' : 'card__category--cafe';
@@ -87,26 +89,28 @@ export const PotCard: React.FC<PotCardProps> = ({
 
         <button
           className={`card__join-btn ${
-            isClosed
+            isParticipating
+              ? 'card__join-btn--joined'
+              : isClosed
               ? 'card__join-btn--closed'
               : !isAuthenticated
               ? 'card__join-btn--login'
-              : isParticipating
-              ? 'card__join-btn--joined'
               : 'card__join-btn--join'
           }`}
           onClick={(e) => {
             e.stopPropagation();
+            // 마감된 방이어도 이미 참여 중인 사람은 계속 들어가서 채팅할 수 있어야 해서,
+            // 마감 여부보다 참여 여부를 먼저 확인합니다.
+            if (isParticipating) {
+              onCardClick(pot.id);
+              return;
+            }
             if (isClosed) return;
             if (!isAuthenticated) onOpenAuth();
-            else if (isParticipating) {
-              onCardClick(pot.id);
-            } else {
-              onJoinClick(pot.id);
-            }
+            else onJoinClick(pot.id);
           }}
         >
-          {isClosed ? '마감' : !isAuthenticated ? '로그인 후 참여' : isParticipating ? '탑승중 ✓' : '탑승하기'}
+          {isParticipating ? '탑승중 ✓' : isClosed ? '마감' : !isAuthenticated ? '로그인 후 참여' : '탑승하기'}
         </button>
       </div>
     </article>

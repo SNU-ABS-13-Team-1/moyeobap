@@ -2,12 +2,13 @@ import React, { FormEvent, useState } from 'react';
 
 interface AuthModalProps {
   onClose: () => void;
-  onLogin: (email: string, name: string) => Promise<string | null>;
+  onLogin: (email: string, name: string, bankAccount: string) => Promise<string | null>;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -15,7 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const result = await onLogin(email, name);
+    const result = await onLogin(email, name, bankAccount);
     setSubmitting(false);
     if (result) setError(result);
   }
@@ -50,6 +51,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
                 onChange={e => setName(e.target.value)}
                 className="auth__input"
               />
+              <input
+                type="text"
+                placeholder="계좌번호 (선택, 예: 카카오뱅크 3333-01-1234567)"
+                value={bankAccount}
+                onChange={e => setBankAccount(e.target.value)}
+                className="auth__input"
+              />
+              <p className="auth__field-hint">
+                등록하면 채팅방에서 버튼 한 번으로 계좌번호를 공유할 수 있어요. 나중에 다시
+                로그인하면서 바꿀 수 있어요.
+              </p>
               {error && <p className="auth__error">{error}</p>}
               <button type="submit" className="create__submit-btn" disabled={submitting}>
                 {submitting ? '로그인 중...' : '로그인'}

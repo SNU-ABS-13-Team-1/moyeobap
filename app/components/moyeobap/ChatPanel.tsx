@@ -39,6 +39,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
     setSending(false);
   }
 
+  async function handleShareAccount() {
+    if (sending) return;
+    setSending(true);
+    await fetch(`/api/pots/${potId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shareAccount: true }),
+    });
+    await mutate();
+    setSending(false);
+  }
+
   return (
     <div className="chat-panel">
       <div className="chat-panel__list" ref={listRef}>
@@ -53,10 +65,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
             {m.authorId !== currentUser.id && (
               <span className="chat-panel__author">{m.authorName}</span>
             )}
-            <span className="chat-panel__bubble">{m.text}</span>
+            <span
+              className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
+            >
+              {m.text}
+            </span>
           </div>
         ))}
       </div>
+      {currentUser.bankAccount && (
+        <button
+          type="button"
+          className="chat-panel__account-btn"
+          onClick={handleShareAccount}
+          disabled={sending}
+        >
+          💳 계좌번호 전송
+        </button>
+      )}
       <form className="chat-panel__form" onSubmit={handleSubmit}>
         <input
           type="text"

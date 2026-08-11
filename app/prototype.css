@@ -1286,3 +1286,60 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.auth__field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: left;
+  margin-top: -4px;
+}
+
+.chat-panel__bubble--account {
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.3);
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.chat-panel__message--mine .chat-panel__bubble--account {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #fff;
+}
+
+.chat-panel__account-btn {
+  margin: 0 var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  background: rgba(217, 119, 6, 0.08);
+  color: var(--amber);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chat-panel__account-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create__restaurant-group + .create__restaurant-group {
+  margin-top: var(--space-sm);
+}
+
+.create__restaurant-group-label {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 4px;
+}

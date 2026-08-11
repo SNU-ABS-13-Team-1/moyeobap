@@ -69,11 +69,11 @@ export default function HomePage() {
     }
   }
 
-  async function handleLogin(email: string, name: string): Promise<string | null> {
+  async function handleLogin(email: string, name: string, bankAccount: string): Promise<string | null> {
     const resp = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email, name, bankAccount }),
     });
     const data = await resp.json();
     if (!resp.ok) return data.error ?? '로그인에 실패했어요.';

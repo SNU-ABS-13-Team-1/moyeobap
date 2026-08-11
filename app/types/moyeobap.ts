@@ -8,6 +8,8 @@ export interface Restaurant {
   name: string;
   emoji: string;
   category: 'lunch' | 'cafe';
+  /** 배민 소분류(한식/중식/일식/양식/치킨/피자/족발/보쌈/카페/디저트 등). 목록 그룹핑용. 직접 추가한 매장은 없을 수 있습니다. */
+  subCategory?: string;
   minOrder: number;
   deliveryTime: string;
   menus: Menu[];
@@ -25,6 +27,8 @@ export interface User {
   id: string;
   name: string;
   initial: string;
+  /** 선택 입력. 채팅방에서 "계좌번호 전송" 버튼을 누르면 이 값을 그대로 공유합니다. */
+  bankAccount?: string;
 }
 
 export interface ChatMessage {
@@ -34,6 +38,8 @@ export interface ChatMessage {
   authorName: string;
   text: string;
   createdAt: string;
+  /** 'account'면 계좌번호 공유 메시지 — 채팅에서 살짝 다르게 표시합니다. */
+  kind?: 'text' | 'account';
 }
 
 export interface Pot {
