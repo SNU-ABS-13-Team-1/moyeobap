@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Pot, Restaurant } from '../../types/moyeobap';
 import { getTimeRemaining, formatTime } from '../../lib/moyeobap-utils';
 
@@ -7,9 +8,8 @@ interface PotCardProps {
   isAuthenticated: boolean;
   now: number;
   index: number;
-  onCardClick: (potId: string) => void;
   onJoinClick: (potId: string) => void;
-  onOpenAuth: () => void;
+  onOpenAuth: (potId: string) => void;
 }
 
 export function PotCard({
@@ -18,7 +18,6 @@ export function PotCard({
   isAuthenticated,
   now,
   index,
-  onCardClick,
   onJoinClick,
   onOpenAuth,
 }: PotCardProps) {
@@ -52,7 +51,7 @@ export function PotCard({
       className={cardClasses}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <button className="card__details" onClick={() => onCardClick(pot.id)} type="button">
+      <Link className="card__details" href={`/pots/${encodeURIComponent(pot.id)}`}>
         <div className="card__header">
           <div className="card__badges">
             <span className={`card__category ${catClass}`}>{catLabel}</span>
@@ -68,7 +67,7 @@ export function PotCard({
           <span>마감까지</span>
           <span className={`card__timer ${isUrgent && !isClosed ? 'card__timer--urgent' : ''}`}>{timeStr}</span>
         </div>
-      </button>
+      </Link>
 
       <div className="card__footer">
         <div className="card__participants">
@@ -77,31 +76,32 @@ export function PotCard({
           </span>
         </div>
 
-        <button
-          className={`card__join-btn ${
-            isParticipating
-              ? 'card__join-btn--joined'
-              : isClosed
-              ? 'card__join-btn--closed'
-              : !isAuthenticated
-              ? 'card__join-btn--login'
-              : 'card__join-btn--join'
-          }`}
-          type="button"
-          onClick={() => {
-            // 마감된 방이어도 이미 참여 중인 사람은 계속 들어가서 채팅할 수 있어야 해서,
-            // 마감 여부보다 참여 여부를 먼저 확인합니다.
-            if (isParticipating) {
-              onCardClick(pot.id);
-              return;
-            }
-            if (isClosed) return;
-            if (!isAuthenticated) onOpenAuth();
-            else onJoinClick(pot.id);
-          }}
-        >
-          {isParticipating ? '탑승중 ✓' : isClosed ? '마감' : !isAuthenticated ? '로그인 후 참여' : '탑승하기'}
-        </button>
+        {isParticipating ? (
+          <Link
+            className="card__join-btn card__join-btn--joined"
+            href={`/pots/${encodeURIComponent(pot.id)}`}
+          >
+            탑승중 ✓
+          </Link>
+        ) : (
+          <button
+            className={`card__join-btn ${
+              isClosed
+                ? 'card__join-btn--closed'
+                : !isAuthenticated
+                ? 'card__join-btn--login'
+                : 'card__join-btn--join'
+            }`}
+            disabled={isClosed}
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) onOpenAuth(pot.id);
+              else onJoinClick(pot.id);
+            }}
+          >
+            {isClosed ? '마감' : !isAuthenticated ? '로그인 후 참여' : '탑승하기'}
+          </button>
+        )}
       </div>
     </article>
   );

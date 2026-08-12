@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+import "./prototype.css";
+import { AuthProvider } from "./components/moyeobap/AuthProvider";
+import { Header } from "./components/moyeobap/Header";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -48,9 +51,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html data-scroll-behavior="smooth" lang="ko">
       <body>
-        {children}
+        <AuthProvider>
+          <div className="moyeobap-body">
+            <div className="app">
+              <Header />
+              {children}
+            </div>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

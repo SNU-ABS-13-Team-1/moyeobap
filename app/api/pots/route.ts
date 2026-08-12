@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
   if (!restaurant) {
     return NextResponse.json({ error: "존재하지 않는 매장이에요." }, { status: 404 });
   }
-  if (!Number.isFinite(minutes) || minutes < 5 || minutes > 180) {
-    return NextResponse.json({ error: "마감 시간은 5~180분 사이로 설정해주세요." }, { status: 400 });
+  if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) {
+    return NextResponse.json({ error: "마감 시간은 5분~24시간 사이로 설정해주세요." }, { status: 400 });
   }
-  if (maxParticipants !== null && (!Number.isFinite(maxParticipants) || maxParticipants < 2 || maxParticipants > 50)) {
+  if (maxParticipants !== null && (!Number.isInteger(maxParticipants) || maxParticipants < 2 || maxParticipants > 50)) {
     return NextResponse.json({ error: "정원은 2~50명 사이로 설정해주세요." }, { status: 400 });
   }
 

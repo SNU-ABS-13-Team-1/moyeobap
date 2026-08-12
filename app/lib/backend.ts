@@ -70,6 +70,7 @@ export function toPotView(pot: ServerPot, currentUser: User | null): SerializedP
         }))
       : null,
     isParticipating,
+    isManaging: Boolean(currentUser && pot.managerId === currentUser.id),
     status: pot.status,
     maxParticipants: pot.maxParticipants,
   };

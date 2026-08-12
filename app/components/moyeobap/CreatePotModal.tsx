@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { Restaurant } from '../../types/moyeobap';
-import { Modal } from './Modal';
 
-interface CreatePotModalProps {
+interface CreatePotFormProps {
   restaurants: Restaurant[];
-  onClose: () => void;
   onCreateCustomRestaurant: (input: {
     name: string;
     category: 'lunch' | 'cafe';
@@ -12,7 +10,8 @@ interface CreatePotModalProps {
   onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => Promise<string | null>;
 }
 
-const CAP_OPTIONS = [2, 3, 4, 6, 8];
+const DEADLINE_OPTIONS = [15, 20, 30, 45, 60, 120, 180];
+const MAX_DEADLINE_MINUTES = 24 * 60;
 
 // 카테고리 시트에 있는 소분류 순서와 맞춰뒀습니다. 여기 없는 값(직접 추가한 매장 등)은 뒤로 밀립니다.
 const SUB_CATEGORY_ORDER = [
@@ -34,17 +33,18 @@ function groupBySubCategory(list: Restaurant[]) {
   return orderedKeys.map(key => ({ key, items: groups.get(key)! }));
 }
 
-export function CreatePotModal({
+export function CreatePotForm({
   restaurants,
-  onClose,
   onCreateCustomRestaurant,
   onSubmit,
-}: CreatePotModalProps) {
+}: CreatePotFormProps) {
   const [mode, setMode] = useState<'list' | 'custom'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [selectedMinutes, setSelectedMinutes] = useState(30);
-  const [selectedCap, setSelectedCap] = useState<number | null>(null);
+  const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
+  const [customMinutes, setCustomMinutes] = useState('90');
+  const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
+  const [participantLimit, setParticipantLimit] = useState('4');
   const [customName, setCustomName] = useState('');
   const [customCategory, setCustomCategory] = useState<'lunch' | 'cafe'>('lunch');
   const [submitting, setSubmitting] = useState(false);
@@ -60,7 +60,17 @@ export function CreatePotModal({
     return groupBySubCategory(filtered);
   }, [restaurants, searchTerm]);
 
-  const canSubmit = mode === 'list' ? Boolean(selectedRestaurantId) : customName.trim().length > 0;
+  const selectedMinutes = deadlineChoice === 'custom' ? Number(customMinutes) : deadlineChoice;
+  const selectedCap = hasParticipantLimit ? Number(participantLimit) : null;
+  const hasValidRestaurant = mode === 'list'
+    ? Boolean(selectedRestaurantId)
+    : customName.trim().length > 0;
+  const hasValidDeadline = Number.isInteger(selectedMinutes)
+    && selectedMinutes >= 5
+    && selectedMinutes <= MAX_DEADLINE_MINUTES;
+  const hasValidCap = selectedCap === null
+    || (Number.isInteger(selectedCap) && selectedCap >= 2 && selectedCap <= 50);
+  const canSubmit = hasValidRestaurant && hasValidDeadline && hasValidCap;
 
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
@@ -87,19 +97,8 @@ export function CreatePotModal({
     }
   }
 
-  const footer = (
-    <button
-      className="create__submit-btn"
-      disabled={!canSubmit || submitting}
-      onClick={handleSubmit}
-      type="button"
-    >
-      {submitting ? '만드는 중...' : '팟 만들기 🚀'}
-    </button>
-  );
-
   return (
-    <Modal footer={footer} onClose={onClose} title="🍚 새 팟 만들기">
+    <section className="create-page__form" aria-label="새 팟 정보">
           <div className="create__mode-tabs">
             <button
               type="button"
@@ -195,45 +194,99 @@ export function CreatePotModal({
               <div className="create__time-section">
                 <label className="create__time-label">⏰ 마감 시간 설정</label>
                 <div className="create__time-options">
-                  {[15, 20, 30, 45, 60].map(mins => (
+                  {DEADLINE_OPTIONS.map(mins => (
                     <button
                       key={mins}
-                      className={`create__time-option ${selectedMinutes === mins ? 'create__time-option--selected' : ''}`}
-                      onClick={() => setSelectedMinutes(mins)}
+                      className={`create__time-option ${deadlineChoice === mins ? 'create__time-option--selected' : ''}`}
+                      onClick={() => setDeadlineChoice(mins)}
                       type="button"
                     >
-                      +{mins === 60 ? '1시간' : `${mins}분`}
+                      +{mins >= 60 ? `${mins / 60}시간` : `${mins}분`}
                     </button>
                   ))}
+                  <button
+                    aria-pressed={deadlineChoice === 'custom'}
+                    className={`create__time-option ${deadlineChoice === 'custom' ? 'create__time-option--selected' : ''}`}
+                    onClick={() => setDeadlineChoice('custom')}
+                    type="button"
+                  >
+                    직접 설정
+                  </button>
                 </div>
+                {deadlineChoice === 'custom' && (
+                  <label className="create__number-field">
+                    <span>몇 분 뒤에 마감할까요?</span>
+                    <span className="create__number-control">
+                      <input
+                        aria-describedby="deadline-hint"
+                        className="create__number-input"
+                        inputMode="numeric"
+                        max={MAX_DEADLINE_MINUTES}
+                        min={5}
+                        onChange={(event) => setCustomMinutes(event.target.value)}
+                        step={1}
+                        type="number"
+                        value={customMinutes}
+                      />
+                      <span>분 후</span>
+                    </span>
+                    <small id="deadline-hint">5분부터 최대 24시간(1,440분)까지 설정할 수 있어요.</small>
+                  </label>
+                )}
               </div>
 
               <div className="create__time-section">
                 <label className="create__time-label">👥 최대 인원 (선택)</label>
                 <div className="create__time-options">
                   <button
-                    className={`create__time-option ${selectedCap === null ? 'create__time-option--selected' : ''}`}
-                    onClick={() => setSelectedCap(null)}
+                    aria-pressed={!hasParticipantLimit}
+                    className={`create__time-option ${!hasParticipantLimit ? 'create__time-option--selected' : ''}`}
+                    onClick={() => setHasParticipantLimit(false)}
                     type="button"
                   >
                     제한 없음
                   </button>
-                  {CAP_OPTIONS.map(cap => (
-                    <button
-                      key={cap}
-                      className={`create__time-option ${selectedCap === cap ? 'create__time-option--selected' : ''}`}
-                      onClick={() => setSelectedCap(cap)}
-                      type="button"
-                    >
-                      {cap}명
-                    </button>
-                  ))}
+                  <button
+                    aria-pressed={hasParticipantLimit}
+                    className={`create__time-option ${hasParticipantLimit ? 'create__time-option--selected' : ''}`}
+                    onClick={() => setHasParticipantLimit(true)}
+                    type="button"
+                  >
+                    인원 제한 설정
+                  </button>
                 </div>
+                {hasParticipantLimit && (
+                  <label className="create__number-field">
+                    <span>최대 몇 명까지 받을까요?</span>
+                    <span className="create__number-control">
+                      <input
+                        className="create__number-input"
+                        inputMode="numeric"
+                        max={50}
+                        min={2}
+                        onChange={(event) => setParticipantLimit(event.target.value)}
+                        step={1}
+                        type="number"
+                        value={participantLimit}
+                      />
+                      <span>명</span>
+                    </span>
+                    <small>2명부터 50명까지 입력할 수 있어요.</small>
+                  </label>
+                )}
               </div>
             </>
           )}
 
           {error && <p className="auth__error">{error}</p>}
-    </Modal>
+          <button
+            className="create__submit-btn"
+            disabled={!canSubmit || submitting}
+            onClick={handleSubmit}
+            type="button"
+          >
+            {submitting ? '만드는 중...' : '팟 만들기 🚀'}
+          </button>
+    </section>
   );
 }
