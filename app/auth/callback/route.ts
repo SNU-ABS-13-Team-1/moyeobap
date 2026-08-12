@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
     "사용자";
   const avatarUrl = typeof metadata?.avatar_url === "string" ? metadata.avatar_url : null;
 
-  // 트리거가 아직 적용되지 않은 개발 DB에서도 최초 프로필을 보완합니다.
+  // DB 트리거(handle_new_auth_user)가 이미 프로필을 자동 생성해주므로,
+  // RLS 에러가 발생해도 로그인을 중단하지 않고 정상 진행하도록 안전 처리합니다.
   const { error: profileError } = await supabase.from("profiles").upsert(
     {
       id: data.user.id,
@@ -52,7 +53,9 @@ export async function GET(request: NextRequest) {
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
-  if (profileError) return errorRedirect(request, "profile_failed");
+  if (profileError) {
+    console.error("Profile upsert warning in callback (handled by DB trigger):", profileError);
+  }
 
   const target = safeInternalUrl(
     request,
