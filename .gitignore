@@ -15,7 +15,6 @@
 
 # next.js
 /.next/
-/.vinext/
 /out/
 
 # misc
@@ -36,8 +35,6 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
-/dist/
-/.wrangler/
 /outputs/
 /work/
 
@@ -65,3 +62,8 @@ __pycache__/
 
 # 백업 파일
 *.bak
+
+# 빌드 산출물
+/.wrangler/
+/dist/
+tsconfig.tsbuildinfo

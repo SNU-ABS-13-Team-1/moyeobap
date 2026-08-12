@@ -12,9 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "모여밥 | 시흥캠퍼스 익명 공동주문";
+  const title = "모여밥 | 시흥캠퍼스 공동주문 현황";
   const description =
-    "음식점별 현재 인원을 보고 이미지, 이름과 가격으로 메뉴를 고르는 시흥캠퍼스 익명 수요 상황판";
+    "모집 마감 시간과 참여 인원을 확인하고 원하는 음식점의 공동주문에 참여하는 시흥캠퍼스 실시간 현황판";
 
   return {
     title,
@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: `${origin}/og-v2.png`,
           width: 1734,
           height: 907,
-          alt: "모여밥 — 몇 명이 골랐을까요?",
+          alt: "모여밥 — 시흥캠퍼스 실시간 공동주문 현황",
         },
       ],
     },
@@ -49,7 +49,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }
