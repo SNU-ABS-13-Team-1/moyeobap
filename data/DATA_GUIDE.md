@@ -43,9 +43,10 @@ scripts/
 ├─ xlsx_to_csv.py          엑셀 → CSV 정본
 └─ csv-to-ts.mjs           CSV → 앱 데이터
 data/
-├─ capture_GJ_v2/          (캡처 원본 + extracted.json)
-├─ dossier sans titre/
-├─ 최지원카페2차/
+├─ capture_GJ/             (1차 캡처 extracted.json, 매장번호 1~15)
+├─ capture_GJ_v2/          (2차 캡처 extracted.json)
+├─ dossier sans titre/     (2차)
+├─ 최지원카페2차/           (2차)
 ├─ restaurants.csv         ← 정본
 ├─ menus.csv               ← 정본
 ├─ sources.csv
@@ -132,8 +133,8 @@ store-1-menu-1,store-1,김치찌개,9000,
 
 ```csv
 restaurant_id,source_url,checked_at,note
-cafe_001,https://example.com/place/1,2026-07-23,
-cafe_002,https://example.com/place/2,2026-07-23,
+store-1,배민 앱 / ○○식당 배곧점 / 가게정보 화면,2026-07-23,
+store-31,배민 앱 / ○○커피 배곧점 / 메뉴 화면,2026-07-23,
 ```
 
 필드 규칙:

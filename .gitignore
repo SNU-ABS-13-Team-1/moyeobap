@@ -44,7 +44,7 @@ next-env.d.ts
 # archived previous prototype (kept locally for reference only)
 /_archive_*/
 
-# python cache (menu parsing script)
+# python cache (scripts/xlsx_to_csv.py)
 __pycache__/
 *.pyc
 

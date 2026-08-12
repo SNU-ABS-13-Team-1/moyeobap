@@ -8,7 +8,7 @@ export interface Restaurant {
   name: string;
   emoji: string;
   category: 'lunch' | 'cafe';
-  /** 배민 소분류(한식/중식/일식/양식/치킨/피자/족발/보쌈/카페/디저트 등). 목록 그룹핑용. 직접 추가한 매장은 없을 수 있습니다. */
+  /** 배민 소분류 14종(한식/중식/찜·탕/족발·보쌈/카페·디저트 등, data/DATA_GUIDE.md 참고). 목록 그룹핑용. 직접 추가한 매장은 없을 수 있습니다. */
   subCategory?: string;
   minOrder: number;
   deliveryTime: string;

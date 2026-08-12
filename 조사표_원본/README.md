@@ -22,10 +22,15 @@
 13종에서 **14종(도시락 추가)** 으로 늘었습니다. 2차 수집에 도시락 매장이
 포함되어 있어 되살린 분류입니다.
 
-## 2차 캡처 추출 결과
+## 캡처 추출 결과
 
 배민 앱 화면 캡처에서 뽑아낸 매장·메뉴 구조화 결과는 캡처 폴더 안에 있습니다.
 
-- `data/dossier sans titre/extracted.json` (20곳)
-- `data/capture_GJ_v2/extracted.json` (32곳)
-- `data/최지원카페2차/extracted.json` (22곳)
+- `data/capture_GJ/extracted.json` (15건) — **1차** 캡처, 매장번호 1~15
+- `data/capture_GJ_v2/extracted.json` (32건) — 2차
+- `data/dossier sans titre/extracted.json` (20건) — 2차
+- `data/최지원카페2차/extracted.json` (22건) — 2차
+
+2차 폴더 3개의 기록은 합해서 74건이지만 통합 파일에 새로 들어간 매장은
+66곳이 맞습니다. 차이 8건의 내역: 1차 조사 매장을 다시 캡처한 재캡처 4곳,
+폴더 간 중복 기록 3건, 통합 파일에 반영하지 않은 1곳(샐러디 배곧점).

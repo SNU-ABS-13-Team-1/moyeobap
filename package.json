@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern '_archive_*'",
     "data:build": "node scripts/csv-to-ts.mjs"
   },
   "dependencies": {
