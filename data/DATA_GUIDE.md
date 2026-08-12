@@ -10,28 +10,47 @@
 
 수집한 원본과 앱에서 사용하는 정리본을 구분합니다.
 
-- `시흥캠퍼스_식당카페_조사표_통합.xlsx` (저장소 루트): **최종 조사 데이터.**
-  음식점·카페 정보를 여기 하나로 모읍니다.
+- `data/restaurants.csv`, `data/menus.csv`: **정본.** 앱이 참조하는 값은
+  전부 여기서 나옵니다.
+- `시흥캠퍼스_식당카페_조사표_통합.xlsx` (저장소 루트): 팀이 수집·검수하는
+  작업 파일. 조사는 여기서 하고, 끝나면 CSV로 내보냅니다.
 - `조사표_원본/`: 빈 템플릿과 개인별 조사표 등 작업 중간 산출물
 - `data/<캡처폴더>/extracted.json`: 배민 화면 캡처에서 뽑아낸 매장·메뉴 원본
-- `data/restaurants.csv`: 검토가 끝난 음식점·카페 정보
-- `data/menus.csv`: 앱에 표시할 메뉴 정보
 - `data/sources.csv`: 데이터 출처와 확인 날짜
+- `app/data/restaurants.ts`: **생성물.** 직접 고치지 않습니다.
+
+데이터가 흐르는 순서는 하나뿐입니다.
+
+```text
+배민 앱 화면 캡처
+→ AI OCR (data/<캡처폴더>/extracted.json)
+→ 조사표 엑셀에 기입·검수
+→ python3 scripts/xlsx_to_csv.py   (엑셀 → CSV 정본)
+→ npm run data:build               (CSV → app/data/restaurants.ts)
+→ 웹에 표시
+```
+
+CSV를 직접 고쳤다면 엑셀에도 같은 내용을 반영하세요. 다음에 임포터를 돌리면
+엑셀 내용으로 되돌아갑니다.
 
 원본 자료에는 수집 당시의 정보를 최대한 보존할 수 있습니다. 앱용 정리본에는
 현재 화면에 필요한 필드만 넣습니다.
 
 ```text
-시흥캠퍼스_식당카페_조사표_통합.xlsx   ← 최종 데이터
+시흥캠퍼스_식당카페_조사표_통합.xlsx   ← 수집·검수 작업 파일
 조사표_원본/                        ← 템플릿·개인 조사표
+scripts/
+├─ xlsx_to_csv.py          엑셀 → CSV 정본
+└─ csv-to-ts.mjs           CSV → 앱 데이터
 data/
 ├─ capture_GJ_v2/          (캡처 원본 + extracted.json)
 ├─ dossier sans titre/
 ├─ 최지원카페2차/
-├─ restaurants.csv
-├─ menus.csv
+├─ restaurants.csv         ← 정본
+├─ menus.csv               ← 정본
 ├─ sources.csv
 └─ DATA_GUIDE.md
+app/data/restaurants.ts    ← 생성물 (직접 수정 금지)
 ```
 
 ## 2. 음식점·카페 정보
@@ -39,26 +58,39 @@ data/
 `restaurants.csv`에는 음식점이나 카페 한 곳을 한 줄로 작성합니다.
 
 ```csv
-restaurant_id,name,type,category,image_url
-rest_001,○○식당 배곧점,restaurant,한식,
-cafe_001,○○커피 배곧점,cafe,카페,
+restaurant_id,name,type,category,min_order,delivery_time,address,phone,business_hours,closed_days,rating,image_url
+store-1,○○식당 배곧점,restaurant,한식,12000,35~50,경기 시흥시 배곧4로 00,031-000-0001,10:00~22:00,매주 월요일,4.6,
+store-31,○○커피 배곧점,cafe,카페·디저트,9000,20~35,경기 시흥시 배곧4로 11,031-000-0002,08:00~22:00,연중무휴,4.8,
 ```
 
 필드 규칙:
 
-- `restaurant_id`: 음식점·카페 고유 ID입니다. 중복되거나 변경되면 안 됩니다.
+- `restaurant_id`: `store-` 뒤에 조사표의 매장번호를 붙입니다. 중복되거나
+  변경되면 안 됩니다. 앱의 매장 ID와 같은 값이라, 바꾸면 진행 중인 모집이
+  매장을 잃어버립니다.
 - `name`: 지도나 주문 페이지에서 확인한 지점명을 그대로 작성합니다.
 - `type`: 음식점은 `restaurant`, 카페는 `cafe`로 작성합니다.
+- `min_order`: 최소주문금액을 쉼표와 `원` 없이 정수로 씁니다.
+- `delivery_time`: 조사표의 예측 배달시간을 그대로 씁니다. 예: `35~50`
+  (앱에서 `분`을 붙여 표시하므로 단위는 넣지 않습니다.)
+- `address`, `phone`, `business_hours`, `closed_days`: 확인한 값을 그대로
+  씁니다. 확인하지 못했다면 비워둡니다. 빈 값은 앱 화면에서 항목 자체가
+  빠집니다.
+- `rating`: 매장 평점을 숫자로 씁니다. 예: `4.6`
 - `category`: 조사표의 소분류 값을 그대로 사용합니다. 배달의민족 '음식배달 홈'
-  카테고리 15종에서 음식 분류가 아닌 도시락·야식을 뺀 13종입니다.
+  카테고리 15종에서 시간대 분류인 야식만 뺀 14종입니다.
 
   | 대분류 | 소분류 |
   |---|---|
-  | `restaurant` | 분식, 중식, 패스트푸드, 치킨, 한식, 피자, 찜·탕, 돈까스·회, 양식, 아시안, 고기, 족발·보쌈 |
+  | `restaurant` | 분식, 중식, 패스트푸드, 치킨, 한식, 피자, 찜·탕, 돈까스·회, 양식, 아시안, 고기, 족발·보쌈, 도시락 |
   | `cafe` | 카페·디저트 |
 
   가운뎃점은 `·`(U+00B7)로 통일합니다. 배민은 한 가게를 최대 3개 카테고리에
   등록하지만, 조사표는 매장당 1개만 부여합니다.
+
+  도시락은 초안에서 제외했다가 2차 수집에 실제로 포함되어 되살린 분류입니다.
+  야식은 음식 종류가 아니라 영업 시간대 기준이고 점심 공동주문과 무관하므로
+  계속 제외합니다.
 - `image_url`: 사용 허가를 확인한 대표 이미지의 로컬 경로나 `https`
   주소입니다. 확인하지 못했다면 비워둡니다.
 
@@ -68,14 +100,15 @@ cafe_001,○○커피 배곧점,cafe,카페,
 
 ```csv
 menu_id,restaurant_id,name,price,image_url
-cafe_001_menu_001,cafe_001,(아이스)아메리카노,2500,
-cafe_001_menu_002,cafe_001,(핫)아메리카노,2000,
-rest_001_menu_001,rest_001,김치찌개,9000,
+store-31-menu-1,store-31,(아이스)아메리카노,2500,
+store-31-menu-2,store-31,(핫)아메리카노,2000,
+store-1-menu-1,store-1,김치찌개,9000,
 ```
 
 필드 규칙:
 
-- `menu_id`: 전체 메뉴에서 중복되지 않는 고유 ID입니다.
+- `menu_id`: `<restaurant_id>-menu-<메뉴순번>` 형식입니다. 전체 메뉴에서
+  중복되지 않아야 합니다.
 - `restaurant_id`: `restaurants.csv`에 존재하는 음식점·카페 ID만
   사용합니다.
 - `name`: 사용자가 메뉴를 구분할 수 있는 실제 메뉴명입니다.
