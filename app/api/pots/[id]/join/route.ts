@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, savePot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -25,6 +25,11 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
   pot.participants.push({ ...user, joinedAt: Date.now() });
   pot.status = deriveStatus(pot);
   await savePot(pot);
+  await logEvent("pot_joined", pot, user.id);
+  // 이 참여로 정원이 차서 바로 마감된 경우, 마감도 별도 사건으로 남깁니다.
+  if (pot.status !== "active") {
+    await logEvent(pot.status === "closed" ? "pot_closed" : "pot_failed", pot);
+  }
 
   return NextResponse.json({ pot });
 }

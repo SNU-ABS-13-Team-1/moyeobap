@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { getAnyRestaurant, listPots, savePot, type ServerPot } from "@/app/lib/backend";
+import { getAnyRestaurant, listPots, logEvent, savePot, type ServerPot } from "@/app/lib/backend";
 
 export async function GET() {
   const pots = await listPots();
@@ -48,5 +48,6 @@ export async function POST(req: NextRequest) {
   };
 
   await savePot(pot);
+  await logEvent("pot_created", pot, user.id);
   return NextResponse.json({ pot }, { status: 201 });
 }

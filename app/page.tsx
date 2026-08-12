@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import './prototype.css';
-import { User, Pot, Restaurant, ToastNotice as ToastNoticeType } from './types/moyeobap';
+import { User, Pot, PotFilter, Restaurant, ToastNotice as ToastNoticeType } from './types/moyeobap';
 import { triggerConfetti } from './lib/moyeobap-utils';
 import { fetcher } from './lib/fetcher';
 import { Header } from './components/moyeobap/Header';
@@ -21,7 +21,7 @@ function toPot(serverPot: ServerPot): Pot {
 }
 
 export default function HomePage() {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'lunch' | 'cafe'>('all');
+  const [activeFilter, setActiveFilter] = useState<PotFilter>('all');
   const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
 
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -154,17 +154,22 @@ export default function HomePage() {
     triggerConfetti();
   }
 
+  const closedPotsCount = pots.filter((p) => p.status !== 'active').length;
+
   const filteredPots = pots
     .filter((p) => {
+      // 마감된 팟은 '마감' 탭에서만 보여준다.
+      if (activeFilter === 'closed') return p.status !== 'active';
+      if (p.status !== 'active') return false;
       if (activeFilter === 'all') return true;
       const r = restaurants.find((item) => item.id === p.restaurantId);
       return r?.category === activeFilter;
     })
-    .sort((a, b) => {
-      if (a.status === 'closed' && b.status !== 'closed') return 1;
-      if (a.status !== 'closed' && b.status === 'closed') return -1;
-      return a.deadline.getTime() - b.deadline.getTime();
-    });
+    .sort((a, b) =>
+      // 마감 탭은 최근에 끝난 팟부터, 나머지는 곧 마감되는 팟부터.
+      activeFilter === 'closed'
+        ? b.deadline.getTime() - a.deadline.getTime()
+        : a.deadline.getTime() - b.deadline.getTime());
 
   const activePotsCount = pots.filter((p) => p.status === 'active').length;
   const totalParticipantsCount = pots.reduce((sum, p) => sum + p.participants.length, 0);
@@ -184,6 +189,7 @@ export default function HomePage() {
           isAuthenticated={isAuthenticated}
           currentUser={currentUser}
           onAuthClick={handleAuthToggle}
+          closedPotsCount={closedPotsCount}
         />
 
         {/* Status Bar */}
@@ -196,9 +202,15 @@ export default function HomePage() {
         <main className="grid">
           {filteredPots.length === 0 ? (
             <div className="empty">
-              <div className="empty__emoji">🍽️</div>
-              <h2 className="empty__title">아직 열린 팟이 없어요</h2>
-              <p className="empty__desc">첫 번째 팟을 만들어 동료들을 모아보세요!</p>
+              <div className="empty__emoji">{activeFilter === 'closed' ? '📭' : '🍽️'}</div>
+              <h2 className="empty__title">
+                {activeFilter === 'closed' ? '마감된 팟이 없어요' : '아직 열린 팟이 없어요'}
+              </h2>
+              <p className="empty__desc">
+                {activeFilter === 'closed'
+                  ? '팟이 마감되면 여기로 옮겨집니다.'
+                  : '첫 번째 팟을 만들어 동료들을 모아보세요!'}
+              </p>
             </div>
           ) : (
             filteredPots.map((pot, index) => {

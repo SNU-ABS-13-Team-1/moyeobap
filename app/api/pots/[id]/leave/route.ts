@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { getPot, savePot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -14,7 +14,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "존재하지 않는 팟이에요." }, { status: 404 });
   }
 
-  if (pot.status !== "active") {
+  // 저장된 status가 아직 active여도 마감 시간이 지났으면 취소를 막습니다
+  // (참여 route와 같은 기준 — AGENTS.md: 마감 이후에는 신규 참여와 취소 모두 불허).
+  if (deriveStatus(pot) !== "active") {
     return NextResponse.json({ pot });
   }
 
@@ -25,6 +27,10 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     pot.status = "failed";
   }
   await savePot(pot);
+  await logEvent("pot_left", pot, user.id);
+  if (pot.status === "failed") {
+    await logEvent("pot_failed", pot);
+  }
 
   return NextResponse.json({ pot });
 }
