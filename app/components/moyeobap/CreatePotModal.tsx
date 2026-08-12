@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Restaurant } from '../../types/moyeobap';
+import { useMemo, useState } from 'react';
+import type { Restaurant } from '../../types/moyeobap';
+import { Modal } from './Modal';
 
 interface CreatePotModalProps {
   restaurants: Restaurant[];
@@ -8,7 +9,7 @@ interface CreatePotModalProps {
     name: string;
     category: 'lunch' | 'cafe';
   }) => Promise<string | null>;
-  onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => void;
+  onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => Promise<string | null>;
 }
 
 const CAP_OPTIONS = [2, 3, 4, 6, 8];
@@ -33,12 +34,12 @@ function groupBySubCategory(list: Restaurant[]) {
   return orderedKeys.map(key => ({ key, items: groups.get(key)! }));
 }
 
-export const CreatePotModal: React.FC<CreatePotModalProps> = ({
+export function CreatePotModal({
   restaurants,
   onClose,
   onCreateCustomRestaurant,
   onSubmit,
-}) => {
+}: CreatePotModalProps) {
   const [mode, setMode] = useState<'list' | 'custom'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
@@ -49,40 +50,56 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filteredRestaurants = restaurants.filter(r =>
-    r.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const groupedRestaurants = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLocaleLowerCase('ko');
+    const filtered = restaurants.filter((restaurant) =>
+      `${restaurant.name} ${restaurant.subCategory ?? ''}`
+        .toLocaleLowerCase('ko')
+        .includes(normalizedSearch),
+    );
+    return groupBySubCategory(filtered);
+  }, [restaurants, searchTerm]);
 
   const canSubmit = mode === 'list' ? Boolean(selectedRestaurantId) : customName.trim().length > 0;
 
   async function handleSubmit() {
+    if (!canSubmit || submitting) return;
     setError(null);
-    if (mode === 'list') {
-      if (selectedRestaurantId) onSubmit(selectedRestaurantId, selectedMinutes, selectedCap);
-      return;
-    }
-
     setSubmitting(true);
-    const restaurantId = await onCreateCustomRestaurant({
-      name: customName.trim(),
-      category: customCategory,
-    });
-    setSubmitting(false);
-    if (!restaurantId) {
-      setError('매장을 추가하지 못했어요. 다시 시도해주세요.');
-      return;
+    try {
+      let restaurantId = selectedRestaurantId;
+      if (mode === 'custom') {
+        restaurantId = await onCreateCustomRestaurant({
+          name: customName.trim(),
+          category: customCategory,
+        });
+        if (!restaurantId) {
+          setError('매장을 추가하지 못했어요. 다시 시도해주세요.');
+          return;
+        }
+      }
+
+      if (!restaurantId) return;
+      const submitError = await onSubmit(restaurantId, selectedMinutes, selectedCap);
+      if (submitError) setError(submitError);
+    } finally {
+      setSubmitting(false);
     }
-    onSubmit(restaurantId, selectedMinutes, selectedCap);
   }
 
+  const footer = (
+    <button
+      className="create__submit-btn"
+      disabled={!canSubmit || submitting}
+      onClick={handleSubmit}
+      type="button"
+    >
+      {submitting ? '만드는 중...' : '팟 만들기 🚀'}
+    </button>
+  );
+
   return (
-    <div className="modal-overlay modal-overlay--active" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal__header">
-          <h2 className="modal__title">🍚 새 팟 만들기</h2>
-          <button className="modal__close" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal__body">
+    <Modal footer={footer} onClose={onClose} title="🍚 새 팟 만들기">
           <div className="create__mode-tabs">
             <button
               type="button"
@@ -114,14 +131,15 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
               </div>
 
               <div className="create__restaurant-list">
-                {groupBySubCategory(filteredRestaurants).map(group => (
+                {groupedRestaurants.map(group => (
                   <div key={group.key} className="create__restaurant-group">
                     <p className="create__restaurant-group-label">{group.key}</p>
                     {group.items.map(r => (
-                      <div
+                      <button
                         key={r.id}
                         className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
                         onClick={() => setSelectedRestaurantId(r.id)}
+                        type="button"
                       >
                         <span className="create__restaurant-emoji">{r.emoji}</span>
                         <div className="create__restaurant-info">
@@ -130,10 +148,13 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
                             {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
                           </span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ))}
+                {groupedRestaurants.length === 0 && (
+                  <p className="create__empty-result">검색 결과가 없어요.</p>
+                )}
               </div>
             </>
           ) : (
@@ -146,7 +167,7 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
                 value={customName}
                 onChange={e => setCustomName(e.target.value)}
               />
-              <label className="create__time-label" style={{ marginTop: 'var(--space-md)' }}>종류</label>
+              <label className="create__time-label create__time-label--spaced">종류</label>
               <div className="create__time-options">
                 <button
                   type="button"
@@ -179,6 +200,7 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
                       key={mins}
                       className={`create__time-option ${selectedMinutes === mins ? 'create__time-option--selected' : ''}`}
                       onClick={() => setSelectedMinutes(mins)}
+                      type="button"
                     >
                       +{mins === 60 ? '1시간' : `${mins}분`}
                     </button>
@@ -192,6 +214,7 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
                   <button
                     className={`create__time-option ${selectedCap === null ? 'create__time-option--selected' : ''}`}
                     onClick={() => setSelectedCap(null)}
+                    type="button"
                   >
                     제한 없음
                   </button>
@@ -200,6 +223,7 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
                       key={cap}
                       className={`create__time-option ${selectedCap === cap ? 'create__time-option--selected' : ''}`}
                       onClick={() => setSelectedCap(cap)}
+                      type="button"
                     >
                       {cap}명
                     </button>
@@ -210,17 +234,6 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
           )}
 
           {error && <p className="auth__error">{error}</p>}
-        </div>
-        <div className="modal__footer">
-          <button
-            className="create__submit-btn"
-            disabled={!canSubmit || submitting}
-            onClick={handleSubmit}
-          >
-            {submitting ? '만드는 중...' : '팟 만들기 🚀'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
-};
+}

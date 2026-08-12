@@ -1,5 +1,5 @@
-export function getTimeRemaining(deadline: Date) {
-  const total = deadline.getTime() - Date.now();
+export function getTimeRemaining(deadline: Date, now = Date.now()) {
+  const total = deadline.getTime() - now;
   const minutes = Math.max(0, Math.floor(total / 60000));
   const seconds = Math.max(0, Math.floor((total / 1000) % 60));
   return {

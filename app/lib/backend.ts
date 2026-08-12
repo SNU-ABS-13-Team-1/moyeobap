@@ -1,6 +1,6 @@
 import { getRedis } from "./kv";
 import { RESTAURANTS } from "../data/restaurants";
-import type { ChatMessage, Restaurant, User } from "../types/moyeobap";
+import type { ChatMessage, Restaurant, SerializedPot, User } from "../types/moyeobap";
 
 export type ServerPot = {
   id: string;
@@ -10,7 +10,12 @@ export type ServerPot = {
   status: "active" | "closed" | "failed";
   maxParticipants: number | null;
   createdAt: string;
+  creatorId: string;
+  managerId: string | null;
 };
+
+type StoredPot = Omit<ServerPot, "creatorId" | "managerId"> &
+  Partial<Pick<ServerPot, "creatorId" | "managerId">>;
 
 const POT_INDEX_KEY = "moyeobap:pots:index";
 const potKey = (id: string) => `moyeobap:pot:${id}`;
@@ -28,6 +33,48 @@ const memoryMessages = new Map<string, ChatMessage[]>();
 const memoryCustomRestaurants = new Map<string, Restaurant>();
 const memoryCustomRestaurantIndex = new Set<string>();
 
+function normalizePot(pot: StoredPot): ServerPot {
+  const participants = pot.participants
+    .map((participant) => ({ ...participant }))
+    .sort((a, b) => a.joinedAt - b.joinedAt);
+  const firstParticipantId = participants[0]?.id ?? null;
+
+  return {
+    ...pot,
+    participants,
+    creatorId: pot.creatorId ?? firstParticipantId ?? "",
+    managerId: pot.managerId ?? firstParticipantId,
+  };
+}
+
+function clonePot(pot: ServerPot): ServerPot {
+  return { ...pot, participants: pot.participants.map((participant) => ({ ...participant })) };
+}
+
+/** API 응답에서 이메일 id와 계좌번호를 제거하고, 참여자에게만 신원을 공개합니다. */
+export function toPotView(pot: ServerPot, currentUser: User | null): SerializedPot {
+  const isParticipating = Boolean(
+    currentUser && pot.participants.some((participant) => participant.id === currentUser.id),
+  );
+
+  return {
+    id: pot.id,
+    restaurantId: pot.restaurantId,
+    deadline: pot.deadline,
+    participantCount: pot.participants.length,
+    participants: isParticipating
+      ? pot.participants.map((participant) => ({
+          name: participant.name,
+          initial: participant.initial,
+          isManager: participant.id === pot.managerId,
+        }))
+      : null,
+    isParticipating,
+    status: pot.status,
+    maxParticipants: pot.maxParticipants,
+  };
+}
+
 /** 마감 시간이 지났거나 정원이 찼는데 아직 반영 안 된 상태를 지금 시각 기준으로 계산합니다. */
 export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot["status"] {
   if (pot.status !== "active") return pot.status;
@@ -42,19 +89,24 @@ export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot[
 
 export async function savePot(pot: ServerPot): Promise<void> {
   const client = getRedis();
+  const snapshot = clonePot(pot);
   if (!client) {
-    memoryPots.set(pot.id, pot);
-    memoryPotIndex.add(pot.id);
+    memoryPots.set(snapshot.id, snapshot);
+    memoryPotIndex.add(snapshot.id);
     return;
   }
-  await client.set(potKey(pot.id), pot);
-  await client.sadd(POT_INDEX_KEY, pot.id);
+  await client.set(potKey(snapshot.id), snapshot);
+  await client.sadd(POT_INDEX_KEY, snapshot.id);
 }
 
 export async function getPot(id: string): Promise<ServerPot | null> {
   const client = getRedis();
-  if (!client) return memoryPots.get(id) ?? null;
-  return (await client.get<ServerPot>(potKey(id))) ?? null;
+  if (!client) {
+    const pot = memoryPots.get(id);
+    return pot ? clonePot(pot) : null;
+  }
+  const pot = await client.get<StoredPot>(potKey(id));
+  return pot ? normalizePot(pot) : null;
 }
 
 /** 마감/정원 도달로 상태가 바뀐 팟은 목록 조회 시점에 계산해서 반영(저장)합니다. */
@@ -64,26 +116,26 @@ export async function listPots(): Promise<ServerPot[]> {
 
   let pots: ServerPot[];
   if (!client) {
-    pots = [...memoryPotIndex].map((id) => memoryPots.get(id)).filter((p): p is ServerPot => Boolean(p));
+    pots = [...memoryPotIndex]
+      .map((id) => memoryPots.get(id))
+      .filter((pot): pot is ServerPot => Boolean(pot))
+      .map(clonePot);
   } else {
     const ids = await client.smembers(POT_INDEX_KEY);
     if (ids.length === 0) return [];
-    const items = await client.mget<ServerPot[]>(...ids.map(potKey));
-    pots = items.filter((p): p is ServerPot => Boolean(p));
+    const items = await client.mget<(StoredPot | null)[]>(...ids.map(potKey));
+    pots = items.filter((pot): pot is StoredPot => Boolean(pot)).map(normalizePot);
   }
 
-  const updated: ServerPot[] = [];
-  for (const pot of pots) {
+  return Promise.all(pots.map(async (pot) => {
     const nextStatus = deriveStatus(pot, now);
     if (nextStatus !== pot.status) {
       const changed = { ...pot, status: nextStatus };
       await savePot(changed);
-      updated.push(changed);
-    } else {
-      updated.push(pot);
+      return changed;
     }
-  }
-  return updated;
+    return pot;
+  }));
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<void> {
@@ -137,6 +189,13 @@ export async function addMessage(message: ChatMessage): Promise<void> {
 export async function listMessages(potId: string): Promise<ChatMessage[]> {
   const client = getRedis();
   if (!client) return memoryMessages.get(potId) ?? [];
-  const raw = await client.lrange<string>(potMessagesKey(potId), 0, -1);
-  return raw.map((entry) => (typeof entry === "string" ? JSON.parse(entry) : entry));
+  const raw = await client.lrange<ChatMessage | string>(potMessagesKey(potId), 0, -1);
+  return raw.flatMap((entry) => {
+    if (typeof entry !== "string") return [entry];
+    try {
+      return [JSON.parse(entry) as ChatMessage];
+    } catch {
+      return [];
+    }
+  });
 }

@@ -1,16 +1,14 @@
-import React from 'react';
-
 interface StatusBarProps {
   activePotsCount: number;
   totalParticipantsCount: number;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({
+export function StatusBar({
   activePotsCount,
   totalParticipantsCount,
-}) => {
+}: StatusBarProps) {
   return (
-    <div className="status-bar">
+    <div aria-live="polite" className="status-bar">
       <div className="status-bar__item">
         <span className="status-bar__dot status-bar__dot--live"></span>
         <span>진행중인 팟</span>
@@ -23,4 +21,4 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       </div>
     </div>
   );
-};
+}
