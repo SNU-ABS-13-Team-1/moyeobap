@@ -37,13 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authError = params.get('authError');
     if (!authError) return;
 
+    const errorMessage = authError === 'not_configured'
+      ? 'Supabase 로그인 환경 변수가 아직 설정되지 않았어요.'
+      : authError === 'profile_failed'
+        ? '로그인은 완료됐지만 프로필을 준비하지 못했어요. Supabase 마이그레이션을 확인해주세요.'
+        : 'Google 로그인을 완료하지 못했어요. 다시 시도해주세요.';
+
     const timer = window.setTimeout(() => {
-      showToast(
-        authError === 'not_configured'
-          ? 'Supabase 로그인 환경 변수가 아직 설정되지 않았어요.'
-          : 'Google 로그인을 완료하지 못했어요. 다시 시도해주세요.',
-        'error',
-      );
+      showToast(errorMessage, 'error');
       params.delete('authError');
       window.history.replaceState(
         null,
@@ -64,9 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function handleLogin(): Promise<string | null> {
     try {
+      await requestJson('/api/auth/return-path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnPath: authReturnPath }),
+      });
       const supabase = createSupabaseBrowserClient();
       const callbackUrl = new URL('/auth/callback', window.location.origin);
-      callbackUrl.searchParams.set('next', authReturnPath);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: callbackUrl.toString() },

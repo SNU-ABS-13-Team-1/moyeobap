@@ -1,21 +1,20 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseConfig } from "./supabase/config";
 
 let supabaseClient: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient | null {
   if (supabaseClient) return supabaseClient;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const config = getSupabaseConfig();
+  if (!config || config.url.includes("your-project-ref")) return null;
 
-  if (!url || !anonKey || url.includes("your-project-ref")) {
-    return null;
-  }
-
-  supabaseClient = createClient(url, anonKey, {
+  supabaseClient = createClient(config.url, config.publishableKey, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      // 사용자 세션은 @supabase/ssr 기반 browser/server 클라이언트가 관리합니다.
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
     },
   });
 

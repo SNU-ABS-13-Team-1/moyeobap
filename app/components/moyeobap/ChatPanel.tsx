@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import type { ChatMessageView, User } from '../../types/moyeobap';
 import { fetcher } from '../../lib/fetcher';
-import { getSupabase } from '../../lib/supabase';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 
 interface ChatPanelProps {
@@ -24,8 +24,13 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
 
   // Supabase Realtime 구독 설정 (새 메시지가 수신되면 Polling 대기 없이 즉시 화면 업데이트)
   useEffect(() => {
-    const supabase = getSupabase();
-    if (!supabase) return;
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch {
+      // Supabase 미설정 로컬 환경에서는 기존 3초 polling만 사용합니다.
+      return;
+    }
 
     const channel = supabase
       .channel(`chat-pot-${potId}`)

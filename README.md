@@ -23,6 +23,7 @@ Node.js 22.13 이상이 필요합니다.
 
 ```bash
 npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
@@ -46,6 +47,8 @@ UPSTASH_REDIS_REST_TOKEN=<Upstash REST token>
 Supabase Auth의 Redirect URLs에 로컬 `http://localhost:3000/auth/callback`과
 운영 도메인의 `/auth/callback`을 등록해야 합니다. 프로필 테이블과 RLS는
 `supabase/migrations/20260812000000_google_auth_profiles.sql`을 적용합니다.
+새 프로젝트라면 SQL Editor에서 먼저 `supabase/schema.sql`, 그다음 위
+migration을 순서대로 적용합니다.
 
 Vercel KV 이름을 사용하는 경우 `KV_REST_API_URL`, `KV_REST_API_TOKEN`도
 지원합니다. `.env*` 파일은 Git에서 제외됩니다.

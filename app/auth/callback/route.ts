@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "@/app/lib/supabase/config";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
+import { AUTH_RETURN_COOKIE, normalizeAuthReturnPath } from "@/app/lib/auth-return";
 
 function safeInternalUrl(request: NextRequest, value: string | null): URL {
   try {
@@ -14,9 +15,14 @@ function safeInternalUrl(request: NextRequest, value: string | null): URL {
 }
 
 function errorRedirect(request: NextRequest, reason: string) {
-  const target = new URL("/", request.nextUrl.origin);
+  const target = safeInternalUrl(
+    request,
+    normalizeAuthReturnPath(request.cookies.get(AUTH_RETURN_COOKIE)?.value),
+  );
   target.searchParams.set("authError", reason);
-  return NextResponse.redirect(target);
+  const response = NextResponse.redirect(target);
+  response.cookies.delete(AUTH_RETURN_COOKIE);
+  return response;
 }
 
 export async function GET(request: NextRequest) {
@@ -38,7 +44,7 @@ export async function GET(request: NextRequest) {
   const avatarUrl = typeof metadata?.avatar_url === "string" ? metadata.avatar_url : null;
 
   // 트리거가 아직 적용되지 않은 개발 DB에서도 최초 프로필을 보완합니다.
-  await supabase.from("profiles").upsert(
+  const { error: profileError } = await supabase.from("profiles").upsert(
     {
       id: data.user.id,
       display_name: displayName.slice(0, 40),
@@ -46,6 +52,13 @@ export async function GET(request: NextRequest) {
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
+  if (profileError) return errorRedirect(request, "profile_failed");
 
-  return NextResponse.redirect(safeInternalUrl(request, request.nextUrl.searchParams.get("next")));
+  const target = safeInternalUrl(
+    request,
+    normalizeAuthReturnPath(request.cookies.get(AUTH_RETURN_COOKIE)?.value),
+  );
+  const response = NextResponse.redirect(target);
+  response.cookies.delete(AUTH_RETURN_COOKIE);
+  return response;
 }
