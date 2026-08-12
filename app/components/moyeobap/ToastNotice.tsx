@@ -1,16 +1,15 @@
-import React from 'react';
-import { ToastNotice as ToastNoticeType } from '../../types/moyeobap';
+import type { ToastNotice as ToastNoticeType } from '../../types/moyeobap';
 
 interface ToastNoticeProps {
   toast: ToastNoticeType | null;
 }
 
-export const ToastNotice: React.FC<ToastNoticeProps> = ({ toast }) => {
+export function ToastNotice({ toast }: ToastNoticeProps) {
   if (!toast) return null;
 
   return (
-    <div className={`toast toast--${toast.type}`}>
+    <div aria-live="polite" className={`toast toast--${toast.type}`} role="status">
       {toast.message}
     </div>
   );
-};
+}

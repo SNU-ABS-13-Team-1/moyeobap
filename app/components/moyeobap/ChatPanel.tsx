@@ -1,22 +1,24 @@
-import React, { FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
-import { ChatMessage, User } from '../../types/moyeobap';
+import type { ChatMessageView, User } from '../../types/moyeobap';
 import { fetcher } from '../../lib/fetcher';
 import { getSupabase } from '../../lib/supabase';
+import { getErrorMessage, requestJson } from '../../lib/api-client';
 
 interface ChatPanelProps {
   potId: string;
   currentUser: User;
 }
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
-  const { data, mutate } = useSWR<{ messages: ChatMessage[] }>(
+export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
+  const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
     fetcher,
     { refreshInterval: 3000 },
   );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const messages = data?.messages ?? [];
 
@@ -56,40 +58,55 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
     if (!trimmed || sending) return;
 
     setSending(true);
-    setText('');
-    await fetch(`/api/pots/${potId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: trimmed }),
-    });
-    await mutate();
-    setSending(false);
+    setSendError(null);
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: trimmed }),
+      });
+      setText('');
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '메시지를 보내지 못했어요.'));
+    } finally {
+      setSending(false);
+    }
   }
 
   async function handleShareAccount() {
     if (sending) return;
     setSending(true);
-    await fetch(`/api/pots/${potId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shareAccount: true }),
-    });
-    await mutate();
-    setSending(false);
+    setSendError(null);
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareAccount: true }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '계좌번호를 보내지 못했어요.'));
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
     <div className="chat-panel">
       <div className="chat-panel__list" ref={listRef}>
-        {messages.length === 0 && (
+        {loadError && (
+          <p className="chat-panel__error" role="alert">대화를 불러오지 못했어요.</p>
+        )}
+        {!loadError && messages.length === 0 && (
           <p className="chat-panel__empty">아직 대화가 없어요. 첫 메시지를 남겨보세요!</p>
         )}
         {messages.map(m => (
           <div
             key={m.id}
-            className={`chat-panel__message ${m.authorId === currentUser.id ? 'chat-panel__message--mine' : ''}`}
+            className={`chat-panel__message ${m.isMine ? 'chat-panel__message--mine' : ''}`}
           >
-            {m.authorId !== currentUser.id && (
+            {!m.isMine && (
               <span className="chat-panel__author">{m.authorName}</span>
             )}
             <span
@@ -110,8 +127,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
           💳 계좌번호 전송
         </button>
       )}
+      {sendError && <p className="chat-panel__error" role="alert">{sendError}</p>}
       <form className="chat-panel__form" onSubmit={handleSubmit}>
         <input
+          aria-label="메시지"
           type="text"
           className="chat-panel__input"
           placeholder="메시지 보내기"
@@ -125,4 +144,4 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
       </form>
     </div>
   );
-};
+}

@@ -235,7 +235,7 @@
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  cursor: pointer;
+  cursor: default;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -263,12 +263,31 @@
 
 .card--closed {
   opacity: 0.5;
-  pointer-events: none;
 }
 
 .card--mine {
   border-color: rgba(22, 163, 74, 0.3);
   box-shadow: var(--shadow-sm), 0 0 0 1px rgba(22, 163, 74, 0.1);
+}
+
+.card__details {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.card__badges {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.card__emoji {
+  font-size: 1.8rem;
+  line-height: 1;
 }
 
 .card__header {
@@ -625,6 +644,10 @@
   color: var(--text-primary);
 }
 
+.detail__category {
+  display: inline-block;
+}
+
 .detail__timer-section {
   background: var(--bg-secondary);
   padding: 16px;
@@ -820,6 +843,8 @@
   align-items: center;
   gap: 12px;
   border: 1px solid transparent;
+  text-align: left;
+  width: 100%;
 }
 
 .create__restaurant-item:hover {
@@ -859,6 +884,17 @@
   color: var(--text-secondary);
   margin-bottom: 8px;
   display: block;
+}
+
+.create__time-label--spaced {
+  margin-top: var(--space-md);
+}
+
+.create__empty-result {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: var(--space-lg);
+  text-align: center;
 }
 
 .create__time-options {
@@ -913,6 +949,12 @@
 .create__submit-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.create__submit-btn--danger {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
 }
 
 /* ===== Auth Modal ===== */
@@ -1211,6 +1253,13 @@
   font-size: 0.85rem;
   text-align: center;
   margin: auto;
+}
+
+.chat-panel__error {
+  color: var(--warning);
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 8px var(--space-md);
 }
 
 .chat-panel__message {

@@ -21,13 +21,15 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 2. 팟 (pots) 테이블 생성
+-- 2. 팟 (pots) 테이블 생성 (생성자 및 현재 관리자 포함)
 CREATE TABLE IF NOT EXISTS public.pots (
     id TEXT PRIMARY KEY,
     restaurant_id TEXT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
     deadline TIMESTAMPTZ NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'closed', 'failed')) DEFAULT 'active',
     max_participants INTEGER,
+    creator_id TEXT,
+    manager_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

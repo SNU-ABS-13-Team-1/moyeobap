@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 화면 검토용으로 보관한 정적 프로토타입은 현재 앱 번들에 포함되지 않습니다.
+    "public/scratch-moyeobap/**",
   ]),
 ]);
 

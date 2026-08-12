@@ -1,11 +1,12 @@
-import React, { FormEvent, useState } from 'react';
+import { type FormEvent, useState } from 'react';
+import { Modal } from './Modal';
 
 interface AuthModalProps {
   onClose: () => void;
   onLogin: (email: string, name: string, bankAccount: string) => Promise<string | null>;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
+export function AuthModal({ onClose, onLogin }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [bankAccount, setBankAccount] = useState('');
@@ -16,19 +17,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const result = await onLogin(email, name, bankAccount);
-    setSubmitting(false);
-    if (result) setError(result);
+    try {
+      const result = await onLogin(email, name, bankAccount);
+      if (result) setError(result);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="modal-overlay modal-overlay--active" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal__header">
-          <h2 className="modal__title">로그인</h2>
-          <button className="modal__close" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal__body">
+    <Modal onClose={onClose} title="로그인">
           <div className="auth__content">
             <div className="auth__emoji">🍚</div>
             <h3 className="auth__title">모여밥에 오신 걸 환영해요!</h3>
@@ -36,6 +34,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
 
             <form className="auth__form" onSubmit={handleSubmit}>
               <input
+                aria-label="이메일"
                 type="email"
                 required
                 placeholder="이메일"
@@ -44,6 +43,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
                 className="auth__input"
               />
               <input
+                aria-label="이름"
                 type="text"
                 required
                 placeholder="이름"
@@ -52,6 +52,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
                 className="auth__input"
               />
               <input
+                aria-label="계좌번호"
                 type="text"
                 placeholder="계좌번호 (선택, 예: 카카오뱅크 3333-01-1234567)"
                 value={bankAccount}
@@ -73,8 +74,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLogin }) => {
             </div>
             <p className="auth__guest-note">로그인 없이도 현재 진행중인 팟을 구경할 수 있어요 👀</p>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
-};
+}

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { addMessage, getPot, listMessages } from "@/app/lib/backend";
-import type { ChatMessage } from "@/app/types/moyeobap";
+import type { ChatMessage, ChatMessageView } from "@/app/types/moyeobap";
 
 async function requireParticipant(potId: string, userId: string) {
   const pot = await getPot(potId);
@@ -26,7 +26,15 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const messages = await listMessages(id);
-  return NextResponse.json({ messages });
+  const view: ChatMessageView[] = messages.map((message) => ({
+    id: message.id,
+    authorName: message.authorName,
+    text: message.text,
+    createdAt: message.createdAt,
+    kind: message.kind,
+    isMine: message.authorId === user.id,
+  }));
+  return NextResponse.json({ messages: view });
 }
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -72,5 +80,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   };
   await addMessage(message);
 
-  return NextResponse.json({ message }, { status: 201 });
+  const view: ChatMessageView = {
+    id: message.id,
+    authorName: message.authorName,
+    text: message.text,
+    createdAt: message.createdAt,
+    kind: message.kind,
+    isMine: true,
+  };
+  return NextResponse.json({ message: view }, { status: 201 });
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, savePot } from "@/app/lib/backend";
+import { deriveStatus, getPot, savePot, toPotView } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -14,17 +14,19 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "존재하지 않는 팟이에요." }, { status: 404 });
   }
 
-  if (deriveStatus(pot) !== "active") {
+  const currentStatus = deriveStatus(pot);
+  if (currentStatus !== "active") {
+    if (currentStatus !== pot.status) await savePot({ ...pot, status: currentStatus });
     return NextResponse.json({ error: "이미 마감된 팟이에요." }, { status: 409 });
   }
 
   if (pot.participants.some((p) => p.id === user.id)) {
-    return NextResponse.json({ pot });
+    return NextResponse.json({ pot: toPotView(pot, user) });
   }
 
   pot.participants.push({ ...user, joinedAt: Date.now() });
   pot.status = deriveStatus(pot);
   await savePot(pot);
 
-  return NextResponse.json({ pot });
+  return NextResponse.json({ pot: toPotView(pot, user) });
 }
