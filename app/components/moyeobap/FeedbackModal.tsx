@@ -31,7 +31,7 @@ export function FeedbackModal({ onClose, onSubmit }: FeedbackModalProps) {
       <form className="feedback__form" onSubmit={handleSubmit}>
         <div>
           <strong>사용하면서 불편했던 점을 알려주세요.</strong>
-          <p>짧게 적어도 괜찮아요. 현재 보고 있는 화면 정보가 함께 전달돼요.</p>
+          <p>짧게 적어도 괜찮아요. 현재 페이지 주소도 함께 전송돼요.</p>
         </div>
         <label>
           <span>피드백</span>

@@ -7,7 +7,6 @@ interface PotCardProps {
   restaurant: Restaurant;
   isAuthenticated: boolean;
   now: number;
-  index: number;
   onJoinClick: (potId: string) => void;
   onOpenAuth: (potId: string) => void;
   showChatSummary?: boolean;
@@ -18,15 +17,24 @@ export function PotCard({
   restaurant,
   isAuthenticated,
   now,
-  index,
   onJoinClick,
   onOpenAuth,
   showChatSummary = false,
 }: PotCardProps) {
   const { minutes, seconds, isUrgent } = getTimeRemaining(pot.deadline, now);
-  const timeStr = pot.status === 'closed' ? '00:00' : formatTime(minutes, seconds);
   const isClosed = pot.status === 'closed';
   const isParticipating = pot.isParticipating;
+  const timeStr = formatTime(minutes, seconds);
+  const closedAt = new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(pot.deadline);
+  const restaurantMeta = [
+    restaurant.minOrder > 0 ? `최소주문 ${restaurant.minOrder.toLocaleString()}원` : null,
+    restaurant.deliveryTime !== '정보 없음' ? restaurant.deliveryTime : null,
+  ].filter(Boolean).join(' · ') || '매장 상세 정보 없음';
 
   let cardClasses = 'card';
   if (isUrgent && !isClosed) cardClasses += ' card--urgent';
@@ -38,20 +46,17 @@ export function PotCard({
   const catClass = restaurant.category === 'lunch' ? 'card__category--lunch' : 'card__category--cafe';
 
   let statusClass = 'card__status--open';
-  let statusText = '모집중';
+  let statusText = '모집 중';
   if (isClosed) {
     statusClass = pot.orderCompletedAt ? 'card__status--completed' : 'card__status--closed';
     statusText = pot.orderCompletedAt ? '주문 완료' : '마감';
   } else if (isUrgent) {
     statusClass = 'card__status--urgent';
-    statusText = '마감임박';
+    statusText = '마감 임박';
   }
 
   return (
-    <article
-      className={cardClasses}
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
+    <article className={cardClasses}>
       <Link className="card__details" href={`/pots/${encodeURIComponent(pot.id)}`}>
         <div className="card__header">
           <div className="card__badges">
@@ -69,7 +74,7 @@ export function PotCard({
           <span className="card__emoji">{restaurant.emoji}</span>
         </div>
         <h3 className="card__name">{restaurant.name}</h3>
-        <p className="card__meta">최소주문 {restaurant.minOrder.toLocaleString()}원 · {restaurant.deliveryTime}</p>
+        <p className="card__meta">{restaurantMeta}</p>
 
         {showChatSummary && (
           <div className={`card__chat-preview ${pot.unreadMessageCount > 0 ? 'card__chat-preview--unread' : ''}`}>
@@ -90,9 +95,14 @@ export function PotCard({
         )}
 
         <div className="card__timer-row">
-          <span className="card__timer-icon">⏱</span>
-          <span>마감까지</span>
-          <span className={`card__timer ${isUrgent && !isClosed ? 'card__timer--urgent' : ''}`}>{timeStr}</span>
+          {isClosed ? (
+            <span className="card__timer">{closedAt} 마감</span>
+          ) : (
+            <>
+              <span>마감까지</span>
+              <span className={`card__timer ${isUrgent ? 'card__timer--urgent' : ''}`}>{timeStr}</span>
+            </>
+          )}
         </div>
       </Link>
 
@@ -108,7 +118,7 @@ export function PotCard({
             className="card__join-btn card__join-btn--joined"
             href={`/pots/${encodeURIComponent(pot.id)}`}
           >
-            탑승중 ✓
+            {isClosed ? '채팅 보기' : '참여 중'}
           </Link>
         ) : isClosed ? (
           <Link
@@ -130,7 +140,7 @@ export function PotCard({
               else onJoinClick(pot.id);
             }}
           >
-            {!isAuthenticated ? '로그인 후 참여' : '탑승하기'}
+            {!isAuthenticated ? '로그인 후 참여' : '참여하기'}
           </button>
         )}
       </div>

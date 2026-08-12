@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
+    console.error('Failed to save feedback:', error);
     return NextResponse.json(
-      { error: '피드백을 저장하지 못했어요. 데이터베이스 마이그레이션을 확인해주세요.' },
+      { error: '피드백을 저장하지 못했어요. 잠시 후 다시 시도해주세요.' },
       { status: 500 },
     );
   }

@@ -39,8 +39,8 @@ export function DashboardFilters({
       <nav aria-label="주문 종류" className="header__nav header__nav--category">
         {([
           ['all', '전체'],
-          ['lunch', '점심 🍱'],
-          ['cafe', '카페 ☕'],
+          ['lunch', '점심'],
+          ['cafe', '카페'],
         ] as const).map(([value, label]) => (
           <button
             aria-pressed={categoryFilter === value}

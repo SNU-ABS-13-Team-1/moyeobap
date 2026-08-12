@@ -18,7 +18,7 @@ export function Header() {
     <header className="header">
       <Link aria-label="모여밥 현황판" className="header__logo" href="/">
         <span className="header__logo-emoji">🍚</span>
-        <span className="header__logo-text text-gradient">모여밥</span>
+        <span className="header__logo-text">모여밥</span>
       </Link>
 
       <nav aria-label="주요 메뉴" className="site-nav">

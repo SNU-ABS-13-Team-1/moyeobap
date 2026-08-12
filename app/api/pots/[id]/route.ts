@@ -121,8 +121,9 @@ export async function PATCH(
     pot.orderCompletedBy = user.id;
     const saved = await savePot(pot);
     if (!saved) {
+      console.error('Failed to save order completion state. Check the production database schema.');
       return NextResponse.json(
-        { error: "주문 완료 기능의 데이터베이스 마이그레이션을 먼저 적용해주세요." },
+        { error: "주문 완료를 저장하지 못했어요. 잠시 후 다시 시도해주세요." },
         { status: 503 },
       );
     }

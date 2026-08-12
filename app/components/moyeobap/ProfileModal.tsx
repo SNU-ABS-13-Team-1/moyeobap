@@ -75,8 +75,6 @@ export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }
             value={displayName}
           />
         </label>
-        <p className="auth__field-hint">프로필 이미지는 Google 계정 이미지를 사용해요.</p>
-
         <div className="profile__account-group">
           <div>
             <strong>정산 계좌</strong>
@@ -114,7 +112,7 @@ export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }
           onClick={onOpenFeedback}
           type="button"
         >
-          💬 피드백 보내기
+          피드백 보내기
         </button>
         <button className="create__submit-btn" disabled={submitting || loggingOut} type="submit">
           {submitting ? '저장 중...' : '프로필 저장'}

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR, { useSWRConfig } from 'swr';
 import type { Pot, Restaurant, SerializedPot } from '../../types/moyeobap';
-import { estimateNeededParticipants, formatTime, getTimeRemaining, triggerConfetti } from '../../lib/moyeobap-utils';
+import { estimateNeededParticipants, formatTime, getTimeRemaining } from '../../lib/moyeobap-utils';
 import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { useClock } from '../../hooks/useClock';
@@ -78,7 +78,6 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     ? deadlineEdit.value
     : toLocalDateTimeValue(pot.deadline);
   const { minutes, seconds, isUrgent } = getTimeRemaining(pot.deadline, now);
-  const timeText = pot.status === 'closed' ? '00:00' : formatTime(minutes, seconds);
   const deadlineText = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -86,6 +85,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(pot.deadline);
+  const timeText = pot.status === 'closed' ? '마감' : formatTime(minutes, seconds);
   const minDeadlineValue = toLocalDateTimeValue(ceilToMinute(now + 5 * 60_000 + 1_000));
   const maxDeadlineValue = toLocalDateTimeValue(now + 24 * 60 * 60_000);
   const deadlineDraftTime = new Date(deadlineDraft).getTime();
@@ -102,8 +102,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     try {
       await requestJson(`/api/pots/${potId}/join`, { method: 'POST' });
       await Promise.all([mutate(), mutateCache('/api/pots')]);
-      showToast(`${restaurant.name}에 탑승했어요! 🚀`, 'success');
-      triggerConfetti();
+      showToast(`${restaurant.name} 팟에 참여했어요.`, 'success');
     } catch (joinError) {
       showToast(getErrorMessage(joinError, '참여하지 못했어요.'), 'error');
     }
@@ -120,7 +119,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         return;
       }
       await mutate();
-      showToast('팟 탑승을 취소했어요.', 'warning');
+      showToast('팟 참여를 취소했어요.', 'warning');
     } catch (leaveError) {
       showToast(getErrorMessage(leaveError, '참여 취소에 실패했어요.'), 'error');
     }
@@ -197,7 +196,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
 
   let action: React.ReactNode;
   if (pot.orderCompletedAt) {
-    action = <button className="create__submit-btn" disabled type="button">주문 완료됨 ✓</button>;
+    action = null;
   } else if (pot.status === 'closed' && pot.isManaging) {
     action = (
       <button className="create__submit-btn" disabled={isManagingDeadline} onClick={handleCompleteOrder} type="button">
@@ -205,24 +204,23 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
       </button>
     );
   } else if (pot.status === 'closed') {
-    action = <button className="create__submit-btn" disabled type="button">마감된 팟입니다</button>;
+    action = null;
   } else if (!currentUser) {
     action = <button className="create__submit-btn" onClick={handleJoin} type="button">로그인하고 참여하기</button>;
   } else if (pot.isParticipating) {
     action = (
       <button className="create__submit-btn create__submit-btn--danger" onClick={handleLeave} type="button">
-        탑승 취소하기
+        참여 취소
       </button>
     );
   } else {
-    action = <button className="create__submit-btn" onClick={handleJoin} type="button">탑승하기 🚀</button>;
+    action = <button className="create__submit-btn" onClick={handleJoin} type="button">참여하기</button>;
   }
 
   return (
     <main className="page-content pot-page">
       <div className="page-heading page-heading--compact">
         <Link className="page-back-link" href="/">← 현황판으로</Link>
-        <span className="page-heading__shortcut">Esc로 현황판 이동</span>
       </div>
 
       <div className="pot-page__mobile-tabs" role="tablist" aria-label="팟 상세 영역">
@@ -248,15 +246,17 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
 
           <div className="detail__timer-section">
             <div className={`detail__timer ${isUrgent && pot.status !== 'closed' ? 'card__timer--urgent' : ''}`}>{timeText}</div>
-            <div className="detail__timer-label">{pot.status === 'closed' ? '모집이 마감됐어요' : '마감까지 남은 시간'}</div>
+            <div className="detail__timer-label">{pot.status === 'closed' ? `${deadlineText}에 마감됐어요` : '마감까지 남은 시간'}</div>
           </div>
 
           <div className="detail__info-grid">
             <div className="detail__info-item"><span className="detail__info-label">최소주문금액</span><span className="detail__info-value">{restaurant.minOrder.toLocaleString()}원</span></div>
             <div className="detail__info-item"><span className="detail__info-label">예상 배달시간</span><span className="detail__info-value">{restaurant.deliveryTime}</span></div>
             <div className="detail__info-item"><span className="detail__info-label">참여인원</span><span className="detail__info-value">{pot.participantCount}명{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}</span></div>
-            <div className="detail__info-item"><span className="detail__info-label">상태</span><span className="detail__info-value">{pot.orderCompletedAt ? '✅ 주문 완료' : pot.status === 'closed' ? '마감' : isUrgent ? '⚠️ 마감임박' : '✅ 모집중'}</span></div>
-            <div className="detail__info-item detail__info-item--wide"><span className="detail__info-label">모집 마감 시각</span><span className="detail__info-value">{deadlineText}</span></div>
+            <div className="detail__info-item"><span className="detail__info-label">상태</span><span className="detail__info-value">{pot.orderCompletedAt ? '주문 완료' : pot.status === 'closed' ? '마감' : isUrgent ? '마감 임박' : '모집 중'}</span></div>
+            {pot.status !== 'closed' && (
+              <div className="detail__info-item detail__info-item--wide"><span className="detail__info-label">모집 마감 시각</span><span className="detail__info-value">{deadlineText}</span></div>
+            )}
             {pot.orderCompletedAt && (
               <div className="detail__info-item detail__info-item--wide">
                 <span className="detail__info-label">주문 완료 시각</span>
@@ -325,7 +325,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           )}
 
           <div className="detail__menu-section">
-            <h2 className="detail__section-title">📋 대표 메뉴</h2>
+            <h2 className="detail__section-title">대표 메뉴</h2>
             <div className="detail__menu-list">
               {restaurant.menus.length === 0 && <div className="detail__participant-hidden">대표 메뉴 정보가 아직 없어요.</div>}
               {restaurant.menus.map((menu) => (
@@ -338,7 +338,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           </div>
 
           <div className="detail__participants-section">
-            <h2 className="detail__section-title">👥 참여자 ({pot.participantCount}명)</h2>
+            <h2 className="detail__section-title">참여자 ({pot.participantCount}명)</h2>
             {!currentUser ? (
               <div className="detail__participant-hidden">
                 {pot.status === 'closed'
@@ -362,7 +362,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             )}
           </div>
 
-          <div className="pot-page__action">{action}</div>
+          {action && <div className="pot-page__action">{action}</div>}
         </section>
 
         <aside className={`pot-page__chat ${mobileTab === 'chat' ? 'pot-page__panel--mobile-active' : ''}`}>

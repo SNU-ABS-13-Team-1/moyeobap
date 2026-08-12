@@ -40,9 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authError) return;
 
     const errorMessage = authError === 'not_configured'
-      ? 'Supabase 로그인 환경 변수가 아직 설정되지 않았어요.'
+      ? '현재 로그인을 사용할 수 없어요. 잠시 후 다시 시도해주세요.'
       : authError === 'profile_failed'
-        ? '로그인은 완료됐지만 프로필을 준비하지 못했어요. Supabase 마이그레이션을 확인해주세요.'
+        ? '로그인은 완료됐지만 프로필을 준비하지 못했어요. 잠시 후 다시 시도해주세요.'
         : 'Google 로그인을 완료하지 못했어요. 다시 시도해주세요.';
 
     const timer = window.setTimeout(() => {

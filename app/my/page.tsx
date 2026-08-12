@@ -95,12 +95,11 @@ export default function MyPotsPage() {
               <p className="my-page__empty">현재 진행 중인 참여 모집이 없어요.</p>
             ) : (
               <div className="grid my-page__grid">
-                {activePots.map((pot, index) => {
+                {activePots.map((pot) => {
                   const restaurant = restaurantsById.get(pot.restaurantId);
                   if (!restaurant) return null;
                   return (
                     <PotCard
-                      index={index}
                       isAuthenticated
                       key={pot.id}
                       now={now}
@@ -124,12 +123,11 @@ export default function MyPotsPage() {
               <p className="my-page__empty">마감된 참여 모집이 없어요.</p>
             ) : (
               <div className="grid my-page__grid">
-                {closedPots.map((pot, index) => {
+                {closedPots.map((pot) => {
                   const restaurant = restaurantsById.get(pot.restaurantId);
                   if (!restaurant) return null;
                   return (
                     <PotCard
-                      index={index}
                       isAuthenticated
                       key={pot.id}
                       now={now}

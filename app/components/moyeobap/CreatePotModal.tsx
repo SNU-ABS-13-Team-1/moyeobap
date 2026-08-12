@@ -307,7 +307,7 @@ export function CreatePotForm({
                 </button>
               </div>
               <p className="create__custom-note">
-                목록에 없는 매장이에요. 대표메뉴·최소주문금액 같은 정보 없이 팟만 먼저 열립니다.
+                목록에 없는 매장도 이름만 입력해 팟을 만들 수 있어요.
               </p>
             </div>
           )}
@@ -315,7 +315,7 @@ export function CreatePotForm({
           {(mode === 'custom' || selectedRestaurantId) && (
             <>
               <div className="create__time-section">
-                <label className="create__time-label">⏰ 마감 시간 설정</label>
+                <label className="create__time-label">마감 시간</label>
                 <div className="create__time-options">
                   {DEADLINE_OPTIONS.map(mins => (
                     <button
@@ -359,7 +359,7 @@ export function CreatePotForm({
               </div>
 
               <div className="create__time-section">
-                <label className="create__time-label">👥 최대 인원 (선택)</label>
+                <label className="create__time-label">최대 인원 (선택)</label>
                 <div className="create__time-options">
                   <button
                     aria-pressed={!hasParticipantLimit}
@@ -408,7 +408,7 @@ export function CreatePotForm({
             onClick={handleSubmit}
             type="button"
           >
-            {submitting ? '만드는 중...' : '팟 만들기 🚀'}
+            {submitting ? '만드는 중...' : '팟 만들기'}
           </button>
     </section>
   );

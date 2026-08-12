@@ -4,14 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import type { Pot, Restaurant, SerializedPot } from './types/moyeobap';
-import { triggerConfetti } from './lib/moyeobap-utils';
 import { fetcher } from './lib/fetcher';
 import { getErrorMessage, requestJson } from './lib/api-client';
 import { useClock } from './hooks/useClock';
 import { useToastNotice } from './hooks/useToastNotice';
 import { useAuth } from './components/moyeobap/AuthProvider';
 import { DashboardFilters } from './components/moyeobap/DashboardFilters';
-import { StatusBar } from './components/moyeobap/StatusBar';
 import { PotCard } from './components/moyeobap/PotCard';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
 
@@ -80,8 +78,7 @@ export default function HomePage() {
       const data = await requestJson<PotResponse>(`/api/pots/${potId}/join`, { method: 'POST' });
       await mutatePots();
       const restaurant = restaurantsById.get(data.pot.restaurantId);
-      showToast(`${restaurant?.name ?? ''}에 탑승했어요! 🚀`, 'success');
-      triggerConfetti();
+      showToast(`${restaurant?.name ?? ''} 팟에 참여했어요.`, 'success');
     } catch (error) {
       showToast(getErrorMessage(error, '참여하지 못했어요.'), 'error');
     }
@@ -102,9 +99,6 @@ export default function HomePage() {
 
   const activePotsCount = pots.filter((pot) => pot.status === 'active').length;
   const closedPotsCount = pots.filter((pot) => pot.status === 'closed').length;
-  const totalParticipantsCount = pots
-    .filter((pot) => pot.status === 'active')
-    .reduce((sum, pot) => sum + pot.participantCount, 0);
   const isInitialLoading = !potsData || !restaurantsData;
   const hasLoadError = Boolean(potsError || restaurantsError);
 
@@ -118,10 +112,6 @@ export default function HomePage() {
           setCategoryFilter={setCategoryFilter}
           setStatusFilter={setStatusFilter}
           statusFilter={statusFilter}
-        />
-        <StatusBar
-          activePotsCount={activePotsCount}
-          totalParticipantsCount={totalParticipantsCount}
         />
       </div>
 
@@ -143,19 +133,13 @@ export default function HomePage() {
             <h2 className="empty__title">
               {statusFilter === 'closed' ? '아직 마감된 팟이 없어요' : '아직 열린 팟이 없어요'}
             </h2>
-            <p className="empty__desc">
-              {statusFilter === 'closed'
-                ? '마감된 공동주문은 여기에 모아서 보여드려요.'
-                : '첫 번째 팟을 만들어 동료들을 모아보세요!'}
-            </p>
           </div>
         ) : (
-          filteredPots.map((pot, index) => {
+          filteredPots.map((pot) => {
             const restaurant = restaurantsById.get(pot.restaurantId);
             if (!restaurant) return null;
             return (
               <PotCard
-                index={index}
                 isAuthenticated={Boolean(currentUser)}
                 key={pot.id}
                 now={now}

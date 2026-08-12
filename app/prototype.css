@@ -126,6 +126,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .header__logo-text {
+  color: var(--primary);
   font-weight: 800;
   font-size: 1.5rem;
 }
@@ -193,7 +194,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .header__tab--active {
   color: #fff;
-  background: var(--primary-gradient);
+  background: var(--primary);
   box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
 }
 
@@ -254,55 +255,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--text-primary);
 }
 
-/* ===== Status Bar ===== */
-.status-bar {
-  margin-top: var(--space-lg);
-  display: flex;
-  flex-direction: row;
-  gap: var(--space-md);
-  justify-content: flex-start;
-}
-
-.status-bar__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.status-bar__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-}
-
-.status-bar__dot--live {
-  background-color: var(--success);
-  animation: livePulse 2s infinite;
-}
-
-.status-bar__dot--total {
-  background-color: var(--primary);
-}
-
-.status-bar__count {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
 .dashboard-toolbar {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--space-lg);
   margin-top: var(--space-lg);
-}
-
-.dashboard-toolbar .status-bar {
-  flex: 0 0 auto;
-  margin-top: 0;
-  padding-bottom: 8px;
 }
 
 /* ===== Card Grid ===== */
@@ -639,13 +596,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-sm);
-  opacity: 0;
-  animation: fadeInUp 0.5s ease both;
+  opacity: 1;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   border-color: rgba(0, 0, 0, 0.1);
 }
 
@@ -828,10 +783,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--text-secondary);
 }
 
-.card__timer-icon {
-  font-size: 0.9rem;
-}
-
 .card__timer {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -916,7 +867,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .card__join-btn--join {
-  background: var(--primary-gradient);
+  background: var(--primary);
   color: #fff;
   box-shadow: 0 2px 8px rgba(255, 107, 53, 0.25);
 }
@@ -960,7 +911,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   width: 60px;
   height: 60px;
   border-radius: var(--radius-full);
-  background: var(--primary-gradient);
+  background: var(--primary);
   color: #fff;
   font-size: 28px;
   border: none;
@@ -974,7 +925,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .fab:hover {
-  transform: scale(1.1) rotate(90deg);
+  transform: scale(1.05);
   box-shadow: 0 12px 35px rgba(255, 107, 53, 0.45);
 }
 
@@ -1543,7 +1494,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .create__submit-btn {
   width: 100%;
   padding: 14px;
-  background: var(--primary-gradient);
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -1717,27 +1668,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 /* ===== Utility Classes ===== */
-.text-gradient {
-  background: var(--primary-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* ===== Animations ===== */
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px) }
-  to { opacity: 1; transform: translateY(0) }
-}
-
 @keyframes pulse {
   0%, 100% { opacity: 1 }
   50% { opacity: 0.5 }
-}
-
-@keyframes livePulse {
-  0%, 100% { transform: scale(1); opacity: 1 }
-  50% { transform: scale(1.5); opacity: 0.5 }
 }
 
 @keyframes slideUp {
@@ -1783,10 +1717,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .dashboard-toolbar {
     align-items: center;
     flex-direction: column;
-  }
-
-  .dashboard-toolbar .status-bar {
-    padding-bottom: 0;
   }
 
   .grid {
