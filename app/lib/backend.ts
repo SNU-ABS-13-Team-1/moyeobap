@@ -125,8 +125,8 @@ export async function savePot(pot: ServerPot): Promise<void> {
     // Foreign key 무결성 보장을 위해 음식점 레코드가 있는지 먼저 확인 후 자동으로 넣어줍니다.
     await ensureRestaurantExistsInSupabase(normalized.restaurantId);
 
-    // 1. Upsert pot row
-    const { error: potErr } = await supabase.from("pots").upsert({
+    // 1. Upsert pot row (DB에 creator_id/manager_id 칼럼이 없어도 호환되도록 안전 처리)
+    let { error: potErr } = await supabase.from("pots").upsert({
       id: normalized.id,
       restaurant_id: normalized.restaurantId,
       deadline: normalized.deadline,
@@ -136,6 +136,20 @@ export async function savePot(pot: ServerPot): Promise<void> {
       manager_id: normalized.managerId,
       created_at: normalized.createdAt,
     });
+
+    if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("creator_id"))) {
+      // creator_id/manager_id 칼럼이 아직 추가되지 않은 경우 기본 칼럼만으로 재시도
+      const fallback = await supabase.from("pots").upsert({
+        id: normalized.id,
+        restaurant_id: normalized.restaurantId,
+        deadline: normalized.deadline,
+        status: normalized.status,
+        max_participants: normalized.maxParticipants,
+        created_at: normalized.createdAt,
+      });
+      potErr = fallback.error;
+    }
+
     if (potErr) {
       console.error("Supabase savePot error:", potErr);
     }
