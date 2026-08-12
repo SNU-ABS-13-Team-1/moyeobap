@@ -13,9 +13,14 @@ import { CreatePotForm } from '../../components/moyeobap/CreatePotModal';
 export default function NewPotPage() {
   const router = useRouter();
   const { currentUser, isAuthLoading, openAuth } = useAuth();
-  const { data, error, mutate } = useSWR<{ restaurants: Restaurant[] }>(
+  const { data: restaurantsData, error: restaurantsError, mutate: mutateRestaurants } = useSWR<{ restaurants: Restaurant[] }>(
     '/api/restaurants',
     fetcher,
+  );
+  const { data: potsData, error: potsError } = useSWR<{ pots: SerializedPot[] }>(
+    '/api/pots',
+    fetcher,
+    { refreshInterval: 4000 },
   );
 
   async function handleCreateCustomRestaurant(input: {
@@ -32,7 +37,7 @@ export default function NewPotPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      await mutate();
+      await mutateRestaurants();
       return response.restaurant.id;
     } catch {
       return null;
@@ -80,15 +85,16 @@ export default function NewPotPage() {
         </button>
       )}
 
-      {error ? (
-        <div className="page-state" role="alert">매장 목록을 불러오지 못했어요.</div>
-      ) : !data ? (
+      {restaurantsError || potsError ? (
+        <div className="page-state" role="alert">매장과 모집 목록을 불러오지 못했어요.</div>
+      ) : !restaurantsData || !potsData ? (
         <div className="page-state">매장 목록을 불러오는 중이에요...</div>
       ) : (
         <CreatePotForm
           onCreateCustomRestaurant={handleCreateCustomRestaurant}
           onSubmit={handleCreateSubmit}
-          restaurants={data.restaurants}
+          pots={potsData.pots}
+          restaurants={restaurantsData.restaurants}
         />
       )}
     </main>

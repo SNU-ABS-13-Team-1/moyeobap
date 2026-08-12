@@ -7,16 +7,6 @@ function optionalText(value: unknown, maxLength: number): string | null {
   return value.trim().slice(0, maxLength) || null;
 }
 
-function isSafeAvatarUrl(value: string | null): boolean {
-  if (!value) return true;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export async function PUT(request: NextRequest) {
   const currentUser = await getSession();
   if (!currentUser) {
@@ -25,15 +15,11 @@ export async function PUT(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const displayName = optionalText(body?.displayName, 40);
-  const avatarUrl = optionalText(body?.avatarUrl, 500);
   const bankName = optionalText(body?.bankName, 30);
   const accountNumber = optionalText(body?.accountNumber, 40);
 
   if (!displayName) {
     return NextResponse.json({ error: "표시 이름을 입력해주세요." }, { status: 400 });
-  }
-  if (!isSafeAvatarUrl(avatarUrl)) {
-    return NextResponse.json({ error: "프로필 이미지 주소를 확인해주세요." }, { status: 400 });
   }
   if ((bankName && !accountNumber) || (!bankName && accountNumber)) {
     return NextResponse.json(
@@ -52,7 +38,6 @@ export async function PUT(request: NextRequest) {
   const { error } = await supabase.from("profiles").upsert({
     id: currentUser.id,
     display_name: displayName,
-    avatar_url: avatarUrl,
     bank_name: bankName,
     account_number: accountNumber,
     updated_at: new Date().toISOString(),
@@ -67,7 +52,6 @@ export async function PUT(request: NextRequest) {
       ...currentUser,
       name: displayName,
       initial: displayName.charAt(0),
-      avatarUrl: avatarUrl ?? undefined,
       bankName: bankName ?? undefined,
       accountNumber: accountNumber ?? undefined,
     },

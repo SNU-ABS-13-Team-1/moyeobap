@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { useToastNotice } from '../../hooks/useToastNotice';
 import { AuthModal } from './AuthModal';
 import { ProfileModal, type ProfileInput } from './ProfileModal';
+import { FeedbackModal } from './FeedbackModal';
 import { ToastNotice } from './ToastNotice';
 
 interface AuthContextValue {
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [authReturnPath, setAuthReturnPath] = useState('/');
   const { toast, showToast } = useToastNotice();
   const currentUser = data?.user ?? null;
@@ -106,6 +108,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     showToast('로그아웃 되었습니다.', 'success');
   }
 
+  async function handleFeedbackSubmit(content: string): Promise<string | null> {
+    try {
+      await requestJson('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          pagePath: `${window.location.pathname}${window.location.search}`,
+        }),
+      });
+      setIsFeedbackOpen(false);
+      showToast('피드백을 보냈어요. 고맙습니다!', 'success');
+      return null;
+    } catch (error) {
+      return getErrorMessage(error, '피드백을 보내지 못했어요.');
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -123,8 +143,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <ProfileModal
           onClose={() => setIsProfileOpen(false)}
           onLogout={handleLogout}
+          onOpenFeedback={() => {
+            setIsProfileOpen(false);
+            setIsFeedbackOpen(true);
+          }}
           onSave={handleProfileSave}
           user={currentUser}
+        />
+      )}
+      {isFeedbackOpen && currentUser && (
+        <FeedbackModal
+          onClose={() => setIsFeedbackOpen(false)}
+          onSubmit={handleFeedbackSubmit}
         />
       )}
       <ToastNotice toast={toast} />

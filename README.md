@@ -204,6 +204,7 @@ npm run dev
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=<Supabase project URL>
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
+SUPABASE_SERVICE_ROLE_KEY=<Supabase server-only service role key>
 UPSTASH_REDIS_REST_URL=<Upstash REST URL>
 UPSTASH_REDIS_REST_TOKEN=<Upstash REST token>
 ```
@@ -212,9 +213,13 @@ UPSTASH_REDIS_REST_TOKEN=<Upstash REST token>
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`도 지원합니다. Google provider를 활성화하고
 Supabase Auth의 Redirect URLs에 로컬 `http://localhost:3000/auth/callback`과
 운영 도메인의 `/auth/callback`을 등록해야 합니다. 프로필 테이블과 RLS는
-`supabase/migrations/20260812000000_google_auth_profiles.sql`을 적용합니다.
-새 프로젝트라면 SQL Editor에서 먼저 `supabase/schema.sql`, 그다음 위
-migration을 순서대로 적용합니다.
+`supabase/migrations/`의 SQL을 파일명 순서대로 적용합니다. 현재는 Google
+프로필 마이그레이션과 피드백·채팅 읽음·주문 완료 마이그레이션이 포함됩니다.
+새 프로젝트라면 SQL Editor에서 먼저 `supabase/schema.sql`을 적용하고, 기존
+프로젝트라면 적용하지 않은 migration만 순서대로 실행합니다.
+
+`SUPABASE_SERVICE_ROLE_KEY`는 핵심 테이블을 수정하는 서버 API에서만 사용합니다.
+절대로 `NEXT_PUBLIC_` 접두사를 붙이거나 브라우저 코드·Git 저장소에 넣지 않습니다.
 
 Vercel KV 이름을 사용하는 경우 `KV_REST_API_URL`, `KV_REST_API_TOKEN`도
 지원합니다. `.env*` 파일은 Git에서 제외됩니다.

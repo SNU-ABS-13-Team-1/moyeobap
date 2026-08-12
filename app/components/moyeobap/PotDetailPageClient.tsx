@@ -23,12 +23,24 @@ function toPot(pot: SerializedPot): Pot {
   return { ...pot, deadline: new Date(pot.deadline) };
 }
 
+function toLocalDateTimeValue(value: Date | number) {
+  const date = new Date(value);
+  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localTime.toISOString().slice(0, 16);
+}
+
+function ceilToMinute(timestamp: number) {
+  return Math.ceil(timestamp / 60_000) * 60_000;
+}
+
 export function PotDetailPageClient({ potId }: { potId: string }) {
   const router = useRouter();
   const { mutate: mutateCache } = useSWRConfig();
   const { currentUser, openAuth } = useAuth();
   const { toast, showToast } = useToastNotice();
   const [mobileTab, setMobileTab] = useState<'info' | 'chat'>('info');
+  const [deadlineEdit, setDeadlineEdit] = useState<{ source: string; value: string } | null>(null);
+  const [isManagingDeadline, setIsManagingDeadline] = useState(false);
   const now = useClock();
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
@@ -62,8 +74,24 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
 
   const pot = toPot(data.pot);
   const restaurant = data.restaurant;
+  const deadlineDraft = deadlineEdit?.source === data.pot.deadline
+    ? deadlineEdit.value
+    : toLocalDateTimeValue(pot.deadline);
   const { minutes, seconds, isUrgent } = getTimeRemaining(pot.deadline, now);
   const timeText = pot.status === 'closed' ? '00:00' : formatTime(minutes, seconds);
+  const deadlineText = new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(pot.deadline);
+  const minDeadlineValue = toLocalDateTimeValue(ceilToMinute(now + 5 * 60_000 + 1_000));
+  const maxDeadlineValue = toLocalDateTimeValue(now + 24 * 60 * 60_000);
+  const deadlineDraftTime = new Date(deadlineDraft).getTime();
+  const canUpdateDeadline = Number.isFinite(deadlineDraftTime)
+    && deadlineDraftTime >= now + 5 * 60_000
+    && deadlineDraftTime <= now + 24 * 60 * 60_000;
   const neededForMinOrder = estimateNeededParticipants(restaurant.minOrder, restaurant.menus[0]?.price);
 
   async function handleJoin() {
@@ -98,8 +126,85 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
+  async function handleDeadlineUpdate() {
+    const deadline = new Date(deadlineDraft);
+    if (!Number.isFinite(deadline.getTime())) {
+      showToast('변경할 마감 시간을 선택해주세요.', 'error');
+      return;
+    }
+
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_deadline', deadline: deadline.toISOString() }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      showToast('모집 마감 시간을 변경했어요.', 'success');
+    } catch (updateError) {
+      showToast(getErrorMessage(updateError, '마감 시간을 변경하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
+  async function handleCloseNow() {
+    const confirmation = pot.participantCount >= 2
+      ? `현재 ${pot.participantCount}명으로 지금 모집을 마감할까요? 마감 후에는 다시 열 수 없어요.`
+      : '현재 참여자가 1명이라 지금 마감하면 모집 실패로 종료되고 목록에서 사라져요. 마감할까요?';
+    if (!window.confirm(confirmation)) return;
+
+    setIsManagingDeadline(true);
+    try {
+      const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'close_now' }),
+      });
+      await mutateCache('/api/pots');
+      if (response.pot.status === 'failed') {
+        router.push('/');
+        return;
+      }
+      await mutate();
+      showToast('모집을 마감했어요.', 'success');
+    } catch (closeError) {
+      showToast(getErrorMessage(closeError, '모집을 마감하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
+  async function handleCompleteOrder() {
+    if (!window.confirm('실제 주문까지 완료했나요? 완료 후에는 되돌릴 수 없어요.')) return;
+
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete_order' }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      showToast('실제 주문 완료로 기록했어요.', 'success');
+    } catch (completeError) {
+      showToast(getErrorMessage(completeError, '주문 완료를 기록하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
   let action: React.ReactNode;
-  if (pot.status === 'closed') {
+  if (pot.orderCompletedAt) {
+    action = <button className="create__submit-btn" disabled type="button">주문 완료됨 ✓</button>;
+  } else if (pot.status === 'closed' && pot.isManaging) {
+    action = (
+      <button className="create__submit-btn" disabled={isManagingDeadline} onClick={handleCompleteOrder} type="button">
+        {isManagingDeadline ? '처리 중...' : '실제 주문 완료'}
+      </button>
+    );
+  } else if (pot.status === 'closed') {
     action = <button className="create__submit-btn" disabled type="button">마감된 팟입니다</button>;
   } else if (!currentUser) {
     action = <button className="create__submit-btn" onClick={handleJoin} type="button">로그인하고 참여하기</button>;
@@ -150,8 +255,66 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <div className="detail__info-item"><span className="detail__info-label">최소주문금액</span><span className="detail__info-value">{restaurant.minOrder.toLocaleString()}원</span></div>
             <div className="detail__info-item"><span className="detail__info-label">예상 배달시간</span><span className="detail__info-value">{restaurant.deliveryTime}</span></div>
             <div className="detail__info-item"><span className="detail__info-label">참여인원</span><span className="detail__info-value">{pot.participantCount}명{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}</span></div>
-            <div className="detail__info-item"><span className="detail__info-label">상태</span><span className="detail__info-value">{pot.status === 'closed' ? '마감' : isUrgent ? '⚠️ 마감임박' : '✅ 모집중'}</span></div>
+            <div className="detail__info-item"><span className="detail__info-label">상태</span><span className="detail__info-value">{pot.orderCompletedAt ? '✅ 주문 완료' : pot.status === 'closed' ? '마감' : isUrgent ? '⚠️ 마감임박' : '✅ 모집중'}</span></div>
+            <div className="detail__info-item detail__info-item--wide"><span className="detail__info-label">모집 마감 시각</span><span className="detail__info-value">{deadlineText}</span></div>
+            {pot.orderCompletedAt && (
+              <div className="detail__info-item detail__info-item--wide">
+                <span className="detail__info-label">주문 완료 시각</span>
+                <span className="detail__info-value">
+                  {new Intl.DateTimeFormat('ko-KR', {
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }).format(new Date(pot.orderCompletedAt))}
+                </span>
+              </div>
+            )}
           </div>
+
+          {pot.isManaging && pot.status === 'active' && (
+            <section className="detail__management" aria-labelledby="deadline-management-title">
+              <div className="detail__management-heading">
+                <div>
+                  <h2 id="deadline-management-title">모집 마감 관리</h2>
+                  <p>현재 관리자만 변경할 수 있어요.</p>
+                </div>
+                <span>👑 관리자</span>
+              </div>
+              <label className="detail__deadline-field">
+                <span>원하는 마감 시간</span>
+                <input
+                  disabled={isManagingDeadline}
+                  max={maxDeadlineValue}
+                  min={minDeadlineValue}
+                  onChange={(event) => setDeadlineEdit({
+                    source: data.pot.deadline,
+                    value: event.target.value,
+                  })}
+                  type="datetime-local"
+                  value={deadlineDraft}
+                />
+                <small>현재부터 5분 뒤~24시간 사이로 설정할 수 있어요.</small>
+              </label>
+              <div className="detail__management-actions">
+                <button
+                  disabled={isManagingDeadline || !canUpdateDeadline}
+                  onClick={handleDeadlineUpdate}
+                  type="button"
+                >
+                  {isManagingDeadline ? '처리 중...' : '마감 시간 변경'}
+                </button>
+                <button
+                  className="detail__close-now-btn"
+                  disabled={isManagingDeadline}
+                  onClick={handleCloseNow}
+                  type="button"
+                >
+                  지금 마감
+                </button>
+              </div>
+            </section>
+          )}
 
           {neededForMinOrder !== null && pot.status !== 'closed' && (
             <p className="detail__feasibility">
@@ -177,7 +340,11 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           <div className="detail__participants-section">
             <h2 className="detail__section-title">👥 참여자 ({pot.participantCount}명)</h2>
             {!currentUser ? (
-              <div className="detail__participant-hidden">🔒 로그인 후 참여하면 참여자를 확인할 수 있어요.</div>
+              <div className="detail__participant-hidden">
+                {pot.status === 'closed'
+                  ? '🔒 참여자 정보는 해당 팟 참여자만 확인할 수 있어요.'
+                  : '🔒 로그인 후 참여하면 참여자를 확인할 수 있어요.'}
+              </div>
             ) : pot.isParticipating && pot.participants ? (
               pot.participants.map((participant, index) => (
                 <div className="detail__participant" key={`${participant.name}-${index}`}>
@@ -187,7 +354,11 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                 </div>
               ))
             ) : (
-              <div className="detail__participant-hidden">참여 후에 참여자 정보를 확인할 수 있어요.</div>
+              <div className="detail__participant-hidden">
+                {pot.status === 'closed'
+                  ? '참여자 정보는 해당 팟 참여자만 확인할 수 있어요.'
+                  : '참여 후에 참여자 정보를 확인할 수 있어요.'}
+              </div>
             )}
           </div>
 
@@ -205,7 +376,11 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <div className="pot-page__chat-locked">
               <span>💬</span>
               <strong>참여자 전용 채팅이에요</strong>
-              <p>팟에 참여하면 주문과 정산 이야기를 나눌 수 있어요.</p>
+              <p>
+                {pot.status === 'closed'
+                  ? '마감된 팟의 대화는 기존 참여자만 확인할 수 있어요.'
+                  : '팟에 참여하면 주문과 정산 이야기를 나눌 수 있어요.'}
+              </p>
               {pot.status === 'active' && <button onClick={handleJoin} type="button">{currentUser ? '팟 참여하기' : '로그인하고 참여하기'}</button>}
             </div>
           )}

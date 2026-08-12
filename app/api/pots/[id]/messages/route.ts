@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { addMessage, getPot, listMessages } from "@/app/lib/backend";
+import { addMessage, getPot, listMessages, markPotMessagesRead } from "@/app/lib/backend";
+import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 import type { ChatMessage, ChatMessageView } from "@/app/types/moyeobap";
 
 async function requireParticipant(potId: string, userId: string) {
@@ -26,6 +27,8 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   }
 
   const messages = await listMessages(id);
+  const supabase = await createSupabaseServerClient();
+  await markPotMessagesRead(id, user.id, messages, supabase);
   const view: ChatMessageView[] = messages.map((message) => ({
     id: message.id,
     authorName: message.authorName,
@@ -78,7 +81,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     createdAt: new Date().toISOString(),
     kind,
   };
-  await addMessage(message);
+  const saved = await addMessage(message);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "메시지를 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
 
   const view: ChatMessageView = {
     id: message.id,

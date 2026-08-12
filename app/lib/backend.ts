@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
 import { RESTAURANTS } from "../data/restaurants";
 import type {
   ChatMessage,
+  ChatMessagePreview,
   PotEvent,
   PotEventType,
   Restaurant,
@@ -21,15 +23,24 @@ export type ServerPot = {
   createdAt: string;
   creatorId: string;
   managerId: string | null;
+  orderCompletedAt: string | null;
+  orderCompletedBy: string | null;
 };
 
-type StoredPot = Omit<ServerPot, "creatorId" | "managerId"> &
-  Partial<Pick<ServerPot, "creatorId" | "managerId">>;
+type StoredPot = Omit<
+  ServerPot,
+  "creatorId" | "managerId" | "orderCompletedAt" | "orderCompletedBy"
+> & Partial<Pick<
+  ServerPot,
+  "creatorId" | "managerId" | "orderCompletedAt" | "orderCompletedBy"
+>>;
 
 const POT_INDEX_KEY = "moyeobap:pots:index";
 const EVENT_LOG_KEY = "moyeobap:events";
 const potKey = (id: string) => `moyeobap:pot:${id}`;
 const potMessagesKey = (id: string) => `moyeobap:pot:${id}:messages`;
+const potMessageReadKey = (potId: string, userId: string) =>
+  `moyeobap:pot:${potId}:read:${userId}`;
 const CUSTOM_RESTAURANT_INDEX_KEY = "moyeobap:restaurants:custom:index";
 const customRestaurantKey = (id: string) => `moyeobap:restaurant:custom:${id}`;
 
@@ -37,6 +48,7 @@ const customRestaurantKey = (id: string) => `moyeobap:restaurant:custom:${id}`;
 const memoryPots = new Map<string, ServerPot>();
 const memoryPotIndex = new Set<string>();
 const memoryMessages = new Map<string, ChatMessage[]>();
+const memoryMessageReads = new Map<string, string>();
 const memoryEvents: PotEvent[] = [];
 const memoryCustomRestaurants = new Map<string, Restaurant>();
 const memoryCustomRestaurantIndex = new Set<string>();
@@ -52,6 +64,8 @@ function normalizePot(pot: StoredPot): ServerPot {
     participants,
     creatorId: pot.creatorId ?? firstParticipantId ?? "",
     managerId: pot.managerId ?? firstParticipantId,
+    orderCompletedAt: pot.orderCompletedAt ?? null,
+    orderCompletedBy: pot.orderCompletedBy ?? null,
   };
 }
 
@@ -60,7 +74,11 @@ function clonePot(pot: ServerPot): ServerPot {
 }
 
 /** API 응답에서 이메일 id와 계좌번호를 제거하고, 참여자에게만 신원을 공개합니다. */
-export function toPotView(pot: ServerPot, currentUser: User | null): SerializedPot {
+export function toPotView(
+  pot: ServerPot,
+  currentUser: User | null,
+  chatSummary?: { latestMessage: ChatMessagePreview | null; unreadMessageCount: number },
+): SerializedPot {
   const isParticipating = Boolean(
     currentUser && pot.participants.some((participant) => participant.id === currentUser.id),
   );
@@ -81,6 +99,9 @@ export function toPotView(pot: ServerPot, currentUser: User | null): SerializedP
     isManaging: Boolean(currentUser && currentUser.id === pot.managerId),
     status: pot.status,
     maxParticipants: pot.maxParticipants,
+    orderCompletedAt: pot.orderCompletedAt,
+    latestMessage: isParticipating ? chatSummary?.latestMessage ?? null : null,
+    unreadMessageCount: isParticipating ? chatSummary?.unreadMessageCount ?? 0 : 0,
   };
 }
 
@@ -171,11 +192,12 @@ export async function listEvents(): Promise<PotEvent[]> {
   return raw.map((entry) => (typeof entry === "string" ? JSON.parse(entry) : entry));
 }
 
-export async function savePot(pot: ServerPot): Promise<void> {
-  const normalized = normalizePot(pot);
+export async function savePot(pot: ServerPot): Promise<boolean> {
+  try {
+    const normalized = normalizePot(pot);
 
-  const supabase = getSupabase();
-  if (supabase) {
+    const supabase = getSupabase();
+    if (supabase) {
     // Foreign key 무결성 보장을 위해 음식점 레코드가 있는지 먼저 확인 후 자동으로 넣어줍니다.
     await ensureRestaurantExistsInSupabase(normalized.restaurantId);
 
@@ -188,12 +210,33 @@ export async function savePot(pot: ServerPot): Promise<void> {
       max_participants: normalized.maxParticipants,
       creator_id: normalized.creatorId,
       manager_id: normalized.managerId,
+      order_completed_at: normalized.orderCompletedAt,
+      order_completed_by: normalized.orderCompletedBy,
       created_at: normalized.createdAt,
     });
 
+    if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("order_completed"))) {
+      if (normalized.orderCompletedAt) {
+        console.error("Supabase order completion columns are not migrated:", potErr);
+        return false;
+      }
+      // 신규 주문 완료 칼럼 마이그레이션 전에도 기존 팟 저장 동작은 유지합니다.
+      const legacyFallback = await supabase.from("pots").upsert({
+        id: normalized.id,
+        restaurant_id: normalized.restaurantId,
+        deadline: normalized.deadline,
+        status: normalized.status,
+        max_participants: normalized.maxParticipants,
+        creator_id: normalized.creatorId,
+        manager_id: normalized.managerId,
+        created_at: normalized.createdAt,
+      });
+      potErr = legacyFallback.error;
+    }
+
     if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("creator_id"))) {
-      // creator_id/manager_id 칼럼이 아직 추가되지 않은 경우 기본 칼럼만으로 재시도
-      const fallback = await supabase.from("pots").upsert({
+      // creator_id/manager_id 칼럼까지 없는 초기 DB에서는 기본 칼럼만으로 재시도합니다.
+      const basicFallback = await supabase.from("pots").upsert({
         id: normalized.id,
         restaurant_id: normalized.restaurantId,
         deadline: normalized.deadline,
@@ -201,41 +244,54 @@ export async function savePot(pot: ServerPot): Promise<void> {
         max_participants: normalized.maxParticipants,
         created_at: normalized.createdAt,
       });
-      potErr = fallback.error;
+      potErr = basicFallback.error;
     }
 
     if (potErr) {
       console.error("Supabase savePot error:", potErr);
+      return false;
     }
 
     // 2. Refresh participants
-    await supabase.from("pot_participants").delete().eq("pot_id", normalized.id);
+    const { error: deleteErr } = await supabase
+      .from("pot_participants")
+      .delete()
+      .eq("pot_id", normalized.id);
+    if (deleteErr) {
+      console.error("Supabase savePot participants delete error:", deleteErr);
+      return false;
+    }
     if (normalized.participants.length > 0) {
       const participantRows = normalized.participants.map((p) => ({
         pot_id: normalized.id,
         user_id: p.id,
         user_name: p.name,
         user_initial: p.initial,
-        bank_account: p.accountNumber ? (p.bankName ? `${p.bankName} ${p.accountNumber}` : p.accountNumber) : null,
         joined_at: new Date(p.joinedAt).toISOString(),
       }));
       const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
       if (partErr) {
         console.error("Supabase savePot participants error:", partErr);
+        return false;
       }
     }
-    return;
-  }
+    return true;
+    }
 
-  const client = getRedis();
-  const snapshot = clonePot(normalized);
-  if (!client) {
-    memoryPots.set(snapshot.id, snapshot);
-    memoryPotIndex.add(snapshot.id);
-    return;
+    const client = getRedis();
+    const snapshot = clonePot(normalized);
+    if (!client) {
+      memoryPots.set(snapshot.id, snapshot);
+      memoryPotIndex.add(snapshot.id);
+      return true;
+    }
+    await client.set(potKey(snapshot.id), snapshot);
+    await client.sadd(POT_INDEX_KEY, snapshot.id);
+    return true;
+  } catch (error) {
+    console.error("팟 저장 실패", error);
+    return false;
   }
-  await client.set(potKey(snapshot.id), snapshot);
-  await client.sadd(POT_INDEX_KEY, snapshot.id);
 }
 
 export async function getPot(id: string): Promise<ServerPot | null> {
@@ -262,7 +318,6 @@ export async function getPot(id: string): Promise<ServerPot | null> {
       name: p.user_name,
       initial: p.user_initial,
       email: p.user_id,
-      accountNumber: p.bank_account ?? undefined,
       joinedAt: new Date(p.joined_at).getTime(),
     }));
 
@@ -275,6 +330,8 @@ export async function getPot(id: string): Promise<ServerPot | null> {
       createdAt: potRow.created_at,
       creatorId: potRow.creator_id ?? undefined,
       managerId: potRow.manager_id ?? undefined,
+      orderCompletedAt: potRow.order_completed_at ?? null,
+      orderCompletedBy: potRow.order_completed_by ?? null,
       participants: rawParticipants,
     });
   }
@@ -324,12 +381,13 @@ export async function listPots(): Promise<ServerPot[]> {
         createdAt: potRow.created_at,
         creatorId: potRow.creator_id ?? undefined,
         managerId: potRow.manager_id ?? undefined,
+        orderCompletedAt: potRow.order_completed_at ?? null,
+        orderCompletedBy: potRow.order_completed_by ?? null,
         participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
           id: p.user_id,
           name: p.user_name,
           initial: p.user_initial,
           email: p.user_id,
-          accountNumber: p.bank_account ?? undefined,
           joinedAt: new Date(p.joined_at).getTime(),
         })),
       }),
@@ -363,9 +421,10 @@ export async function listPots(): Promise<ServerPot[]> {
   );
 }
 
-export async function saveCustomRestaurant(restaurant: Restaurant): Promise<void> {
-  const supabase = getSupabase();
-  if (supabase) {
+export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
     const { error } = await supabase.from("restaurants").upsert({
       id: restaurant.id,
       name: restaurant.name,
@@ -382,18 +441,26 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<void
       rating: restaurant.rating ?? 5.0,
       is_custom: true,
     });
-    if (error) console.error("Supabase saveCustomRestaurant error:", error);
-    return;
-  }
+      if (error) {
+        console.error("Supabase saveCustomRestaurant error:", error);
+        return false;
+      }
+      return true;
+    }
 
-  const client = getRedis();
-  if (!client) {
-    memoryCustomRestaurants.set(restaurant.id, restaurant);
-    memoryCustomRestaurantIndex.add(restaurant.id);
-    return;
+    const client = getRedis();
+    if (!client) {
+      memoryCustomRestaurants.set(restaurant.id, restaurant);
+      memoryCustomRestaurantIndex.add(restaurant.id);
+      return true;
+    }
+    await client.set(customRestaurantKey(restaurant.id), restaurant);
+    await client.sadd(CUSTOM_RESTAURANT_INDEX_KEY, restaurant.id);
+    return true;
+  } catch (error) {
+    console.error("직접 추가 매장 저장 실패", error);
+    return false;
   }
-  await client.set(customRestaurantKey(restaurant.id), restaurant);
-  await client.sadd(CUSTOM_RESTAURANT_INDEX_KEY, restaurant.id);
 }
 
 export async function listCustomRestaurants(): Promise<Restaurant[]> {
@@ -469,9 +536,10 @@ export async function getAnyRestaurant(id: string): Promise<Restaurant | undefin
 
 const MAX_MESSAGES_PER_POT = 200;
 
-export async function addMessage(message: ChatMessage): Promise<void> {
-  const supabase = getSupabase();
-  if (supabase) {
+export async function addMessage(message: ChatMessage): Promise<boolean> {
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
     const { error } = await supabase.from("messages").insert({
       pot_id: message.potId,
       author_id: message.authorId,
@@ -480,20 +548,28 @@ export async function addMessage(message: ChatMessage): Promise<void> {
       kind: message.kind ?? "text",
       created_at: message.createdAt,
     });
-    if (error) console.error("Supabase addMessage error:", error);
-    return;
-  }
+      if (error) {
+        console.error("Supabase addMessage error:", error);
+        return false;
+      }
+      return true;
+    }
 
-  const client = getRedis();
-  if (!client) {
-    const list = memoryMessages.get(message.potId) ?? [];
-    list.push(message);
-    memoryMessages.set(message.potId, list.slice(-MAX_MESSAGES_PER_POT));
-    return;
+    const client = getRedis();
+    if (!client) {
+      const list = memoryMessages.get(message.potId) ?? [];
+      list.push(message);
+      memoryMessages.set(message.potId, list.slice(-MAX_MESSAGES_PER_POT));
+      return true;
+    }
+    const key = potMessagesKey(message.potId);
+    await client.rpush(key, JSON.stringify(message));
+    await client.ltrim(key, -MAX_MESSAGES_PER_POT, -1);
+    return true;
+  } catch (error) {
+    console.error("채팅 메시지 저장 실패", error);
+    return false;
   }
-  const key = potMessagesKey(message.potId);
-  await client.rpush(key, JSON.stringify(message));
-  await client.ltrim(key, -MAX_MESSAGES_PER_POT, -1);
 }
 
 export async function listMessages(potId: string): Promise<ChatMessage[]> {
@@ -529,4 +605,145 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
       return [];
     }
   });
+}
+
+function toChatPreview(message: ChatMessage): ChatMessagePreview {
+  const normalizedText = message.kind === "account"
+    ? `${message.authorName}님이 계좌를 공유했어요.`
+    : message.text.replace(/\s+/g, " ").trim().slice(0, 80);
+
+  return {
+    authorName: message.authorName,
+    text: normalizedText,
+    createdAt: message.createdAt,
+  };
+}
+
+export type PotChatSummary = {
+  latestMessage: ChatMessagePreview | null;
+  unreadMessageCount: number;
+};
+
+/** 내 참여 목록에 필요한 최근 메시지와 읽지 않은 수를 한 번에 계산합니다. */
+export async function getPotChatSummaries(
+  pots: ServerPot[],
+  user: User | null,
+  sessionSupabase?: SupabaseClient,
+): Promise<Map<string, PotChatSummary>> {
+  const summaries = new Map<string, PotChatSummary>();
+  if (!user) return summaries;
+
+  const participatingPots = pots.filter((pot) =>
+    pot.participants.some((participant) => participant.id === user.id),
+  );
+  if (participatingPots.length === 0) return summaries;
+
+  const potIds = participatingPots.map((pot) => pot.id);
+  const joinedAtByPot = new Map(
+    participatingPots.map((pot) => [
+      pot.id,
+      pot.participants.find((participant) => participant.id === user.id)?.joinedAt ?? 0,
+    ]),
+  );
+
+  const supabase = sessionSupabase ?? getSupabase();
+  if (supabase) {
+    const [{ data: messageRows, error: messageError }, { data: readRows, error: readError }] =
+      await Promise.all([
+        supabase
+          .from("messages")
+          .select("pot_id, author_id, author_name, text, kind, created_at")
+          .in("pot_id", potIds)
+          .order("created_at", { ascending: false })
+          .limit(1000),
+        supabase
+          .from("message_reads")
+          .select("pot_id, last_read_at")
+          .eq("user_id", user.id)
+          .in("pot_id", potIds),
+      ]);
+
+    if (messageError || !messageRows) return summaries;
+
+    const readAtByPot = new Map<string, number>();
+    if (!readError && readRows) {
+      for (const row of readRows) {
+        readAtByPot.set(row.pot_id, new Date(row.last_read_at).getTime());
+      }
+    }
+
+    for (const pot of participatingPots) {
+      const rows = messageRows.filter((message) => message.pot_id === pot.id);
+      const latestRow = rows[0];
+      const latestMessage = latestRow
+        ? toChatPreview({
+            id: "preview",
+            potId: pot.id,
+            authorId: latestRow.author_id,
+            authorName: latestRow.author_name,
+            text: latestRow.text,
+            kind: latestRow.kind as ChatMessage["kind"],
+            createdAt: latestRow.created_at,
+          })
+        : null;
+      const cursor = Math.max(readAtByPot.get(pot.id) ?? 0, joinedAtByPot.get(pot.id) ?? 0);
+      const unreadMessageCount = readError
+        ? 0
+        : rows.filter((message) =>
+            message.author_id !== user.id && new Date(message.created_at).getTime() > cursor,
+          ).length;
+      summaries.set(pot.id, { latestMessage, unreadMessageCount });
+    }
+    return summaries;
+  }
+
+  const client = getRedis();
+  for (const pot of participatingPots) {
+    const messages = await listMessages(pot.id);
+    const latestMessage = messages.length > 0 ? toChatPreview(messages[messages.length - 1]) : null;
+    const storedReadAt = client
+      ? await client.get<string>(potMessageReadKey(pot.id, user.id))
+      : memoryMessageReads.get(potMessageReadKey(pot.id, user.id));
+    const cursor = Math.max(
+      storedReadAt ? new Date(storedReadAt).getTime() : 0,
+      joinedAtByPot.get(pot.id) ?? 0,
+    );
+    const unreadMessageCount = messages.filter((message) =>
+      message.authorId !== user.id && new Date(message.createdAt).getTime() > cursor,
+    ).length;
+    summaries.set(pot.id, { latestMessage, unreadMessageCount });
+  }
+  return summaries;
+}
+
+/** 채팅을 실제로 불러온 시점까지 읽은 것으로 기록합니다. */
+export async function markPotMessagesRead(
+  potId: string,
+  userId: string,
+  messages: ChatMessage[],
+  sessionSupabase?: SupabaseClient,
+): Promise<void> {
+  const latestMessage = messages[messages.length - 1];
+  if (!latestMessage) return;
+
+  const supabase = sessionSupabase ?? getSupabase();
+  if (supabase) {
+    const { error } = await supabase.from("message_reads").upsert({
+      pot_id: potId,
+      user_id: userId,
+      last_read_at: latestMessage.createdAt,
+    });
+    if (error && error.code !== "PGRST205") {
+      console.error("Supabase markPotMessagesRead error:", error);
+    }
+    return;
+  }
+
+  const client = getRedis();
+  const key = potMessageReadKey(potId, userId);
+  if (client) {
+    await client.set(key, latestMessage.createdAt);
+    return;
+  }
+  memoryMessageReads.set(key, latestMessage.createdAt);
 }

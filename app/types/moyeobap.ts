@@ -62,6 +62,12 @@ export interface ChatMessageView {
   isMine: boolean;
 }
 
+export interface ChatMessagePreview {
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
 export type PotStatus = 'active' | 'closed' | 'failed';
 
 /**
@@ -79,6 +85,12 @@ export interface Pot {
   status: PotStatus;
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */
   maxParticipants: number | null;
+  /** 외부 주문까지 실제로 완료한 시각. 모집 마감과는 별개의 상태입니다. */
+  orderCompletedAt: string | null;
+  /** 참여자에게만 제공되는 최근 채팅 미리보기입니다. */
+  latestMessage: ChatMessagePreview | null;
+  /** 현재 사용자가 아직 읽지 않은 다른 참여자의 메시지 수입니다. */
+  unreadMessageCount: number;
 }
 
 export type SerializedPot = Omit<Pot, 'deadline'> & { deadline: string };
@@ -98,15 +110,17 @@ export type PotEventType =
   | 'pot_created'
   | 'pot_joined'
   | 'pot_left'
+  | 'pot_deadline_updated'
   | 'pot_closed'
-  | 'pot_failed';
+  | 'pot_failed'
+  | 'order_completed';
 
 export interface PotEvent {
   id: string;
   type: PotEventType;
   potId: string;
   restaurantId: string;
-  /** 행동을 한 사람. 마감·실패는 시간이나 정원 때문에 자동으로 일어나므로 비어 있다. */
+  /** 행동을 한 사람. 자동 마감·실패면 비어 있고 시간 변경·빠른 마감이면 관리자가 들어간다. */
   userId?: string;
   /** 이 사건 직후의 참여 인원. 성공률과 평균 모집 규모를 낼 때 쓴다. */
   participantCount: number;

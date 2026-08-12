@@ -1,8 +1,10 @@
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import type { Restaurant } from '../../types/moyeobap';
+import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
 interface CreatePotFormProps {
   restaurants: Restaurant[];
+  pots: SerializedPot[];
   onCreateCustomRestaurant: (input: {
     name: string;
     category: 'lunch' | 'cafe';
@@ -37,10 +39,13 @@ function groupBySubCategory(list: Restaurant[]) {
 
 export function CreatePotForm({
   restaurants,
+  pots,
   onCreateCustomRestaurant,
   onSubmit,
 }: CreatePotFormProps) {
   const [mode, setMode] = useState<'list' | 'custom'>('list');
+  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe'>('lunch');
+  const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
@@ -52,15 +57,48 @@ export function CreatePotForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const categoryRestaurants = useMemo(
+    () => restaurants.filter((restaurant) => restaurant.category === categoryFilter),
+    [categoryFilter, restaurants],
+  );
+
+  const subCategoryOptions = useMemo(() => {
+    const available = new Set(
+      categoryRestaurants.map((restaurant) => restaurant.subCategory ?? '기타'),
+    );
+    return [
+      ...SUB_CATEGORY_ORDER.filter((subCategory) => available.has(subCategory)),
+      ...[...available].filter((subCategory) => !SUB_CATEGORY_ORDER.includes(subCategory)),
+    ];
+  }, [categoryRestaurants]);
+
   const groupedRestaurants = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLocaleLowerCase('ko');
-    const filtered = restaurants.filter((restaurant) =>
-      `${restaurant.name} ${restaurant.subCategory ?? ''}`
+    const filtered = categoryRestaurants.filter((restaurant) => {
+      const matchesSubCategory = subCategoryFilter === 'all'
+        || (restaurant.subCategory ?? '기타') === subCategoryFilter;
+      const matchesSearch = `${restaurant.name} ${restaurant.subCategory ?? ''}`
         .toLocaleLowerCase('ko')
-        .includes(normalizedSearch),
-    );
+        .includes(normalizedSearch);
+      return matchesSubCategory && matchesSearch;
+    });
     return groupBySubCategory(filtered);
-  }, [restaurants, searchTerm]);
+  }, [categoryRestaurants, searchTerm, subCategoryFilter]);
+
+  const activePotsByRestaurant = useMemo(() => {
+    const grouped = new Map<string, SerializedPot[]>();
+    for (const pot of pots) {
+      if (pot.status !== 'active') continue;
+      const restaurantPots = grouped.get(pot.restaurantId) ?? [];
+      restaurantPots.push(pot);
+      grouped.set(pot.restaurantId, restaurantPots);
+    }
+    return grouped;
+  }, [pots]);
+
+  const selectedActivePots = selectedRestaurantId
+    ? activePotsByRestaurant.get(selectedRestaurantId) ?? []
+    : [];
 
   const selectedMinutes = deadlineChoice === 'custom' ? Number(customMinutes) : deadlineChoice;
   const selectedCap = hasParticipantLimit ? Number(participantLimit) : null;
@@ -73,6 +111,15 @@ export function CreatePotForm({
   const hasValidCap = selectedCap === null
     || (Number.isInteger(selectedCap) && selectedCap >= 2 && selectedCap <= 50);
   const canSubmit = hasValidRestaurant && hasValidDeadline && hasValidCap;
+
+  function handleCategoryChange(category: 'lunch' | 'cafe') {
+    setCategoryFilter(category);
+    setSubCategoryFilter('all');
+    const selectedRestaurant = restaurants.find((restaurant) => restaurant.id === selectedRestaurantId);
+    if (selectedRestaurant && selectedRestaurant.category !== category) {
+      setSelectedRestaurantId(null);
+    }
+  }
 
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
@@ -120,12 +167,52 @@ export function CreatePotForm({
 
           {mode === 'list' ? (
             <>
+              <div aria-label="매장 종류" className="create__category-tabs" role="group">
+                {([
+                  ['lunch', '🍱 점심'],
+                  ['cafe', '☕ 카페'],
+                ] as const).map(([category, label]) => (
+                  <button
+                    aria-pressed={categoryFilter === category}
+                    className={`create__category-tab ${categoryFilter === category ? 'create__category-tab--active' : ''}`}
+                    key={category}
+                    onClick={() => handleCategoryChange(category)}
+                    type="button"
+                  >
+                    <span>{label}</span>
+                    <small>{restaurants.filter((restaurant) => restaurant.category === category).length}</small>
+                  </button>
+                ))}
+              </div>
+
+              <div aria-label="매장 세부 카테고리" className="create__subcategory-tabs">
+                <button
+                  aria-pressed={subCategoryFilter === 'all'}
+                  className={`create__subcategory-tab ${subCategoryFilter === 'all' ? 'create__subcategory-tab--active' : ''}`}
+                  onClick={() => setSubCategoryFilter('all')}
+                  type="button"
+                >
+                  전체
+                </button>
+                {subCategoryOptions.map((subCategory) => (
+                  <button
+                    aria-pressed={subCategoryFilter === subCategory}
+                    className={`create__subcategory-tab ${subCategoryFilter === subCategory ? 'create__subcategory-tab--active' : ''}`}
+                    key={subCategory}
+                    onClick={() => setSubCategoryFilter(subCategory)}
+                    type="button"
+                  >
+                    {subCategory}
+                  </button>
+                ))}
+              </div>
+
               <div className="create__search-wrap">
                 <span className="create__search-icon">🔍</span>
                 <input
                   type="text"
                   className="create__search"
-                  placeholder="매장 이름을 검색하세요..."
+                  placeholder={`${categoryFilter === 'lunch' ? '점심' : '카페'} 매장을 검색하세요...`}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                 />
@@ -134,29 +221,63 @@ export function CreatePotForm({
               <div className="create__restaurant-list">
                 {groupedRestaurants.map(group => (
                   <div key={group.key} className="create__restaurant-group">
-                    <p className="create__restaurant-group-label">{group.key}</p>
-                    {group.items.map(r => (
-                      <button
-                        key={r.id}
-                        className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
-                        onClick={() => setSelectedRestaurantId(r.id)}
-                        type="button"
-                      >
-                        <span className="create__restaurant-emoji">{r.emoji}</span>
-                        <div className="create__restaurant-info">
-                          <span className="create__restaurant-name">{r.name}</span>
-                          <span className="create__restaurant-meta">
-                            {r.category === 'lunch' ? '점심' : '카페'} · 최소 {r.minOrder.toLocaleString()}원 · {r.deliveryTime}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    <div className="create__restaurant-group-heading">
+                      <p className="create__restaurant-group-label">{group.key}</p>
+                      <span>{group.items.length}곳</span>
+                    </div>
+                    <div className="create__restaurant-gallery">
+                      {group.items.map(r => {
+                        const activePotCount = activePotsByRestaurant.get(r.id)?.length ?? 0;
+                        return (
+                          <button
+                            aria-pressed={selectedRestaurantId === r.id}
+                            key={r.id}
+                            className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
+                            onClick={() => setSelectedRestaurantId(r.id)}
+                            type="button"
+                          >
+                            <span className="create__restaurant-emoji">{r.emoji}</span>
+                            <span className="create__restaurant-info">
+                              <span className="create__restaurant-name">{r.name}</span>
+                              <span className="create__restaurant-meta">
+                                {r.minOrder > 0 ? `최소 ${r.minOrder.toLocaleString()}원` : '최소주문 정보 없음'} · {r.deliveryTime}
+                              </span>
+                              {activePotCount > 0 && (
+                                <span className="create__restaurant-live">모집 중 {activePotCount}</span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
                 {groupedRestaurants.length === 0 && (
                   <p className="create__empty-result">검색 결과가 없어요.</p>
                 )}
               </div>
+
+              {selectedActivePots.length > 0 && (
+                <aside className="create__existing-pots">
+                  <div>
+                    <strong>이미 이 매장에서 모집 중이에요</strong>
+                    <p>새 팟을 만들기 전에 참여할 수 있는 팟인지 확인해보세요.</p>
+                  </div>
+                  <div className="create__existing-pot-list">
+                    {selectedActivePots.map((pot) => (
+                      <Link href={`/pots/${encodeURIComponent(pot.id)}`} key={pot.id}>
+                        <span>
+                          {new Date(pot.deadline).toLocaleTimeString('ko-KR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })} 마감 · {pot.participantCount}명 참여
+                        </span>
+                        <strong>팟 보기 →</strong>
+                      </Link>
+                    ))}
+                  </div>
+                </aside>
+              )}
             </>
           ) : (
             <div className="create__custom-form">

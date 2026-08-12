@@ -36,7 +36,13 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
   } else if (wasManager) {
     pot.managerId = pot.participants[0].id;
   }
-  await savePot(pot);
+  const saved = await savePot(pot);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "참여 취소를 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   await logEvent("pot_left", pot, user.id);
   if (pot.status === "failed") {
     await logEvent("pot_failed", pot);

@@ -4,7 +4,6 @@ import { Modal } from './Modal';
 
 export interface ProfileInput {
   displayName: string;
-  avatarUrl: string;
   bankName: string;
   accountNumber: string;
 }
@@ -14,11 +13,11 @@ interface ProfileModalProps {
   onClose: () => void;
   onSave: (input: ProfileInput) => Promise<string | null>;
   onLogout: () => Promise<void>;
+  onOpenFeedback: () => void;
 }
 
-export function ProfileModal({ user, onClose, onSave, onLogout }: ProfileModalProps) {
+export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }: ProfileModalProps) {
   const [displayName, setDisplayName] = useState(user.name);
-  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl ?? '');
   const [bankName, setBankName] = useState(user.bankName ?? '');
   const [accountNumber, setAccountNumber] = useState(user.accountNumber ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +29,7 @@ export function ProfileModal({ user, onClose, onSave, onLogout }: ProfileModalPr
     setSubmitting(true);
     setError(null);
     try {
-      const result = await onSave({ displayName, avatarUrl, bankName, accountNumber });
+      const result = await onSave({ displayName, bankName, accountNumber });
       if (result) setError(result);
     } finally {
       setSubmitting(false);
@@ -53,7 +52,7 @@ export function ProfileModal({ user, onClose, onSave, onLogout }: ProfileModalPr
       <form className="profile__form" onSubmit={handleSubmit}>
         <div className="profile__identity">
           {user.avatarUrl ? (
-            // Google 이미지 URL 또는 사용자가 저장한 이미지 URL만 표시합니다.
+            // Google 계정의 프로필 이미지를 표시합니다.
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="" className="profile__avatar" src={user.avatarUrl} />
           ) : (
@@ -76,22 +75,12 @@ export function ProfileModal({ user, onClose, onSave, onLogout }: ProfileModalPr
             value={displayName}
           />
         </label>
-        <label className="profile__field">
-          <span>프로필 이미지 주소</span>
-          <input
-            className="auth__input"
-            maxLength={500}
-            onChange={(event) => setAvatarUrl(event.target.value)}
-            placeholder="https://..."
-            type="url"
-            value={avatarUrl}
-          />
-        </label>
+        <p className="auth__field-hint">프로필 이미지는 Google 계정 이미지를 사용해요.</p>
 
         <div className="profile__account-group">
           <div>
             <strong>정산 계좌</strong>
-            <p>선택 사항이며 가입할 때는 요구하지 않아요.</p>
+            <p>선택 사항이며, 직접 공유한 팟의 참여자에게만 보여요.</p>
           </div>
           <label className="profile__field">
             <span>은행명</span>
@@ -119,6 +108,14 @@ export function ProfileModal({ user, onClose, onSave, onLogout }: ProfileModalPr
         </div>
 
         {error && <p className="auth__error" role="alert">{error}</p>}
+        <button
+          className="profile__feedback-btn"
+          disabled={submitting || loggingOut}
+          onClick={onOpenFeedback}
+          type="button"
+        >
+          💬 피드백 보내기
+        </button>
         <button className="create__submit-btn" disabled={submitting || loggingOut} type="submit">
           {submitting ? '저장 중...' : '프로필 저장'}
         </button>

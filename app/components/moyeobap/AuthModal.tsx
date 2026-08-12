@@ -43,7 +43,8 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
 
         <div className="auth__divider"><span>안내</span></div>
         <p className="auth__guest-note">
-          누구나 가입할 수 있으며, 로그인 없이도 진행 중인 팟은 볼 수 있어요.
+          로그인 시 이름, 이메일과 프로필 이미지를 서비스 이용에 사용해요.<br />
+          로그인 없이도 진행 중인 팟은 볼 수 있어요.
         </p>
       </div>
     </Modal>

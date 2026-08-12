@@ -3,20 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import {
   getAnyRestaurant,
+  getPotChatSummaries,
   listPots,
   logEvent,
   savePot,
   toPotView,
   type ServerPot,
 } from "@/app/lib/backend";
+import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 
 export async function GET() {
   const user = await getSession();
   const pots = await listPots();
+  const sessionSupabase = user ? await createSupabaseServerClient() : undefined;
+  const chatSummaries = await getPotChatSummaries(pots, user, sessionSupabase);
   // 인원 미달로 자동 종료된 팟은 원래 화면에 아예 보이지 않던 상태라 목록에서 제외합니다.
   const visible = pots
     .filter((pot) => pot.status !== "failed")
-    .map((pot) => toPotView(pot, user));
+    .map((pot) => toPotView(pot, user, chatSummaries.get(pot.id)));
   return NextResponse.json({ pots: visible });
 }
 
@@ -57,9 +61,17 @@ export async function POST(req: NextRequest) {
     createdAt: now.toISOString(),
     creatorId: user.id,
     managerId: user.id,
+    orderCompletedAt: null,
+    orderCompletedBy: null,
   };
 
-  await savePot(pot);
+  const saved = await savePot(pot);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "팟을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   await logEvent("pot_created", pot, user.id);
   return NextResponse.json({ pot: toPotView(pot, user) }, { status: 201 });
 }

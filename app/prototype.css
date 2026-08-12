@@ -427,7 +427,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .create-page__form .create__restaurant-list {
-  max-height: 360px;
+  max-height: 480px;
 }
 
 .create-page__form > .create__submit-btn {
@@ -659,7 +659,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .card--closed {
-  opacity: 0.5;
+  opacity: 0.72;
 }
 
 .card--mine {
@@ -751,6 +751,28 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   background-color: var(--text-muted);
 }
 
+.card__status--completed {
+  color: var(--success);
+}
+
+.card__status--completed::before {
+  background-color: var(--success);
+}
+
+.card__unread-badge {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .card__name {
   font-size: 1.2rem;
   font-weight: 700;
@@ -762,6 +784,38 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: var(--space-sm);
+}
+
+.card__chat-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: var(--space-sm);
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.card__chat-preview--unread {
+  background: #fff7ed;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.card__chat-preview > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card__chat-preview time {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 /* Timer — compact inline style */
@@ -880,7 +934,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .card__join-btn--closed {
   background: var(--bg-secondary);
   color: var(--text-muted);
-  cursor: default;
+  cursor: pointer;
+}
+
+.card__join-btn--closed:hover {
+  color: var(--text-primary);
+  background: #e2e8f0;
 }
 
 .card__join-btn--login {
@@ -1191,6 +1250,103 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-radius: var(--radius-md);
 }
 
+.detail__info-item--wide {
+  grid-column: 1 / -1;
+}
+
+.detail__management {
+  display: grid;
+  gap: 14px;
+  margin-bottom: var(--space-lg);
+  padding: 16px;
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: var(--radius-md);
+  background: #fffaf7;
+}
+
+.detail__management-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail__management-heading h2 {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.detail__management-heading p,
+.detail__deadline-field small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.detail__management-heading > span {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 107, 53, 0.1);
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.detail__deadline-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.detail__deadline-field input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.detail__deadline-field input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.detail__management-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.detail__management-actions button {
+  padding: 10px 14px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.detail__management-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detail__management-actions .detail__close-now-btn {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: #fff;
+  color: #dc2626;
+}
+
 /* ===== Create Modal ===== */
 .create__search-wrap {
   position: relative;
@@ -1232,31 +1388,39 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 12px;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+  padding: 2px 6px 8px 2px;
 }
 
 .create__restaurant-item {
-  padding: 12px 16px;
+  min-height: 94px;
+  padding: 14px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
   text-align: left;
   width: 100%;
 }
 
 .create__restaurant-item:hover {
-  background: var(--bg-secondary);
+  transform: translateY(-2px);
+  border-color: rgba(255, 107, 53, 0.45);
+  background: #fffaf7;
+  box-shadow: 0 8px 18px rgba(255, 107, 53, 0.12);
 }
 
 .create__restaurant-item--selected {
-  background: rgba(255, 107, 53, 0.06);
-  border: 1px solid rgba(255, 107, 53, 0.2);
+  background: #fff7ed;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.12);
 }
 
 .create__restaurant-emoji {
@@ -1266,6 +1430,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .create__restaurant-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  gap: 4px;
 }
 
 .create__restaurant-name {
@@ -1276,6 +1442,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .create__restaurant-meta {
   font-size: 0.8rem;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .create__time-section {
@@ -1822,6 +1989,68 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--warning);
 }
 
+.profile__feedback-btn {
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.profile__feedback-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.feedback__form {
+  display: grid;
+  gap: 12px;
+}
+
+.feedback__form > div:first-child p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.feedback__form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.feedback__form textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.55;
+}
+
+.feedback__form textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.feedback__count {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
 /* ===== Create pot: list vs custom restaurant tabs ===== */
 .create__mode-tabs {
   display: flex;
@@ -1846,6 +2075,83 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .create__mode-tab--active {
   background: var(--primary);
   border-color: var(--primary);
+  color: #fff;
+}
+
+.create__category-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.create__category-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.create__category-tab:hover {
+  border-color: rgba(255, 107, 53, 0.4);
+  background: #fffaf7;
+}
+
+.create__category-tab small {
+  display: grid;
+  min-width: 28px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.create__category-tab--active {
+  border-color: var(--primary);
+  background: #fff7ed;
+  color: var(--primary);
+}
+
+.create__category-tab--active small {
+  background: var(--primary);
+  color: #fff;
+}
+
+.create__subcategory-tabs {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding-bottom: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.create__subcategory-tab {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.create__subcategory-tab:hover,
+.create__subcategory-tab--active {
+  border-color: var(--primary);
+  background: var(--primary);
   color: #fff;
 }
 
@@ -1883,6 +2189,50 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.chat-panel__pinned-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px var(--space-md);
+  border-bottom: 1px solid rgba(217, 119, 6, 0.22);
+  background: #fffbeb;
+}
+
+.chat-panel__pinned-account > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-panel__pinned-account span {
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat-panel__pinned-account strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-panel__pinned-account button {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--amber);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .chat-panel__list {
@@ -2025,17 +2375,100 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .create__restaurant-group + .create__restaurant-group {
-  margin-top: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.create__restaurant-group-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 6px 4px;
+  background: #fff;
+}
+
+.create__restaurant-group-heading > span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .create__restaurant-group-label {
-  position: sticky;
-  top: 0;
-  background: #fff;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 6px 4px;
+}
+
+.create__restaurant-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.create__restaurant-live {
+  align-self: flex-start;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.create__existing-pots {
+  display: grid;
+  gap: 12px;
+  margin-top: var(--space-md);
+  padding: 14px;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: var(--radius-md);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.create__existing-pots > div > strong {
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.create__existing-pots > div > p {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.create__existing-pot-list {
+  display: grid;
+  gap: 7px;
+}
+
+.create__existing-pot-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.create__existing-pot-list a strong {
+  flex: 0 0 auto;
+  color: #15803d;
+}
+
+@media (max-width: 640px) {
+  .create__restaurant-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .create__category-tab {
+    padding: 12px;
+  }
 }

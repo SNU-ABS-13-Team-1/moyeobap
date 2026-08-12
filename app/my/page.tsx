@@ -108,6 +108,7 @@ export default function MyPotsPage() {
                       onOpenAuth={() => undefined}
                       pot={pot}
                       restaurant={restaurant}
+                      showChatSummary
                     />
                   );
                 })}
@@ -136,6 +137,7 @@ export default function MyPotsPage() {
                       onOpenAuth={() => undefined}
                       pot={pot}
                       restaurant={restaurant}
+                      showChatSummary
                     />
                   );
                 })}

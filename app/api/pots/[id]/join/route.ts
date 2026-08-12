@@ -26,7 +26,13 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
 
   pot.participants.push({ ...user, joinedAt: Date.now() });
   pot.status = deriveStatus(pot);
-  await savePot(pot);
+  const saved = await savePot(pot);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "참여 정보를 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   await logEvent("pot_joined", pot, user.id);
   // 이 참여로 정원이 차서 바로 마감된 경우, 마감도 별도 사건으로 남깁니다.
   if (pot.status !== "active") {

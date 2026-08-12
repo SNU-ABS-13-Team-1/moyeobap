@@ -42,6 +42,12 @@ export async function POST(req: NextRequest) {
     isCustom: true,
   };
 
-  await saveCustomRestaurant(restaurant);
+  const saved = await saveCustomRestaurant(restaurant);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "매장을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ restaurant }, { status: 201 });
 }

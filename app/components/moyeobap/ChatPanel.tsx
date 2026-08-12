@@ -19,8 +19,19 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<number | null>(null);
   const messages = data?.messages ?? [];
+  const pinnedAccount = messages.findLast((message) => message.kind === 'account');
+
+  function getAccountText(message: ChatMessageView) {
+    const marker = '계좌번호:';
+    const markerIndex = message.text.indexOf(marker);
+    return markerIndex >= 0
+      ? message.text.slice(markerIndex + marker.length).trim()
+      : message.text.replace(/^💳\s*/, '').trim();
+  }
 
   // Supabase Realtime 구독 설정 (새 메시지가 수신되면 Polling 대기 없이 즉시 화면 업데이트)
   useEffect(() => {
@@ -56,6 +67,21 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+  }, []);
+
+  async function handleCopyAccount(message: ChatMessageView) {
+    try {
+      await navigator.clipboard.writeText(getAccountText(message));
+      setCopiedAccountId(message.id);
+      if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = window.setTimeout(() => setCopiedAccountId(null), 1600);
+    } catch {
+      setSendError('계좌번호를 복사하지 못했어요. 직접 선택해 복사해주세요.');
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -127,6 +153,17 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
 
   return (
     <div className="chat-panel">
+      {pinnedAccount && (
+        <div className="chat-panel__pinned-account">
+          <div>
+            <span>💳 정산 계좌 · {pinnedAccount.authorName}</span>
+            <strong>{getAccountText(pinnedAccount)}</strong>
+          </div>
+          <button onClick={() => handleCopyAccount(pinnedAccount)} type="button">
+            {copiedAccountId === pinnedAccount.id ? '복사됨 ✓' : '복사'}
+          </button>
+        </div>
+      )}
       <div className="chat-panel__list" ref={listRef}>
         {loadError && (
           <p className="chat-panel__error" role="alert">대화를 불러오지 못했어요.</p>
