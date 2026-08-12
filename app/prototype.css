@@ -48,6 +48,10 @@
 }
 
 /* Layout & Reset */
+body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, section, dialog, .modal, .modal-overlay, .auth__content {
+  font-family: var(--font-family);
+}
+
 .moyeobap-body {
   background-color: var(--bg-color);
   color: var(--text-primary);
@@ -1491,6 +1495,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: var(--font-family);
 }
 
 .auth__google-btn:hover:not(:disabled) {
