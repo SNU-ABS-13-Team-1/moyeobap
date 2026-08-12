@@ -49,7 +49,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   }, [potId, mutate]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
 
   async function handleSubmit(e: FormEvent) {
@@ -57,18 +57,32 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
-    setSending(true);
     setSendError(null);
+    setText('');
+
+    // 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+      kind: 'text',
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    setSending(true);
     try {
       await requestJson(`/api/pots/${potId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: trimmed }),
       });
-      setText('');
       await mutate();
     } catch (error) {
       setSendError(getErrorMessage(error, '메시지를 보내지 못했어요.'));
+      await mutate();
     } finally {
       setSending(false);
     }
@@ -78,6 +92,19 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     if (sending) return;
     setSending(true);
     setSendError(null);
+
+    const accountText = `${currentUser.bankName} ${currentUser.accountNumber}`;
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: accountText,
+      createdAt: new Date().toISOString(),
+      kind: 'account',
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
     try {
       await requestJson(`/api/pots/${potId}/messages`, {
         method: 'POST',
@@ -87,6 +114,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
       await mutate();
     } catch (error) {
       setSendError(getErrorMessage(error, '계좌번호를 보내지 못했어요.'));
+      await mutate();
     } finally {
       setSending(false);
     }
