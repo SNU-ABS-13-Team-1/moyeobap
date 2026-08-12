@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { listCustomRestaurants, saveCustomRestaurant } from "@/app/lib/backend";
 import { RESTAURANTS } from "@/app/data/restaurants";
+import { findExactRestaurant } from "@/app/lib/restaurant-matching";
 import type { Restaurant } from "@/app/types/moyeobap";
 
 export async function GET() {
@@ -29,6 +30,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "점심/카페 중 하나를 선택해주세요." }, { status: 400 });
   }
 
+  const customRestaurants = await listCustomRestaurants();
+  const existingRestaurant = findExactRestaurant(
+    [...RESTAURANTS, ...customRestaurants],
+    name,
+    category,
+  );
+  if (existingRestaurant) {
+    return NextResponse.json({ restaurant: existingRestaurant, reused: true });
+  }
+
   const restaurant: Restaurant = {
     id: `custom-${randomUUID()}`,
     name,
@@ -49,5 +60,5 @@ export async function POST(req: NextRequest) {
       { status: 503 },
     );
   }
-  return NextResponse.json({ restaurant }, { status: 201 });
+  return NextResponse.json({ restaurant, reused: false }, { status: 201 });
 }

@@ -31,7 +31,7 @@ export default function NewPotPage() {
       return null;
     }
     try {
-      const response = await requestJson<{ restaurant: Restaurant }>('/api/restaurants', {
+      const response = await requestJson<{ restaurant: Restaurant; reused: boolean }>('/api/restaurants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -53,7 +53,7 @@ export default function NewPotPage() {
       return '로그인 후 팟을 만들 수 있어요.';
     }
     try {
-      const response = await requestJson<{ pot: SerializedPot }>('/api/pots', {
+      const response = await requestJson<{ pot: SerializedPot; reused: boolean }>('/api/pots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ restaurantId, minutes, maxParticipants }),

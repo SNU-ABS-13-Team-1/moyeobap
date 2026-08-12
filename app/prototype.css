@@ -2097,6 +2097,86 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   line-height: 1.5;
 }
 
+.create__restaurant-suggestions {
+  display: grid;
+  gap: 10px;
+  margin-top: var(--space-md);
+  padding: 14px;
+  border: 1px solid rgba(255, 107, 53, 0.24);
+  border-radius: var(--radius-md);
+  background: #fffaf7;
+}
+
+.create__restaurant-suggestions-heading strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.create__restaurant-suggestions-heading p {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.create__restaurant-suggestion-list {
+  display: grid;
+  gap: 7px;
+}
+
+.create__restaurant-suggestion-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.create__restaurant-suggestion-list button:hover,
+.create__restaurant-suggestion-list .create__restaurant-suggestion--selected {
+  border-color: var(--primary);
+  background: #fff7ed;
+}
+
+.create__restaurant-suggestion-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.create__restaurant-suggestion-info > span:first-child {
+  font-size: 1.35rem;
+}
+
+.create__restaurant-suggestion-info > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.create__restaurant-suggestion-info strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.create__restaurant-suggestion-info small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
 /* ===== Delivery feasibility note ===== */
 .detail__feasibility {
   margin-top: var(--space-md);
@@ -2351,12 +2431,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .create__existing-pots {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-top: var(--space-md);
-  padding: 14px;
-  border: 1px solid rgba(34, 197, 94, 0.22);
+  padding: 16px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
   border-radius: var(--radius-md);
-  background: rgba(34, 197, 94, 0.06);
+  background: rgba(34, 197, 94, 0.08);
 }
 
 .create__existing-pots > div > strong {
@@ -2380,7 +2460,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 11px;
+  padding: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.14);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text-secondary);
@@ -2388,9 +2469,30 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   text-decoration: none;
 }
 
-.create__existing-pot-list a strong {
+.create__existing-pot-list a > span {
+  display: grid;
+  gap: 3px;
+}
+
+.create__existing-pot-list a > span strong {
+  color: var(--text-primary);
+  font-size: 0.84rem;
+}
+
+.create__existing-pot-list a > span small {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.create__existing-pot-list a b {
   flex: 0 0 auto;
   color: #15803d;
+  font-size: 0.8rem;
+}
+
+.create__existing-pots-footer {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
 }
 
 @media (max-width: 640px) {

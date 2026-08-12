@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { findExactRestaurant, findRestaurantSuggestions } from '../../lib/restaurant-matching';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
 interface CreatePotFormProps {
@@ -37,6 +38,15 @@ function groupBySubCategory(list: Restaurant[]) {
   return orderedKeys.map(key => ({ key, items: groups.get(key)! }));
 }
 
+function formatRemainingTime(deadline: string) {
+  const remainingMinutes = Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / 60_000));
+  if (remainingMinutes < 60) return `${remainingMinutes}분`;
+
+  const hours = Math.floor(remainingMinutes / 60);
+  const minutes = remainingMinutes % 60;
+  return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+}
+
 export function CreatePotForm({
   restaurants,
   pots,
@@ -54,6 +64,7 @@ export function CreatePotForm({
   const [participantLimit, setParticipantLimit] = useState('4');
   const [customName, setCustomName] = useState('');
   const [customCategory, setCustomCategory] = useState<'lunch' | 'cafe'>('lunch');
+  const [selectedCustomRestaurantId, setSelectedCustomRestaurantId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,15 +107,29 @@ export function CreatePotForm({
     return grouped;
   }, [pots]);
 
-  const selectedActivePots = selectedRestaurantId
-    ? activePotsByRestaurant.get(selectedRestaurantId) ?? []
-    : [];
+  const customSuggestions = useMemo(
+    () => findRestaurantSuggestions(restaurants, customName, customCategory),
+    [customCategory, customName, restaurants],
+  );
+  const exactCustomMatch = useMemo(
+    () => findExactRestaurant(restaurants, customName, customCategory),
+    [customCategory, customName, restaurants],
+  );
+  const effectiveRestaurantId = mode === 'list'
+    ? selectedRestaurantId
+    : selectedCustomRestaurantId ?? exactCustomMatch?.id ?? null;
+  const selectedActivePots = useMemo(
+    () => (effectiveRestaurantId ? activePotsByRestaurant.get(effectiveRestaurantId) ?? [] : [])
+      .filter((pot) => pot.maxParticipants === null || pot.participantCount < pot.maxParticipants)
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()),
+    [activePotsByRestaurant, effectiveRestaurantId],
+  );
 
   const selectedMinutes = deadlineChoice === 'custom' ? Number(customMinutes) : deadlineChoice;
   const selectedCap = hasParticipantLimit ? Number(participantLimit) : null;
   const hasValidRestaurant = mode === 'list'
     ? Boolean(selectedRestaurantId)
-    : customName.trim().length > 0;
+    : Boolean(effectiveRestaurantId || customName.trim().length > 0);
   const hasValidDeadline = Number.isInteger(selectedMinutes)
     && selectedMinutes >= 5
     && selectedMinutes <= MAX_DEADLINE_MINUTES;
@@ -121,13 +146,32 @@ export function CreatePotForm({
     }
   }
 
+  function handleCustomNameChange(name: string) {
+    setCustomName(name);
+    setSelectedCustomRestaurantId(null);
+  }
+
+  function handleCustomCategoryChange(category: 'lunch' | 'cafe') {
+    setCustomCategory(category);
+    setSelectedCustomRestaurantId(null);
+  }
+
+  function handleSuggestionSelect(restaurant: Restaurant) {
+    setSelectedCustomRestaurantId(restaurant.id);
+    setCustomName(restaurant.name);
+    setError(null);
+  }
+
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
     setError(null);
     setSubmitting(true);
     try {
-      let restaurantId = selectedRestaurantId;
-      if (mode === 'custom') {
+      let restaurantId = effectiveRestaurantId;
+      if (mode === 'custom' && !restaurantId) {
+        if (customSuggestions.length > 0 && !window.confirm(`추천된 매장과 다른 곳이 맞나요?\n\n“${customName.trim()}”을 새 매장으로 추가합니다.`)) {
+          return;
+        }
         restaurantId = await onCreateCustomRestaurant({
           name: customName.trim(),
           category: customCategory,
@@ -152,14 +196,20 @@ export function CreatePotForm({
             <button
               type="button"
               className={`create__mode-tab ${mode === 'list' ? 'create__mode-tab--active' : ''}`}
-              onClick={() => setMode('list')}
+              onClick={() => {
+                setMode('list');
+                setError(null);
+              }}
             >
               목록에서 선택
             </button>
             <button
               type="button"
               className={`create__mode-tab ${mode === 'custom' ? 'create__mode-tab--active' : ''}`}
-              onClick={() => setMode('custom')}
+              onClick={() => {
+                setMode('custom');
+                setError(null);
+              }}
             >
               직접 입력
             </button>
@@ -256,28 +306,6 @@ export function CreatePotForm({
                   <p className="create__empty-result">검색 결과가 없어요.</p>
                 )}
               </div>
-
-              {selectedActivePots.length > 0 && (
-                <aside className="create__existing-pots">
-                  <div>
-                    <strong>이미 이 매장에서 모집 중이에요</strong>
-                    <p>새 팟을 만들기 전에 참여할 수 있는 팟인지 확인해보세요.</p>
-                  </div>
-                  <div className="create__existing-pot-list">
-                    {selectedActivePots.map((pot) => (
-                      <Link href={`/pots/${encodeURIComponent(pot.id)}`} key={pot.id}>
-                        <span>
-                          {new Date(pot.deadline).toLocaleTimeString('ko-KR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })} 마감 · {pot.participantCount}명 참여
-                        </span>
-                        <strong>팟 보기 →</strong>
-                      </Link>
-                    ))}
-                  </div>
-                </aside>
-              )}
             </>
           ) : (
             <div className="create__custom-form">
@@ -287,29 +315,83 @@ export function CreatePotForm({
                 className="create__search"
                 placeholder="예: 배곧 이름없는 김밥집"
                 value={customName}
-                onChange={e => setCustomName(e.target.value)}
+                onChange={e => handleCustomNameChange(e.target.value)}
               />
               <label className="create__time-label create__time-label--spaced">종류</label>
               <div className="create__time-options">
                 <button
                   type="button"
                   className={`create__time-option ${customCategory === 'lunch' ? 'create__time-option--selected' : ''}`}
-                  onClick={() => setCustomCategory('lunch')}
+                  onClick={() => handleCustomCategoryChange('lunch')}
                 >
                   점심
                 </button>
                 <button
                   type="button"
                   className={`create__time-option ${customCategory === 'cafe' ? 'create__time-option--selected' : ''}`}
-                  onClick={() => setCustomCategory('cafe')}
+                  onClick={() => handleCustomCategoryChange('cafe')}
                 >
                   카페
                 </button>
               </div>
+              {customSuggestions.length > 0 && (
+                <section className="create__restaurant-suggestions" aria-live="polite">
+                  <div className="create__restaurant-suggestions-heading">
+                    <strong>{exactCustomMatch ? '이미 등록된 매장이에요' : '비슷한 매장이 있어요'}</strong>
+                    <p>{exactCustomMatch ? '기존 매장을 사용해 팟을 만들어요.' : '찾던 매장이 있다면 선택해주세요.'}</p>
+                  </div>
+                  <div className="create__restaurant-suggestion-list">
+                    {customSuggestions.map((restaurant) => {
+                      const selected = effectiveRestaurantId === restaurant.id;
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className={selected ? 'create__restaurant-suggestion--selected' : ''}
+                          key={restaurant.id}
+                          onClick={() => handleSuggestionSelect(restaurant)}
+                          type="button"
+                        >
+                          <span className="create__restaurant-suggestion-info">
+                            <span aria-hidden="true">{restaurant.emoji}</span>
+                            <span>
+                              <strong>{restaurant.name}</strong>
+                              <small>{restaurant.subCategory ?? (restaurant.category === 'lunch' ? '점심' : '카페')}</small>
+                            </span>
+                          </span>
+                          <span>{selected ? '선택됨' : '이 매장 선택'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
               <p className="create__custom-note">
-                목록에 없는 매장도 이름만 입력해 팟을 만들 수 있어요.
+                {effectiveRestaurantId
+                  ? '선택한 기존 매장으로 팟을 만들어요.'
+                  : '목록에 없는 매장도 이름만 입력해 팟을 만들 수 있어요.'}
               </p>
             </div>
+          )}
+
+          {selectedActivePots.length > 0 && (
+            <aside className="create__existing-pots">
+              <div>
+                <strong>이 매장에서 모집 중인 팟이 있어요</strong>
+                <p>새로 만들기 전에 참여할 수 있는 팟을 확인해보세요.</p>
+              </div>
+              <div className="create__existing-pot-list">
+                {selectedActivePots.map((pot) => (
+                  <Link href={`/pots/${encodeURIComponent(pot.id)}`} key={pot.id}>
+                    <span>
+                      <strong>마감까지 {formatRemainingTime(pot.deadline)}</strong>
+                      <small>{pot.participantCount}명 참여{pot.maxParticipants ? ` · 최대 ${pot.maxParticipants}명` : ''}</small>
+                    </span>
+                    <b>{pot.isParticipating ? '팟 보기' : '기존 팟 참여하기'} →</b>
+                  </Link>
+                ))}
+              </div>
+              <p className="create__existing-pots-footer">다른 시간으로 모집하려면 아래에서 마감 시간을 선택하세요.</p>
+            </aside>
           )}
 
           {(mode === 'custom' || selectedRestaurantId) && (

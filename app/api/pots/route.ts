@@ -51,10 +51,21 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date();
+  const deadline = new Date(Math.ceil((now.getTime() + minutes * 60000) / 60_000) * 60_000);
+
+  const existingPot = (await listPots()).find((candidate) => (
+    candidate.status === "active"
+    && candidate.restaurantId === restaurantId
+    && new Date(candidate.deadline).getTime() === deadline.getTime()
+  ));
+  if (existingPot) {
+    return NextResponse.json({ pot: toPotView(existingPot, user), reused: true });
+  }
+
   const pot: ServerPot = {
     id: randomUUID(),
     restaurantId,
-    deadline: new Date(now.getTime() + minutes * 60000).toISOString(),
+    deadline: deadline.toISOString(),
     participants: [{ ...user, joinedAt: now.getTime() }],
     status: "active",
     maxParticipants,
@@ -73,5 +84,5 @@ export async function POST(req: NextRequest) {
     );
   }
   await logEvent("pot_created", pot, user.id);
-  return NextResponse.json({ pot: toPotView(pot, user) }, { status: 201 });
+  return NextResponse.json({ pot: toPotView(pot, user), reused: false }, { status: 201 });
 }
