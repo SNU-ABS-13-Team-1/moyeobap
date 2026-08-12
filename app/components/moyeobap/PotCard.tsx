@@ -25,6 +25,7 @@ export function PotCard({
   const isClosed = pot.status === 'closed';
   const isParticipating = pot.isParticipating;
   const timeStr = formatTime(minutes, seconds);
+  const closedAt = `${pot.deadline.getMonth() + 1}/${pot.deadline.getDate()} ${String(pot.deadline.getHours()).padStart(2, '0')}:${String(pot.deadline.getMinutes()).padStart(2, '0')}`;
   const restaurantMeta = [
     restaurant.minOrder > 0 ? `최소주문 ${restaurant.minOrder.toLocaleString()}원` : null,
     restaurant.deliveryTime !== '정보 없음' ? restaurant.deliveryTime : null,
@@ -89,8 +90,14 @@ export function PotCard({
         )}
 
         <div className="card__timer-row">
-          <span>마감까지</span>
-          <span className={`card__timer ${isUrgent && !isClosed ? 'card__timer--urgent' : ''}`}>{timeStr}</span>
+          {isClosed ? (
+            <span className="card__timer">{closedAt} 마감</span>
+          ) : (
+            <>
+              <span>마감까지</span>
+              <span className={`card__timer ${isUrgent ? 'card__timer--urgent' : ''}`}>{timeStr}</span>
+            </>
+          )}
         </div>
       </Link>
 
