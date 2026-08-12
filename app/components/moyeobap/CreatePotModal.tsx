@@ -13,6 +13,10 @@ interface CreatePotModalProps {
 
 const CAP_OPTIONS = [2, 3, 4, 6, 8];
 
+// 모집 마감까지 걸어둘 수 있는 시간(분). 1시간이 상한이면 미리 열어두는 팟을
+// 만들 수 없다는 의견이 있어 2·3시간을 더했다.
+const DEADLINE_OPTIONS = [15, 20, 30, 45, 60, 120, 180];
+
 // 카테고리 시트에 있는 소분류 순서와 맞춰뒀습니다. 여기 없는 값(직접 추가한 매장 등)은 뒤로 밀립니다.
 const SUB_CATEGORY_ORDER = [
   '한식', '중식', '일식', '양식', '치킨', '피자', '족발', '보쌈', '분식', '패스트푸드', '카페', '디저트',
@@ -174,13 +178,13 @@ export const CreatePotModal: React.FC<CreatePotModalProps> = ({
               <div className="create__time-section">
                 <label className="create__time-label">⏰ 마감 시간 설정</label>
                 <div className="create__time-options">
-                  {[15, 20, 30, 45, 60].map(mins => (
+                  {DEADLINE_OPTIONS.map(mins => (
                     <button
                       key={mins}
                       className={`create__time-option ${selectedMinutes === mins ? 'create__time-option--selected' : ''}`}
                       onClick={() => setSelectedMinutes(mins)}
                     >
-                      +{mins === 60 ? '1시간' : `${mins}분`}
+                      +{mins < 60 ? `${mins}분` : `${mins / 60}시간`}
                     </button>
                   ))}
                 </div>

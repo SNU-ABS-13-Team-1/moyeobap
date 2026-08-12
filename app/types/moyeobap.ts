@@ -56,3 +56,36 @@ export interface ToastNotice {
   message: string;
   type: 'success' | 'warning' | 'error';
 }
+
+/**
+ * 행동/Event 데이터 — 사용자가 서비스를 쓰면서 쌓이는 기록.
+ * 모집 현황(실시간 상태 데이터)은 마감되면 값이 사라지지만, 이 기록은 남아
+ * 인기 매장·성공률 같은 정보로 다시 쓰인다.
+ * 자세한 배경은 docs/DATA_CATEGORIES.md 참고.
+ */
+export type PotEventType =
+  | 'pot_created'
+  | 'pot_joined'
+  | 'pot_left'
+  | 'pot_closed'
+  | 'pot_failed';
+
+export interface PotEvent {
+  id: string;
+  type: PotEventType;
+  potId: string;
+  restaurantId: string;
+  /** 행동을 한 사람. 마감·실패는 시간이나 정원 때문에 자동으로 일어나므로 비어 있다. */
+  userId?: string;
+  /** 이 사건 직후의 참여 인원. 성공률과 평균 모집 규모를 낼 때 쓴다. */
+  participantCount: number;
+  createdAt: string;
+}
+
+/**
+ * 목록 상단 탭. 'closed'는 마감된 팟만 모아 보는 탭이다.
+ * 나머지 탭에는 진행 중인 팟만 나온다 — 마감된 팟이 쌓이면 목록이 길어져
+ * 지금 참여할 수 있는 팟을 찾기 어려워지기 때문이다.
+ * (인원 미달로 실패한 팟은 서버가 목록에서 빼므로 여기에도 오지 않는다.)
+ */
+export type PotFilter = 'all' | 'lunch' | 'cafe' | 'closed';

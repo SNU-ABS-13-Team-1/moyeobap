@@ -1,12 +1,14 @@
 import React from 'react';
-import { User } from '../../types/moyeobap';
+import { PotFilter, User } from '../../types/moyeobap';
 
 interface HeaderProps {
-  activeFilter: 'all' | 'lunch' | 'cafe';
-  setActiveFilter: (filter: 'all' | 'lunch' | 'cafe') => void;
+  activeFilter: PotFilter;
+  setActiveFilter: (filter: PotFilter) => void;
   isAuthenticated: boolean;
   currentUser: User | null;
   onAuthClick: () => void;
+  /** 마감 탭에 붙는 개수. 0이면 탭 자체를 숨긴다. */
+  closedPotsCount: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   isAuthenticated,
   currentUser,
   onAuthClick,
+  closedPotsCount,
 }) => {
   return (
     <header className="header">
@@ -42,6 +45,14 @@ export const Header: React.FC<HeaderProps> = ({
         >
           카페 ☕
         </button>
+        {closedPotsCount > 0 && (
+          <button
+            className={`header__tab ${activeFilter === 'closed' ? 'header__tab--active' : ''}`}
+            onClick={() => setActiveFilter('closed')}
+          >
+            마감 {closedPotsCount}
+          </button>
+        )}
       </nav>
 
       <div className="header__auth">

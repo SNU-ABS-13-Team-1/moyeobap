@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { getPot, savePot } from "@/app/lib/backend";
+import { getPot, logEvent, savePot } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -25,6 +25,10 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     pot.status = "failed";
   }
   await savePot(pot);
+  await logEvent("pot_left", pot, user.id);
+  if (pot.status === "failed") {
+    await logEvent("pot_failed", pot);
+  }
 
   return NextResponse.json({ pot });
 }
