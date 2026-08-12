@@ -117,7 +117,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           </div>
         ))}
       </div>
-      {currentUser.bankAccount && (
+      {currentUser.bankName && currentUser.accountNumber && (
         <button
           type="button"
           className="chat-panel__account-btn"

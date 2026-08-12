@@ -27,11 +27,15 @@ export interface User {
   id: string;
   name: string;
   initial: string;
-  /** 선택 입력. 채팅방에서 "계좌번호 전송" 버튼을 누르면 이 값을 그대로 공유합니다. */
-  bankAccount?: string;
+  /** Google 계정 이메일. 계정 식별 정보이며 서비스에서는 수정하지 않습니다. */
+  email: string;
+  avatarUrl?: string;
+  /** 선택 입력. 프로필에서만 수정하며 공개 API 응답에는 포함하지 않습니다. */
+  bankName?: string;
+  accountNumber?: string;
 }
 
-/** 참여자끼리 확인할 수 있는 최소 프로필입니다. 이메일 기반 사용자 id와 계좌는 노출하지 않습니다. */
+/** 참여자끼리 확인할 수 있는 최소 프로필입니다. 사용자 id·이메일·계좌는 노출하지 않습니다. */
 export interface ParticipantProfile {
   name: string;
   initial: string;
@@ -71,6 +75,7 @@ export interface Pot {
   participantCount: number;
   participants: ParticipantProfile[] | null;
   isParticipating: boolean;
+  isManaging: boolean;
   status: PotStatus;
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */
   maxParticipants: number | null;

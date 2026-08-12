@@ -1,20 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import './prototype.css';
-import type { Pot, Restaurant, SerializedPot, User } from './types/moyeobap';
+import type { Pot, Restaurant, SerializedPot } from './types/moyeobap';
 import { triggerConfetti } from './lib/moyeobap-utils';
 import { fetcher } from './lib/fetcher';
 import { getErrorMessage, requestJson } from './lib/api-client';
 import { useClock } from './hooks/useClock';
 import { useToastNotice } from './hooks/useToastNotice';
-import { Header } from './components/moyeobap/Header';
+import { useAuth } from './components/moyeobap/AuthProvider';
+import { DashboardFilters } from './components/moyeobap/DashboardFilters';
 import { StatusBar } from './components/moyeobap/StatusBar';
 import { PotCard } from './components/moyeobap/PotCard';
-import { PotDetailModal } from './components/moyeobap/PotDetailModal';
-import { CreatePotModal } from './components/moyeobap/CreatePotModal';
-import { AuthModal } from './components/moyeobap/AuthModal';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
 
 function toPot(serverPot: SerializedPot): Pot {
@@ -22,37 +20,22 @@ function toPot(serverPot: SerializedPot): Pot {
 }
 
 type PotResponse = { pot: SerializedPot };
-type LoginResponse = { user: User };
-type RestaurantResponse = { restaurant: Restaurant };
 
 export default function HomePage() {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'lunch' | 'cafe'>('all');
-  const [selectedPotId, setSelectedPotId] = useState<string | null>(null);
-
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-
+  const router = useRouter();
+  const { currentUser, openAuth } = useAuth();
+  const [statusFilter, setStatusFilterState] = useState<'active' | 'closed'>('active');
+  const [categoryFilter, setCategoryFilterState] = useState<'all' | 'lunch' | 'cafe'>('all');
   const now = useClock();
   const { toast, showToast } = useToastNotice();
 
-  const { data: meData, mutate: mutateMe } = useSWR<{ user: User | null }>('/api/auth/me', fetcher);
-  const {
-    data: restaurantsData,
-    error: restaurantsError,
-    mutate: mutateRestaurants,
-  } = useSWR<{ restaurants: Restaurant[] }>(
-    '/api/restaurants',
-    fetcher,
-  );
-  const {
-    data: potsData,
-    error: potsError,
-    mutate: mutatePots,
-  } = useSWR<{ pots: SerializedPot[] }>('/api/pots', fetcher, { refreshInterval: 4000 });
+  const { data: restaurantsData, error: restaurantsError } = useSWR<{
+    restaurants: Restaurant[];
+  }>('/api/restaurants', fetcher);
+  const { data: potsData, error: potsError, mutate: mutatePots } = useSWR<{
+    pots: SerializedPot[];
+  }>('/api/pots', fetcher, { refreshInterval: 4000 });
 
-  const currentUser = meData?.user ?? null;
-  const isAuthenticated = Boolean(currentUser);
   const restaurants = useMemo(() => restaurantsData?.restaurants ?? [], [restaurantsData]);
   const pots = useMemo(() => (potsData?.pots ?? []).map(toPot), [potsData]);
   const restaurantsById = useMemo(
@@ -60,40 +43,37 @@ export default function HomePage() {
     [restaurants],
   );
 
-  async function handleAuthToggle() {
-    if (isAuthenticated) {
-      try {
-        await requestJson('/api/auth/logout', { method: 'POST' });
-        await Promise.all([mutateMe(), mutatePots()]);
-        setIsDetailOpen(false);
-        showToast('로그아웃 되었습니다.', 'success');
-      } catch (error) {
-        showToast(getErrorMessage(error, '로그아웃하지 못했어요.'), 'error');
-      }
-    } else {
-      setIsAuthOpen(true);
-    }
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const category = params.get('category');
+    const timer = window.setTimeout(() => {
+      if (status === 'closed') setStatusFilterState('closed');
+      if (category === 'lunch' || category === 'cafe') setCategoryFilterState(category);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function syncFilters(status: 'active' | 'closed', category: 'all' | 'lunch' | 'cafe') {
+    const params = new URLSearchParams();
+    if (status !== 'active') params.set('status', status);
+    if (category !== 'all') params.set('category', category);
+    window.history.replaceState(null, '', `/${params.size ? `?${params}` : ''}`);
   }
 
-  async function handleLogin(email: string, name: string, bankAccount: string): Promise<string | null> {
-    try {
-      const data = await requestJson<LoginResponse>('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, bankAccount }),
-      });
-      await Promise.all([mutateMe(), mutatePots()]);
-      setIsAuthOpen(false);
-      showToast(`환영합니다, ${data.user.name}님! 🎉`, 'success');
-      return null;
-    } catch (error) {
-      return getErrorMessage(error, '로그인에 실패했어요.');
-    }
+  function setStatusFilter(status: 'active' | 'closed') {
+    setStatusFilterState(status);
+    syncFilters(status, categoryFilter);
+  }
+
+  function setCategoryFilter(category: 'all' | 'lunch' | 'cafe') {
+    setCategoryFilterState(category);
+    syncFilters(statusFilter, category);
   }
 
   async function handleJoinPot(potId: string) {
-    if (!isAuthenticated) {
-      setIsAuthOpen(true);
+    if (!currentUser) {
+      openAuth(`/pots/${encodeURIComponent(potId)}`);
       return;
     }
     try {
@@ -107,197 +87,98 @@ export default function HomePage() {
     }
   }
 
-  async function handleLeavePot(potId: string) {
-    try {
-      const data = await requestJson<PotResponse>(`/api/pots/${potId}/leave`, { method: 'POST' });
-      await mutatePots();
-      const restaurant = restaurantsById.get(data.pot.restaurantId);
-      if (data.pot.participantCount === 0) {
-        showToast(`${restaurant?.name ?? ''} 팟이 종료되었습니다.`, 'warning');
-        setIsDetailOpen(false);
-      } else {
-        showToast(`${restaurant?.name ?? ''} 탑승을 취소했습니다.`, 'warning');
-      }
-    } catch (error) {
-      showToast(getErrorMessage(error, '참여 취소에 실패했어요.'), 'error');
-    }
-  }
-
-  async function handleCreateCustomRestaurant(input: {
-    name: string;
-    category: 'lunch' | 'cafe';
-  }): Promise<string | null> {
-    try {
-      const data = await requestJson<RestaurantResponse>('/api/restaurants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      await mutateRestaurants();
-      return data.restaurant.id;
-    } catch {
-      return null;
-    }
-  }
-
-  async function handleCreateSubmit(
-    restaurantId: string,
-    minutes: number,
-    maxParticipants: number | null,
-  ): Promise<string | null> {
-    try {
-      await requestJson<PotResponse>('/api/pots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ restaurantId, minutes, maxParticipants }),
-      });
-      await mutatePots();
-      setIsCreateOpen(false);
-      const restaurant = restaurantsById.get(restaurantId);
-      if (activeFilter !== 'all' && restaurant && activeFilter !== restaurant.category) {
-        setActiveFilter('all');
-      }
-      showToast(`${restaurant?.name ?? ''} 팟이 생성되었습니다! ✨`, 'success');
-      triggerConfetti();
-      return null;
-    } catch (error) {
-      return getErrorMessage(error, '팟을 만들지 못했어요.');
-    }
-  }
-
   const filteredPots = useMemo(
     () => pots
       .filter((pot) => {
-        if (activeFilter === 'all') return true;
-        return restaurantsById.get(pot.restaurantId)?.category === activeFilter;
+        if (pot.status !== statusFilter) return false;
+        if (categoryFilter === 'all') return true;
+        return restaurantsById.get(pot.restaurantId)?.category === categoryFilter;
       })
-      .sort((a, b) => {
-        if (a.status === 'closed' && b.status !== 'closed') return 1;
-        if (a.status !== 'closed' && b.status === 'closed') return -1;
-        return a.deadline.getTime() - b.deadline.getTime();
-      }),
-    [activeFilter, pots, restaurantsById],
+      .sort((a, b) => statusFilter === 'closed'
+        ? b.deadline.getTime() - a.deadline.getTime()
+        : a.deadline.getTime() - b.deadline.getTime()),
+    [categoryFilter, pots, restaurantsById, statusFilter],
   );
 
-  const activePotsCount = pots.filter((p) => p.status === 'active').length;
-  const totalParticipantsCount = pots.reduce((sum, pot) => sum + pot.participantCount, 0);
+  const activePotsCount = pots.filter((pot) => pot.status === 'active').length;
+  const closedPotsCount = pots.filter((pot) => pot.status === 'closed').length;
+  const totalParticipantsCount = pots
+    .filter((pot) => pot.status === 'active')
+    .reduce((sum, pot) => sum + pot.participantCount, 0);
   const isInitialLoading = !potsData || !restaurantsData;
   const hasLoadError = Boolean(potsError || restaurantsError);
 
-  const selectedPot = pots.find((p) => p.id === selectedPotId);
-  const selectedRestaurant = selectedPot ? restaurantsById.get(selectedPot.restaurantId) : null;
-
   return (
-    <div className="moyeobap-body">
-      <div className="app">
-        {/* Header */}
-        <Header
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
-          isAuthenticated={isAuthenticated}
-          currentUser={currentUser}
-          onAuthClick={handleAuthToggle}
+    <>
+      <div className="dashboard-toolbar">
+        <DashboardFilters
+          activeCount={activePotsCount}
+          categoryFilter={categoryFilter}
+          closedCount={closedPotsCount}
+          setCategoryFilter={setCategoryFilter}
+          setStatusFilter={setStatusFilter}
+          statusFilter={statusFilter}
         />
-
-        {/* Status Bar */}
         <StatusBar
           activePotsCount={activePotsCount}
           totalParticipantsCount={totalParticipantsCount}
         />
-
-        {/* Main Grid */}
-        <main aria-busy={isInitialLoading} className="grid">
-          {hasLoadError ? (
-            <div className="empty" role="alert">
-              <div className="empty__emoji">⚠️</div>
-              <h2 className="empty__title">현황을 불러오지 못했어요</h2>
-              <p className="empty__desc">잠시 뒤 새로고침해주세요.</p>
-            </div>
-          ) : isInitialLoading ? (
-            <div className="empty">
-              <div className="empty__emoji">🍚</div>
-              <p className="empty__desc">모집 현황을 불러오는 중이에요...</p>
-            </div>
-          ) : filteredPots.length === 0 ? (
-            <div className="empty">
-              <div className="empty__emoji">🍽️</div>
-              <h2 className="empty__title">아직 열린 팟이 없어요</h2>
-              <p className="empty__desc">첫 번째 팟을 만들어 동료들을 모아보세요!</p>
-            </div>
-          ) : (
-            filteredPots.map((pot, index) => {
-              const restaurant = restaurantsById.get(pot.restaurantId);
-              if (!restaurant) return null;
-
-              return (
-                <PotCard
-                  key={pot.id}
-                  pot={pot}
-                  restaurant={restaurant}
-                  isAuthenticated={isAuthenticated}
-                  now={now}
-                  index={index}
-                  onCardClick={(potId) => {
-                    setSelectedPotId(potId);
-                    setIsDetailOpen(true);
-                  }}
-                  onJoinClick={handleJoinPot}
-                  onOpenAuth={() => setIsAuthOpen(true)}
-                />
-              );
-            })
-          )}
-        </main>
-
-        {/* FAB Button */}
-        <button
-          className="fab"
-          onClick={() => {
-            if (!isAuthenticated) {
-              setIsAuthOpen(true);
-            } else {
-              setIsCreateOpen(true);
-            }
-          }}
-          aria-label="새 팟 만들기"
-        >
-          <span className="fab__icon">+</span>
-          <span className="fab__tooltip">새 팟 만들기</span>
-        </button>
-
-        {/* Detail Modal */}
-        {isDetailOpen && selectedPot && selectedRestaurant && (
-          <PotDetailModal
-            pot={selectedPot}
-            restaurant={selectedRestaurant}
-            isAuthenticated={isAuthenticated}
-            currentUser={currentUser}
-            now={now}
-            onClose={() => setIsDetailOpen(false)}
-            onJoin={handleJoinPot}
-            onLeave={handleLeavePot}
-            onOpenAuth={() => setIsAuthOpen(true)}
-          />
-        )}
-
-        {/* Create Modal */}
-        {isCreateOpen && (
-          <CreatePotModal
-            restaurants={restaurants}
-            onClose={() => setIsCreateOpen(false)}
-            onCreateCustomRestaurant={handleCreateCustomRestaurant}
-            onSubmit={handleCreateSubmit}
-          />
-        )}
-
-        {/* Auth Modal */}
-        {isAuthOpen && (
-          <AuthModal onClose={() => setIsAuthOpen(false)} onLogin={handleLogin} />
-        )}
-
-        {/* Toast */}
-        <ToastNotice toast={toast} />
       </div>
-    </div>
+
+      <main aria-busy={isInitialLoading} className="grid">
+        {hasLoadError ? (
+          <div className="empty" role="alert">
+            <div className="empty__emoji">⚠️</div>
+            <h2 className="empty__title">현황을 불러오지 못했어요</h2>
+            <p className="empty__desc">잠시 뒤 새로고침해주세요.</p>
+          </div>
+        ) : isInitialLoading ? (
+          <div className="empty">
+            <div className="empty__emoji">🍚</div>
+            <p className="empty__desc">모집 현황을 불러오는 중이에요...</p>
+          </div>
+        ) : filteredPots.length === 0 ? (
+          <div className="empty">
+            <div className="empty__emoji">{statusFilter === 'closed' ? '🗂️' : '🍽️'}</div>
+            <h2 className="empty__title">
+              {statusFilter === 'closed' ? '아직 마감된 팟이 없어요' : '아직 열린 팟이 없어요'}
+            </h2>
+            <p className="empty__desc">
+              {statusFilter === 'closed'
+                ? '마감된 공동주문은 여기에 모아서 보여드려요.'
+                : '첫 번째 팟을 만들어 동료들을 모아보세요!'}
+            </p>
+          </div>
+        ) : (
+          filteredPots.map((pot, index) => {
+            const restaurant = restaurantsById.get(pot.restaurantId);
+            if (!restaurant) return null;
+            return (
+              <PotCard
+                index={index}
+                isAuthenticated={Boolean(currentUser)}
+                key={pot.id}
+                now={now}
+                onJoinClick={handleJoinPot}
+                onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
+                pot={pot}
+                restaurant={restaurant}
+              />
+            );
+          })
+        )}
+      </main>
+
+      <button
+        aria-label="새 팟 만들기"
+        className="fab"
+        onClick={() => currentUser ? router.push('/pots/new') : openAuth('/pots/new')}
+        type="button"
+      >
+        <span className="fab__icon">+</span>
+        <span className="fab__tooltip">새 팟 만들기</span>
+      </button>
+      <ToastNotice toast={toast} />
+    </>
   );
 }

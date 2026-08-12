@@ -1,7 +1,7 @@
 # 모여밥
 
-서울대학교 시흥캠퍼스 구성원이 같은 음식점에서 공동주문할 사람을 찾고 참여하는
-웹앱입니다. 제품 범위와 UX 결정은 [AGENTS.md](AGENTS.md)를 단일 기준으로
+같은 음식점에서 공동주문할 사람을 찾고 참여하는 웹앱입니다. 제품 범위와 UX
+결정은 [AGENTS.md](AGENTS.md)를 단일 기준으로
 관리합니다.
 
 ## 현재 구현
@@ -10,12 +10,12 @@
 - 조사된 음식점과 대표 메뉴 데이터
 - 모집 생성, 참여, 참여 취소와 자동 마감 API
 - 참여자 전용 신원·관리자 표시와 채팅
+- Supabase Auth 기반 Google 로그인과 프로필 편집
+- 현황판(`/`), 내 참여(`/my`), 새 모집(`/pots/new`), 모집 상세(`/pots/[id]`)
+  페이지 분리
+- 데스크톱 모집 상세·채팅 2단 배치와 모바일 정보·채팅 탭 전환
 - 4초 간격 모집 갱신, 3초 간격 채팅 갱신
 - Upstash Redis 저장소와 로컬 개발용 메모리 저장소
-
-현재 이메일 로그인은 백엔드 흐름을 검증하기 위한 임시 인증입니다. 대상
-워크스페이스 구성원 확인이 가능한 실제 인증으로 교체하기 전에는 운영 환경에
-공개하지 않습니다.
 
 ## 로컬 실행
 
@@ -35,10 +35,17 @@ npm run dev
 운영 환경에서는 다음 값을 설정해야 합니다.
 
 ```dotenv
-MOYEOBAP_SESSION_SECRET=<충분히 긴 무작위 문자열>
+NEXT_PUBLIC_SUPABASE_URL=<Supabase project URL>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
 UPSTASH_REDIS_REST_URL=<Upstash REST URL>
 UPSTASH_REDIS_REST_TOKEN=<Upstash REST token>
 ```
+
+기존 프로젝트의 legacy 키를 사용하는 동안에는
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`도 지원합니다. Google provider를 활성화하고
+Supabase Auth의 Redirect URLs에 로컬 `http://localhost:3000/auth/callback`과
+운영 도메인의 `/auth/callback`을 등록해야 합니다. 프로필 테이블과 RLS는
+`supabase/migrations/20260812000000_google_auth_profiles.sql`을 적용합니다.
 
 Vercel KV 이름을 사용하는 경우 `KV_REST_API_URL`, `KV_REST_API_TOKEN`도
 지원합니다. `.env*` 파일은 Git에서 제외됩니다.

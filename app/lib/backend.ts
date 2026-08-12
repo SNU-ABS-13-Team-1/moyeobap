@@ -68,6 +68,7 @@ export function toPotView(pot: ServerPot, currentUser: User | null): SerializedP
         }))
       : null,
     isParticipating,
+    isManaging: Boolean(currentUser && currentUser.id === pot.managerId),
     status: pot.status,
     maxParticipants: pot.maxParticipants,
   };
@@ -147,7 +148,7 @@ export async function savePot(pot: ServerPot): Promise<void> {
         user_id: p.id,
         user_name: p.name,
         user_initial: p.initial,
-        bank_account: p.bankAccount ?? null,
+        bank_account: p.accountNumber ? (p.bankName ? `${p.bankName} ${p.accountNumber}` : p.accountNumber) : null,
         joined_at: new Date(p.joinedAt).toISOString(),
       }));
       const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
@@ -192,7 +193,8 @@ export async function getPot(id: string): Promise<ServerPot | null> {
       id: p.user_id,
       name: p.user_name,
       initial: p.user_initial,
-      bankAccount: p.bank_account ?? undefined,
+      email: p.user_id,
+      accountNumber: p.bank_account ?? undefined,
       joinedAt: new Date(p.joined_at).getTime(),
     }));
 
@@ -258,7 +260,8 @@ export async function listPots(): Promise<ServerPot[]> {
           id: p.user_id,
           name: p.user_name,
           initial: p.user_initial,
-          bankAccount: p.bank_account ?? undefined,
+          email: p.user_id,
+          accountNumber: p.bank_account ?? undefined,
           joinedAt: new Date(p.joined_at).getTime(),
         })),
       }),
