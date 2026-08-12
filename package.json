@@ -9,8 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --ignore-pattern .next",
-    "typecheck": "tsc --noEmit --incremental false"
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern '_archive_*'",
+    "typecheck": "tsc --noEmit --incremental false",
+    "data:build": "node scripts/csv-to-ts.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

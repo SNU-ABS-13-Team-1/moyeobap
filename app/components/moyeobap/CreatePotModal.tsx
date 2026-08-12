@@ -10,12 +10,14 @@ interface CreatePotFormProps {
   onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => Promise<string | null>;
 }
 
+// 모집 마감까지 걸어둘 수 있는 시간(분). 1시간이 상한이면 미리 열어두는 팟을
+// 만들 수 없다는 의견이 있어 2·3시간을 더했다.
 const DEADLINE_OPTIONS = [15, 20, 30, 45, 60, 120, 180];
 const MAX_DEADLINE_MINUTES = 24 * 60;
 
-// 카테고리 시트에 있는 소분류 순서와 맞춰뒀습니다. 여기 없는 값(직접 추가한 매장 등)은 뒤로 밀립니다.
+// data/DATA_GUIDE.md의 소분류 14종 순서와 맞춰뒀습니다. 여기 없는 값(직접 추가한 매장 등)은 뒤로 밀립니다.
 const SUB_CATEGORY_ORDER = [
-  '한식', '중식', '일식', '양식', '치킨', '피자', '족발', '보쌈', '분식', '패스트푸드', '카페', '디저트',
+  '분식', '중식', '패스트푸드', '치킨', '한식', '피자', '찜·탕', '돈까스·회', '양식', '아시안', '고기', '족발·보쌈', '도시락', '카페·디저트',
 ];
 
 function groupBySubCategory(list: Restaurant[]) {

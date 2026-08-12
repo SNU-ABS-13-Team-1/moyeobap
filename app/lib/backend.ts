@@ -1,7 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
 import { RESTAURANTS } from "../data/restaurants";
-import type { ChatMessage, Restaurant, SerializedPot, User } from "../types/moyeobap";
+import type {
+  ChatMessage,
+  PotEvent,
+  PotEventType,
+  Restaurant,
+  SerializedPot,
+  User,
+} from "../types/moyeobap";
 
 export type ServerPot = {
   id: string;
@@ -19,6 +27,7 @@ type StoredPot = Omit<ServerPot, "creatorId" | "managerId"> &
   Partial<Pick<ServerPot, "creatorId" | "managerId">>;
 
 const POT_INDEX_KEY = "moyeobap:pots:index";
+const EVENT_LOG_KEY = "moyeobap:events";
 const potKey = (id: string) => `moyeobap:pot:${id}`;
 const potMessagesKey = (id: string) => `moyeobap:pot:${id}:messages`;
 const CUSTOM_RESTAURANT_INDEX_KEY = "moyeobap:restaurants:custom:index";
@@ -28,6 +37,7 @@ const customRestaurantKey = (id: string) => `moyeobap:restaurant:custom:${id}`;
 const memoryPots = new Map<string, ServerPot>();
 const memoryPotIndex = new Set<string>();
 const memoryMessages = new Map<string, ChatMessage[]>();
+const memoryEvents: PotEvent[] = [];
 const memoryCustomRestaurants = new Map<string, Restaurant>();
 const memoryCustomRestaurantIndex = new Set<string>();
 
@@ -115,6 +125,50 @@ async function ensureRestaurantExistsInSupabase(restaurantId: string): Promise<v
       console.error("Supabase ensureRestaurantExistsInSupabase error:", error);
     }
   }
+}
+
+const MAX_EVENTS = 2000;
+
+/**
+ * 행동/Event 기록을 남깁니다. 기록에 실패해도 사용자의 동작은 성공한 것으로
+ * 둡니다 — 통계용 로그 때문에 모집 참여가 막히면 안 됩니다.
+ */
+export async function logEvent(
+  type: PotEventType,
+  pot: Pick<ServerPot, "id" | "restaurantId" | "participants">,
+  userId?: string,
+): Promise<void> {
+  const event: PotEvent = {
+    id: randomUUID(),
+    type,
+    potId: pot.id,
+    restaurantId: pot.restaurantId,
+    ...(userId ? { userId } : {}),
+    participantCount: pot.participants.length,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const client = getRedis();
+    if (!client) {
+      memoryEvents.push(event);
+      if (memoryEvents.length > MAX_EVENTS) {
+        memoryEvents.splice(0, memoryEvents.length - MAX_EVENTS);
+      }
+      return;
+    }
+    await client.rpush(EVENT_LOG_KEY, JSON.stringify(event));
+    await client.ltrim(EVENT_LOG_KEY, -MAX_EVENTS, -1);
+  } catch (error) {
+    console.error("이벤트 기록 실패", error);
+  }
+}
+
+export async function listEvents(): Promise<PotEvent[]> {
+  const client = getRedis();
+  if (!client) return [...memoryEvents];
+  const raw = await client.lrange<string>(EVENT_LOG_KEY, 0, -1);
+  return raw.map((entry) => (typeof entry === "string" ? JSON.parse(entry) : entry));
 }
 
 export async function savePot(pot: ServerPot): Promise<void> {
@@ -287,6 +341,7 @@ export async function listPots(): Promise<ServerPot[]> {
       if (nextStatus !== pot.status) {
         const changed = { ...pot, status: nextStatus };
         await savePot(changed);
+        await logEvent(nextStatus === "closed" ? "pot_closed" : "pot_failed", changed);
         return changed;
       }
       return pot;

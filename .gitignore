@@ -46,10 +46,26 @@ tsconfig.tsbuildinfo
 # archived previous prototype (kept locally for reference only)
 /_archive_*/
 
-# python cache (menu parsing script)
+# python cache (scripts/xlsx_to_csv.py)
 __pycache__/
 *.pyc
 
-# accidentally-committed build output from another tool (Cloudflare Workers / Vite)
+# 배민 화면 캡처 원본과 압축본 (용량이 커서 로컬 보관만)
+# 폴더 이름은 수집자마다 달라지므로 폴더가 아니라 확장자로 제외한다.
+# OCR 산출물인 extracted.json은 데이터 원본이므로 추적 대상이다.
+/data/**/*.png
+/data/**/*.PNG
+/data/**/*.jpg
+/data/**/*.JPG
+/data/**/*.jpeg
+/data/**/*.heic
+/data/**/*.HEIC
+/data/**/*.zip
+
+# 백업 파일
+*.bak
+
+# 빌드 산출물
 /.wrangler/
 /dist/
+tsconfig.tsbuildinfo

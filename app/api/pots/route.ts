@@ -4,6 +4,7 @@ import { getSession } from "@/app/lib/auth";
 import {
   getAnyRestaurant,
   listPots,
+  logEvent,
   savePot,
   toPotView,
   type ServerPot,
@@ -59,5 +60,6 @@ export async function POST(req: NextRequest) {
   };
 
   await savePot(pot);
+  await logEvent("pot_created", pot, user.id);
   return NextResponse.json({ pot: toPotView(pot, user) }, { status: 201 });
 }
