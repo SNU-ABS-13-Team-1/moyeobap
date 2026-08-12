@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { ChatMessage, User } from '../../types/moyeobap';
 import { fetcher } from '../../lib/fetcher';
+import { getSupabase } from '../../lib/supabase';
 
 interface ChatPanelProps {
   potId: string;
@@ -18,6 +19,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ potId, currentUser }) => {
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const messages = data?.messages ?? [];
+
+  // Supabase Realtime 구독 설정 (새 메시지가 수신되면 Polling 대기 없이 즉시 화면 업데이트)
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`chat-pot-${potId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `pot_id=eq.${potId}`,
+        },
+        () => {
+          mutate();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [potId, mutate]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });

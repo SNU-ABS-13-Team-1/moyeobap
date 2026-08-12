@@ -12,6 +12,7 @@
     "lint": "eslint . --ignore-pattern .next"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "@upstash/redis": "^1.38.2",
     "next": "16.2.6",
     "react": "19.2.6",
