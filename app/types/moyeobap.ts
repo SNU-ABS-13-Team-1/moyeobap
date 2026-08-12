@@ -46,6 +46,13 @@ export interface Pot {
   id: string;
   restaurantId: string;
   deadline: Date;
+  /** 전체 참여 인원수. 신원과 무관하게 누구에게나 보이는 값. */
+  participantCount: number;
+  /**
+   * 참여자 신원은 그 팟 참여자끼리만 볼 수 있어서(AGENTS.md 6장), 서버는
+   * 내가 참여한 팟에만 이 배열을 채워 보냅니다. 비참여자에게는 빈 배열.
+   * 계좌번호는 어떤 응답에도 실리지 않습니다.
+   */
   participants: User[];
   status: 'active' | 'closed' | 'failed';
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */

@@ -48,7 +48,10 @@ export const PotCard: React.FC<PotCardProps> = ({
     statusText = '마감임박';
   }
 
-  const showCount = Math.min(3, pot.participants.length);
+  // 참여자 신원은 참여한 팟에만 내려오므로, 비참여자에게는 익명 아바타로 인원만 보여준다.
+  const shownAvatars = Math.min(3, pot.participantCount);
+  const namedAvatars = pot.participants.slice(0, shownAvatars);
+  const anonymousAvatars = shownAvatars - namedAvatars.length;
 
   return (
     <article
@@ -75,15 +78,18 @@ export const PotCard: React.FC<PotCardProps> = ({
       <div className="card__footer">
         <div className="card__participants">
           <div className="card__avatars">
-            {pot.participants.slice(0, showCount).map(p => (
+            {namedAvatars.map(p => (
               <div key={p.id} className="card__avatar">{p.initial}</div>
             ))}
-            {pot.participants.length > 3 && (
-              <div className="card__avatar card__avatar--more">+{pot.participants.length - 3}</div>
+            {Array.from({ length: anonymousAvatars }).map((_, i) => (
+              <div key={`anon-${i}`} className="card__avatar">👤</div>
+            ))}
+            {pot.participantCount > 3 && (
+              <div className="card__avatar card__avatar--more">+{pot.participantCount - 3}</div>
             )}
           </div>
           <span className="card__count">
-            <span>{pot.participants.length}</span>명 참여{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
+            <span>{pot.participantCount}</span>명 참여{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
           </span>
         </div>
 

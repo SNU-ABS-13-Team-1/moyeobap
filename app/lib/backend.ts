@@ -13,6 +13,30 @@ export type ServerPot = {
   createdAt: string;
 };
 
+/** API 응답용 팟. 참여자 신원은 참여자에게만 담고, 계좌번호는 누구에게도 담지 않는다. */
+export type PublicPot = Omit<ServerPot, "participants"> & {
+  participantCount: number;
+  /** 조회한 사람이 참여자일 때만 채워진다. 비참여자·비로그인에게는 빈 배열. */
+  participants: Pick<User, "id" | "name" | "initial">[];
+};
+
+/**
+ * 저장된 팟을 API 응답 모양으로 바꿉니다. 참여자 신원은 그 팟에 참여한
+ * 사람끼리만 볼 수 있고(AGENTS.md 6장), 계좌번호는 본인이 채팅에서 공유
+ * 버튼을 눌렀을 때만 노출되므로 팟 응답에는 절대 싣지 않습니다.
+ */
+export function toPublicPot(pot: ServerPot, viewerId: string | null): PublicPot {
+  const { participants, ...rest } = pot;
+  const isParticipant = viewerId !== null && participants.some((p) => p.id === viewerId);
+  return {
+    ...rest,
+    participantCount: participants.length,
+    participants: isParticipant
+      ? participants.map(({ id, name, initial }) => ({ id, name, initial }))
+      : [],
+  };
+}
+
 const POT_INDEX_KEY = "moyeobap:pots:index";
 const EVENT_LOG_KEY = "moyeobap:events";
 const potKey = (id: string) => `moyeobap:pot:${id}`;

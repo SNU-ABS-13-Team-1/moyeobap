@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, logEvent, savePot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot, toPublicPot } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -19,7 +19,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
   }
 
   if (pot.participants.some((p) => p.id === user.id)) {
-    return NextResponse.json({ pot });
+    return NextResponse.json({ pot: toPublicPot(pot, user.id) });
   }
 
   pot.participants.push({ ...user, joinedAt: Date.now() });
@@ -31,5 +31,5 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     await logEvent(pot.status === "closed" ? "pot_closed" : "pot_failed", pot);
   }
 
-  return NextResponse.json({ pot });
+  return NextResponse.json({ pot: toPublicPot(pot, user.id) });
 }

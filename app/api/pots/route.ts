@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { getAnyRestaurant, listPots, logEvent, savePot, type ServerPot } from "@/app/lib/backend";
+import { getAnyRestaurant, listPots, logEvent, savePot, toPublicPot, type ServerPot } from "@/app/lib/backend";
 
 export async function GET() {
+  const user = await getSession();
   const pots = await listPots();
   // 인원 미달로 자동 종료된 팟은 원래 화면에 아예 보이지 않던 상태라 목록에서 제외합니다.
-  const visible = pots.filter((pot) => pot.status !== "failed");
+  const visible = pots
+    .filter((pot) => pot.status !== "failed")
+    .map((pot) => toPublicPot(pot, user?.id ?? null));
   return NextResponse.json({ pots: visible });
 }
 
@@ -49,5 +52,5 @@ export async function POST(req: NextRequest) {
 
   await savePot(pot);
   await logEvent("pot_created", pot, user.id);
-  return NextResponse.json({ pot }, { status: 201 });
+  return NextResponse.json({ pot: toPublicPot(pot, user.id) }, { status: 201 });
 }

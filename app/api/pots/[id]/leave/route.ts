@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, logEvent, savePot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot, toPublicPot } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -17,7 +17,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
   // 저장된 status가 아직 active여도 마감 시간이 지났으면 취소를 막습니다
   // (참여 route와 같은 기준 — AGENTS.md: 마감 이후에는 신규 참여와 취소 모두 불허).
   if (deriveStatus(pot) !== "active") {
-    return NextResponse.json({ pot });
+    return NextResponse.json({ pot: toPublicPot(pot, user.id) });
   }
 
   pot.participants = pot.participants.filter((p) => p.id !== user.id);
@@ -32,5 +32,5 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     await logEvent("pot_failed", pot);
   }
 
-  return NextResponse.json({ pot });
+  return NextResponse.json({ pot: toPublicPot(pot, user.id) });
 }

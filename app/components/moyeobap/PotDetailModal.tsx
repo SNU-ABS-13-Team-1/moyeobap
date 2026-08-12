@@ -62,7 +62,7 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
             <div className="detail__info-item">
               <span className="detail__info-label">참여인원</span>
               <span className="detail__info-value">
-                {pot.participants.length}명{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
+                {pot.participantCount}명{pot.maxParticipants ? ` / ${pot.maxParticipants}명` : ''}
               </span>
             </div>
             <div className="detail__info-item">
@@ -75,9 +75,9 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
 
           {neededForMinOrder !== null && pot.status !== 'closed' && (
             <p className="detail__feasibility">
-              {pot.participants.length >= neededForMinOrder
+              {pot.participantCount >= neededForMinOrder
                 ? `✅ 대표메뉴 기준으로 최소주문금액을 채울 수 있어요.`
-                : `대표메뉴 1개씩 주문한다고 하면 최소 ${neededForMinOrder}명이면 최소주문금액을 채울 수 있을 것으로 보여요 (현재 ${pot.participants.length}명).`}
+                : `대표메뉴 1개씩 주문한다고 하면 최소 ${neededForMinOrder}명이면 최소주문금액을 채울 수 있을 것으로 보여요 (현재 ${pot.participantCount}명).`}
             </p>
           )}
 
@@ -94,7 +94,7 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
           </div>
 
           <div className="detail__participants-section">
-            <h4 className="detail__section-title">👥 참여자 ({pot.participants.length}명)</h4>
+            <h4 className="detail__section-title">👥 참여자 ({pot.participantCount}명)</h4>
             {!isAuthenticated ? (
               <div className="detail__participant-hidden">🔒 로그인하면 참여자 정보를 확인할 수 있어요</div>
             ) : isParticipating ? (
@@ -106,7 +106,7 @@ export const PotDetailModal: React.FC<PotDetailModalProps> = ({
                 </div>
               ))
             ) : (
-              <div className="detail__participant-hidden">현재 {pot.participants.length}명이 참여하고 있어요! 👀</div>
+              <div className="detail__participant-hidden">현재 {pot.participantCount}명이 참여하고 있어요! 👀</div>
             )}
           </div>
 

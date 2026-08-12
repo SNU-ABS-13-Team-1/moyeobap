@@ -110,7 +110,7 @@ export default function HomePage() {
     }
     await mutatePots();
     const r = restaurants.find((item) => item.id === data.pot.restaurantId);
-    if (data.pot.participants.length === 0) {
+    if (data.pot.participantCount === 0) {
       showToast(`${r?.name || ''} 팟이 종료되었습니다.`, 'error');
       setIsDetailOpen(false);
     } else {
@@ -172,7 +172,7 @@ export default function HomePage() {
         : a.deadline.getTime() - b.deadline.getTime());
 
   const activePotsCount = pots.filter((p) => p.status === 'active').length;
-  const totalParticipantsCount = pots.reduce((sum, p) => sum + p.participants.length, 0);
+  const totalParticipantsCount = pots.reduce((sum, p) => sum + p.participantCount, 0);
 
   const selectedPot = pots.find((p) => p.id === selectedPotId);
   const selectedRestaurant = selectedPot
