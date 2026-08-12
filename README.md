@@ -6,7 +6,7 @@
 ## 바로 확인하기
 
 - 배포된 사이트: [moyeobap.vercel.app](https://moyeobap.vercel.app/)
-- GitHub 저장소: [famegon/moyeobap](https://github.com/famegon/moyeobap)
+- GitHub 저장소: [KangGwonJae/moyeobap](https://github.com/KangGwonJae/moyeobap)
 - 제품 범위와 세부 결정: [모여밥 작업 지침서](AGENTS.md)
 
 음식점과 메뉴는 팀이 직접 조사한 실제 데이터 112곳입니다. 모집 정보는 접속한
