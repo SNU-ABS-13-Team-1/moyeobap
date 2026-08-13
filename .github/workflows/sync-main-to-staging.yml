@@ -35,8 +35,10 @@ jobs:
 
       - name: Merge main into staging
         run: |
-          git fetch origin main
-          git merge origin/main --no-edit
+          git fetch "https://dks1532:${FORK_SYNC_TOKEN}@github.com/famegon/moyeobap.git" main
+          git merge FETCH_HEAD --no-edit
+        env:
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
 
       - name: Push staging
         run: git push "https://dks1532:${FORK_SYNC_TOKEN}@github.com/famegon/moyeobap.git" HEAD:staging
