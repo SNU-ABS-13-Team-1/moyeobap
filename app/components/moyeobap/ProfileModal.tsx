@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import type { User } from '../../types/moyeobap';
+import { DataNoticeModal } from './DataNoticeModal';
 import { Modal } from './Modal';
 
 export interface ProfileInput {
@@ -23,6 +24,7 @@ export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showDataNotice, setShowDataNotice] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -78,7 +80,17 @@ export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }
         <div className="profile__account-group">
           <div>
             <strong>정산 계좌</strong>
-            <p>선택 사항이며, 직접 공유한 팟의 참여자에게만 보여요.</p>
+            <p>
+              선택 사항이며, 직접 공유한 팟의 참여자에게만 보여요. 통계·분석
+              대상에서는 제외돼요.{' '}
+              <button
+                className="auth__link-btn"
+                onClick={() => setShowDataNotice(true)}
+                type="button"
+              >
+                데이터 이용 안내
+              </button>
+            </p>
           </div>
           <label className="profile__field">
             <span>은행명</span>
@@ -126,6 +138,7 @@ export function ProfileModal({ user, onClose, onSave, onLogout, onOpenFeedback }
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
         </button>
       </form>
+      {showDataNotice && <DataNoticeModal onClose={() => setShowDataNotice(false)} />}
     </Modal>
   );
 }
