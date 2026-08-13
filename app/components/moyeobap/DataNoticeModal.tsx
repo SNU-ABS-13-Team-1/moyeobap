@@ -33,10 +33,6 @@ export function DataNoticeModal({ onClose }: DataNoticeModalProps) {
           <li>수집한 정보를 외부 제3자에게 제공하거나 판매하지 않습니다.</li>
           <li>발표 자료에는 개인을 특정할 수 없는 형태로 가공한 통계만 사용합니다.</li>
         </ul>
-
-        <p className="data-notice__contact">
-          내 정보 삭제를 원하시면 프로필의 피드백 보내기로 요청해주세요.
-        </p>
       </div>
     </Modal>
   );

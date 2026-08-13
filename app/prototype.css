@@ -2541,10 +2541,3 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding-left: 1.1em;
   list-style: disc;
 }
-
-.data-notice__contact {
-  padding-top: var(--space-sm);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
