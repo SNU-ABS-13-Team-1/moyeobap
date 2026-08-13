@@ -141,20 +141,6 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
-  async function handlePinMessage(messageId: string | null) {
-    try {
-      const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId }),
-      });
-      await mutate((prev) => (prev ? { ...prev, pot: response.pot } : prev), false);
-      showToast(messageId ? '대화 메시지를 상단에 고정했어요.' : '상단 고정을 해제했어요.', 'success');
-    } catch (err) {
-      showToast(getErrorMessage(err, '메시지를 고정하지 못했어요.'), 'error');
-    }
-  }
-
   async function handleJoin() {
     if (!currentUser) {
       openAuth(`/pots/${encodeURIComponent(potId)}`);
@@ -567,7 +553,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <Link href="/my">내 채팅방 보기 →</Link>
           </div>
           {pot.isParticipating && currentUser ? (
-            <ChatPanel currentUser={currentUser} onPinMessage={handlePinMessage} pinnedMessage={pot.pinnedMessage} potId={pot.id} />
+            <ChatPanel currentUser={currentUser} potId={pot.id} />
           ) : (
             <div className="pot-page__chat-locked">
               <span>💬</span>
