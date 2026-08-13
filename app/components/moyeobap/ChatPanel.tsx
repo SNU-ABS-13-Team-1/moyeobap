@@ -10,6 +10,27 @@ interface ChatPanelProps {
   currentUser: User;
 }
 
+function renderMessageText(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/);
+  return parts.map((part, index) => {
+    if (/^https?:\/\//i.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="chat-panel__link"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
@@ -182,7 +203,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
             <span
               className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
             >
-              {m.text}
+              {renderMessageText(m.text)}
             </span>
           </div>
         ))}

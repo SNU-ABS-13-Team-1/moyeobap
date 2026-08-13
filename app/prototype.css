@@ -2304,6 +2304,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-color: var(--primary);
 }
 
+.chat-panel__link {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.chat-panel__message--mine .chat-panel__link {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
 .chat-panel__form {
   display: flex;
   gap: 8px;
