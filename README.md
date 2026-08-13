@@ -6,7 +6,7 @@
 
 ## 현재 구현
 
-- 배포된 사이트: [moyeobap.vercel.app](https://moyeobap2.vercel.app/)
+- 배포된 사이트: [moyeobap.vercel.app](https://moyeobap.vercel.app/)
 - GitHub 저장소: [famegon/moyeobap](https://github.com/famegon/moyeobap)
 - 제품 범위와 세부 결정: [모여밥 작업 지침서](AGENTS.md)
 
