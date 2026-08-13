@@ -43,6 +43,7 @@ export interface ParticipantProfile {
   initial: string;
   isManager: boolean;
   isPaid?: boolean;
+  orderMemo?: string;
 }
 
 export interface ChatMessage {
@@ -90,6 +91,8 @@ export interface Pot {
   maxParticipants: number | null;
   /** 외부 주문까지 실제로 완료한 시각. 모집 마감과는 별개의 상태입니다. */
   orderCompletedAt: string | null;
+  /** 상단 고정된 대화 메시지/배민 함께주문 링크입니다. */
+  pinnedMessage?: { id: string; authorName: string; text: string } | null;
   /** 참여자에게만 제공되는 최근 채팅 미리보기입니다. */
   latestMessage: ChatMessagePreview | null;
   /** 현재 사용자가 아직 읽지 않은 다른 참여자의 메시지 수입니다. */

@@ -17,7 +17,7 @@ export type ServerPot = {
   id: string;
   restaurantId: string;
   deadline: string; // ISO timestamp
-  participants: (User & { joinedAt: number; isPaid?: boolean })[];
+  participants: (User & { joinedAt: number; isPaid?: boolean; orderMemo?: string })[];
   status: "active" | "closed" | "failed";
   maxParticipants: number | null;
   createdAt: string;
@@ -25,6 +25,7 @@ export type ServerPot = {
   managerId: string | null;
   orderCompletedAt: string | null;
   orderCompletedBy: string | null;
+  pinnedMessageId?: string | null;
 };
 
 type StoredPot = Omit<
@@ -66,11 +67,19 @@ function normalizePot(pot: StoredPot): ServerPot {
     managerId: pot.managerId ?? firstParticipantId,
     orderCompletedAt: pot.orderCompletedAt ?? null,
     orderCompletedBy: pot.orderCompletedBy ?? null,
+    pinnedMessageId: pot.pinnedMessageId ?? null,
   };
 }
 
 function clonePot(pot: ServerPot): ServerPot {
   return { ...pot, participants: pot.participants.map((participant) => ({ ...participant })) };
+}
+
+function getPinnedMessageView(potId: string, messageId: string) {
+  const messages = memoryMessages.get(potId) ?? [];
+  const msg = messages.find((m) => m.id === messageId);
+  if (!msg) return null;
+  return { id: msg.id, authorName: msg.authorName, text: msg.text };
 }
 
 /** API 응답에서 이메일 id와 계좌번호를 제거하고, 참여자에게만 신원을 공개합니다. */
@@ -83,6 +92,10 @@ export function toPotView(
     currentUser && pot.participants.some((participant) => participant.id === currentUser.id),
   );
 
+  const pinnedMessage = pot.pinnedMessageId
+    ? getPinnedMessageView(pot.id, pot.pinnedMessageId)
+    : null;
+
   return {
     id: pot.id,
     restaurantId: pot.restaurantId,
@@ -94,6 +107,7 @@ export function toPotView(
           initial: participant.initial,
           isManager: participant.id === pot.managerId,
           isPaid: Boolean(participant.isPaid),
+          orderMemo: participant.orderMemo || undefined,
         }))
       : null,
     isParticipating,
@@ -101,6 +115,7 @@ export function toPotView(
     status: pot.status,
     maxParticipants: pot.maxParticipants,
     orderCompletedAt: pot.orderCompletedAt,
+    pinnedMessage,
     latestMessage: isParticipating ? chatSummary?.latestMessage ?? null : null,
     unreadMessageCount: isParticipating ? chatSummary?.unreadMessageCount ?? 0 : 0,
   };
@@ -311,6 +326,45 @@ export async function toggleParticipantPaid(potId: string, userId: string): Prom
   if (!participant) return null;
 
   participant.isPaid = !participant.isPaid;
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
+}
+
+export async function updateParticipantMemo(
+  potId: string,
+  userId: string,
+  memo: string,
+): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  const participant = pot.participants.find((p) => p.id === userId);
+  if (!participant) return null;
+
+  participant.orderMemo = memo.trim().slice(0, 100);
+
+  const memoryPot = memoryPots.get(potId);
+  if (memoryPot) {
+    const memoryPart = memoryPot.participants.find((p) => p.id === userId);
+    if (memoryPart) memoryPart.orderMemo = participant.orderMemo;
+  } else {
+    memoryPots.set(potId, pot);
+  }
+
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
+}
+
+export async function pinPotMessage(
+  potId: string,
+  messageId: string | null,
+): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  pot.pinnedMessageId = messageId;
   const saved = await savePot(pot);
   if (!saved) return null;
   return pot;

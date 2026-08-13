@@ -8,6 +8,8 @@ import { getErrorMessage, requestJson } from '../../lib/api-client';
 interface ChatPanelProps {
   potId: string;
   currentUser: User;
+  pinnedMessage?: { id: string; authorName: string; text: string } | null;
+  onPinMessage?: (messageId: string | null) => void;
 }
 
 function renderMessageText(text: string) {
@@ -31,7 +33,7 @@ function renderMessageText(text: string) {
   });
 }
 
-export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
+export function ChatPanel({ potId, currentUser, pinnedMessage, onPinMessage }: ChatPanelProps) {
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
     fetcher,
@@ -174,6 +176,23 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
 
   return (
     <div className="chat-panel">
+      {pinnedMessage && (
+        <div className="chat-panel__pinned-account" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+          <div>
+            <span style={{ color: '#0284c7' }}>📌 상단 고정 핀 · {pinnedMessage.authorName}</span>
+            <strong style={{ fontSize: '0.9rem', fontWeight: 600, display: 'block', marginTop: '2px' }}>
+              {renderMessageText(pinnedMessage.text)}
+            </strong>
+          </div>
+          <button
+            onClick={() => onPinMessage?.(null)}
+            type="button"
+            style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#7dd3fc' }}
+          >
+            해제 ✕
+          </button>
+        </div>
+      )}
       {pinnedAccount && (
         <div className="chat-panel__pinned-account">
           <div>
@@ -196,15 +215,34 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           <div
             key={m.id}
             className={`chat-panel__message ${m.isMine ? 'chat-panel__message--mine' : ''}`}
+            style={{ position: 'relative' }}
           >
             {!m.isMine && (
               <span className="chat-panel__author">{m.authorName}</span>
             )}
-            <span
-              className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
-            >
-              {renderMessageText(m.text)}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span
+                className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
+              >
+                {renderMessageText(m.text)}
+              </span>
+              <button
+                type="button"
+                className="chat-panel__pin-btn"
+                onClick={() => onPinMessage?.(pinnedMessage?.id === m.id ? null : m.id)}
+                title={pinnedMessage?.id === m.id ? '고정 해제' : '상단에 고정하기'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  opacity: pinnedMessage?.id === m.id ? 1 : 0.4,
+                  padding: '2px 4px',
+                }}
+              >
+                📌
+              </button>
+            </div>
           </div>
         ))}
       </div>
