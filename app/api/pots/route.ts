@@ -13,15 +13,19 @@ import {
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 
 export async function GET() {
-  const user = await getSession();
-  const pots = await listPots();
-  const sessionSupabase = user ? await createSupabaseServerClient() : undefined;
-  const chatSummaries = await getPotChatSummaries(pots, user, sessionSupabase);
-  // 인원 미달로 자동 종료된 팟은 원래 화면에 아예 보이지 않던 상태라 목록에서 제외합니다.
-  const visible = pots
-    .filter((pot) => pot.status !== "failed")
-    .map((pot) => toPotView(pot, user, chatSummaries.get(pot.id)));
-  return NextResponse.json({ pots: visible });
+  try {
+    const user = await getSession();
+    const pots = await listPots();
+    const sessionSupabase = user ? await createSupabaseServerClient() : undefined;
+    const chatSummaries = await getPotChatSummaries(pots, user, sessionSupabase).catch(() => new Map());
+    const visible = pots
+      .filter((pot) => pot.status !== "failed")
+      .map((pot) => toPotView(pot, user, chatSummaries.get(pot.id)));
+    return NextResponse.json({ pots: visible });
+  } catch (error) {
+    console.error("GET /api/pots error:", error);
+    return NextResponse.json({ pots: [] });
+  }
 }
 
 export async function POST(req: NextRequest) {
