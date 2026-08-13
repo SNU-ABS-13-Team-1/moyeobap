@@ -7,8 +7,13 @@ import { findExactRestaurant } from "@/app/lib/restaurant-matching";
 import type { Restaurant } from "@/app/types/moyeobap";
 
 export async function GET() {
-  const custom = await listCustomRestaurants();
-  return NextResponse.json({ restaurants: [...RESTAURANTS, ...custom] });
+  try {
+    const custom = await listCustomRestaurants();
+    return NextResponse.json({ restaurants: [...RESTAURANTS, ...custom] });
+  } catch (error) {
+    console.error("GET /api/restaurants error:", error);
+    return NextResponse.json({ restaurants: RESTAURANTS });
+  }
 }
 
 export async function POST(req: NextRequest) {

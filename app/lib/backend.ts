@@ -464,30 +464,34 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
 }
 
 export async function listCustomRestaurants(): Promise<Restaurant[]> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("restaurants")
-      .select("*")
-      .eq("is_custom", true);
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("is_custom", true);
 
-    if (error || !data) return [];
-    return data.map((r) => ({
-      id: r.id,
-      name: r.name,
-      emoji: r.emoji,
-      category: r.category as "lunch" | "cafe",
-      subCategory: r.sub_category ?? undefined,
-      minOrder: r.min_order,
-      deliveryTime: r.delivery_time,
-      menus: r.menus ?? [],
-      address: r.address ?? undefined,
-      phone: r.phone ?? undefined,
-      businessHours: r.business_hours ?? undefined,
-      closedDays: r.closed_days ?? undefined,
-      rating: r.rating ? Number(r.rating) : undefined,
-      isCustom: true,
-    }));
+      if (error || !data) return [];
+      return data.map((r) => ({
+        id: r.id,
+        name: r.name,
+        emoji: r.emoji,
+        category: r.category as "lunch" | "cafe",
+        subCategory: r.sub_category ?? undefined,
+        minOrder: r.min_order,
+        deliveryTime: r.delivery_time,
+        menus: r.menus ?? [],
+        address: r.address ?? undefined,
+        phone: r.phone ?? undefined,
+        businessHours: r.business_hours ?? undefined,
+        closedDays: r.closed_days ?? undefined,
+        rating: r.rating ? Number(r.rating) : undefined,
+        isCustom: true,
+      }));
+    }
+  } catch (err) {
+    console.error("listCustomRestaurants error:", err);
   }
 
   const client = getRedis();
