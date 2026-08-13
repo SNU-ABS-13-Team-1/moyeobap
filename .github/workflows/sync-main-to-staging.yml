@@ -1,0 +1,44 @@
+name: Merge main into staging
+
+# main에 push될 때마다 staging에 그 변경사항을 merge합니다.
+# staging에만 있는 변경(예: 테스트용 로고 텍스트)은 유지한 채 main의 변경만
+# 얹는 방식이라 force-push로 덮어쓰지 않습니다. 충돌이 나면 자동으로 처리하지
+# 않고 워크플로를 실패시키니, 그 경우 사람이 직접 main을 staging에 merge하고
+# 충돌을 해결해서 push해야 합니다.
+#
+# staging에 push할 때 기본 GITHUB_TOKEN을 쓰면 GitHub가 무한루프 방지를 위해
+# 그 push로 다른 워크플로(sync-staging-fork.yml 포함)를 트리거하지 않습니다.
+# 그래서 fork-sync까지 자동으로 이어지도록 FORK_SYNC_TOKEN(PAT)을 대신
+# 사용합니다.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge main into staging
+        run: |
+          git fetch origin main
+          git merge origin/main --no-edit
+
+      - name: Push staging
+        run: git push "https://dks1532:${FORK_SYNC_TOKEN}@github.com/famegon/moyeobap.git" HEAD:staging
+        env:
+          FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
