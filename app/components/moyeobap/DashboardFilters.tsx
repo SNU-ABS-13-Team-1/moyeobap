@@ -1,8 +1,8 @@
 interface DashboardFiltersProps {
   statusFilter: 'active' | 'closed';
   setStatusFilter: (filter: 'active' | 'closed') => void;
-  categoryFilter: 'all' | 'lunch' | 'cafe';
-  setCategoryFilter: (filter: 'all' | 'lunch' | 'cafe') => void;
+  categoryFilter: 'all' | 'lunch' | 'cafe' | 'other';
+  setCategoryFilter: (filter: 'all' | 'lunch' | 'cafe' | 'other') => void;
   activeCount: number;
   closedCount: number;
 }
@@ -41,6 +41,7 @@ export function DashboardFilters({
           ['all', '전체'],
           ['lunch', '점심'],
           ['cafe', '카페'],
+          ['other', '기타'],
         ] as const).map(([value, label]) => (
           <button
             aria-pressed={categoryFilter === value}

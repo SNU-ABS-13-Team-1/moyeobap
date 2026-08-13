@@ -24,7 +24,8 @@ export default function NewPotPage() {
 
   async function handleCreateCustomRestaurant(input: {
     name: string;
-    category: 'lunch' | 'cafe';
+    category: 'lunch' | 'cafe' | 'other';
+    saveToDirectory?: boolean;
   }): Promise<string | null> {
     if (!currentUser) {
       openAuth('/pots/new');

@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim().slice(0, 60) : "";
-  const category = body?.category === "cafe" ? "cafe" : body?.category === "lunch" ? "lunch" : "";
+  const category = body?.category === "cafe" ? "cafe" : body?.category === "other" ? "other" : body?.category === "lunch" ? "lunch" : "";
+  const saveToDirectory = Boolean(body?.saveToDirectory);
   const address = typeof body?.address === "string" ? body.address.trim().slice(0, 200) : undefined;
   const phone = typeof body?.phone === "string" ? body.phone.trim().slice(0, 40) : undefined;
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "매장 이름을 입력해주세요." }, { status: 400 });
   }
   if (!category) {
-    return NextResponse.json({ error: "점심/카페 중 하나를 선택해주세요." }, { status: 400 });
+    return NextResponse.json({ error: "점심/카페/기타 중 하나를 선택해주세요." }, { status: 400 });
   }
 
   const customRestaurants = await listCustomRestaurants();
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
   const restaurant: Restaurant = {
     id: `custom-${randomUUID()}`,
     name,
-    emoji: category === "cafe" ? "☕" : "🍽️",
+    emoji: category === "cafe" ? "☕" : category === "other" ? "📦" : "🍽️",
     category,
     minOrder: 0,
     deliveryTime: "정보 없음",
@@ -56,14 +57,18 @@ export async function POST(req: NextRequest) {
     address,
     phone,
     isCustom: true,
+    isOneTime: !saveToDirectory,
   };
 
-  const saved = await saveCustomRestaurant(restaurant);
-  if (!saved) {
-    return NextResponse.json(
-      { error: "매장을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
-      { status: 503 },
-    );
+  if (saveToDirectory) {
+    const saved = await saveCustomRestaurant(restaurant);
+    if (!saved) {
+      return NextResponse.json(
+        { error: "매장을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+        { status: 503 },
+      );
+    }
   }
+
   return NextResponse.json({ restaurant, reused: false }, { status: 201 });
 }

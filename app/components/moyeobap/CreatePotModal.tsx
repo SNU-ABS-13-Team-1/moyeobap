@@ -8,7 +8,8 @@ interface CreatePotFormProps {
   pots: SerializedPot[];
   onCreateCustomRestaurant: (input: {
     name: string;
-    category: 'lunch' | 'cafe';
+    category: 'lunch' | 'cafe' | 'other';
+    saveToDirectory?: boolean;
   }) => Promise<string | null>;
   onSubmit: (restaurantId: string, minutes: number, maxParticipants: number | null) => Promise<string | null>;
 }
@@ -54,7 +55,7 @@ export function CreatePotForm({
   onSubmit,
 }: CreatePotFormProps) {
   const [mode, setMode] = useState<'list' | 'custom'>('list');
-  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe'>('lunch');
+  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>('lunch');
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
@@ -63,7 +64,8 @@ export function CreatePotForm({
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
   const [participantLimit, setParticipantLimit] = useState('4');
   const [customName, setCustomName] = useState('');
-  const [customCategory, setCustomCategory] = useState<'lunch' | 'cafe'>('lunch');
+  const [customCategory, setCustomCategory] = useState<'lunch' | 'cafe' | 'other'>('lunch');
+  const [saveToDirectory, setSaveToDirectory] = useState(false);
   const [selectedCustomRestaurantId, setSelectedCustomRestaurantId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +139,7 @@ export function CreatePotForm({
     || (Number.isInteger(selectedCap) && selectedCap >= 2 && selectedCap <= 50);
   const canSubmit = hasValidRestaurant && hasValidDeadline && hasValidCap;
 
-  function handleCategoryChange(category: 'lunch' | 'cafe') {
+  function handleCategoryChange(category: 'lunch' | 'cafe' | 'other') {
     setCategoryFilter(category);
     setSubCategoryFilter('all');
     const selectedRestaurant = restaurants.find((restaurant) => restaurant.id === selectedRestaurantId);
@@ -151,7 +153,7 @@ export function CreatePotForm({
     setSelectedCustomRestaurantId(null);
   }
 
-  function handleCustomCategoryChange(category: 'lunch' | 'cafe') {
+  function handleCustomCategoryChange(category: 'lunch' | 'cafe' | 'other') {
     setCustomCategory(category);
     setSelectedCustomRestaurantId(null);
   }
@@ -175,6 +177,7 @@ export function CreatePotForm({
         restaurantId = await onCreateCustomRestaurant({
           name: customName.trim(),
           category: customCategory,
+          saveToDirectory,
         });
         if (!restaurantId) {
           setError('매장을 추가하지 못했어요. 다시 시도해주세요.');
@@ -221,6 +224,7 @@ export function CreatePotForm({
                 {([
                   ['lunch', '🍱 점심'],
                   ['cafe', '☕ 카페'],
+                  ['other', '📦 기타'],
                 ] as const).map(([category, label]) => (
                   <button
                     aria-pressed={categoryFilter === category}
@@ -333,6 +337,32 @@ export function CreatePotForm({
                 >
                   카페
                 </button>
+                <button
+                  type="button"
+                  className={`create__time-option ${customCategory === 'other' ? 'create__time-option--selected' : ''}`}
+                  onClick={() => handleCustomCategoryChange('other')}
+                >
+                  기타
+                </button>
+              </div>
+
+              <div style={{ marginTop: '16px', padding: '12px 14px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={saveToDirectory}
+                    onChange={(e) => setSaveToDirectory(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    매장 목록에 등록하여 다음에도 계속 사용하기
+                  </span>
+                </label>
+                <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '4px', paddingLeft: '26px' }}>
+                  {saveToDirectory
+                    ? '이 매장은 목록에 저장되어 추후 다른 팟 생성 시에도 노출됩니다.'
+                    : '기본값: 이번 모집에만 사용하는 1회성 팟으로 생성됩니다.'}
+                </small>
               </div>
               {customSuggestions.length > 0 && (
                 <section className="create__restaurant-suggestions" aria-live="polite">

@@ -7,7 +7,7 @@ export interface Restaurant {
   id: string;
   name: string;
   emoji: string;
-  category: 'lunch' | 'cafe';
+  category: 'lunch' | 'cafe' | 'other';
   /** 배민 소분류 14종(한식/중식/찜·탕/족발·보쌈/카페·디저트 등, data/DATA_GUIDE.md 참고). 목록 그룹핑용. 직접 추가한 매장은 없을 수 있습니다. */
   subCategory?: string;
   minOrder: number;
@@ -21,6 +21,8 @@ export interface Restaurant {
   rating?: number;
   /** 목록에 없어서 사용자가 방 만들 때 직접 추가한 매장인지 여부. */
   isCustom?: boolean;
+  /** 1회성 팟 생성을 위한 일회성 매장인지 여부. 정식 매장 목록에는 노출되지 않습니다. */
+  isOneTime?: boolean;
 }
 
 export interface User {
@@ -134,4 +136,4 @@ export interface PotEvent {
  * 지금 참여할 수 있는 팟을 찾기 어려워지기 때문이다.
  * (인원 미달로 실패한 팟은 서버가 목록에서 빼므로 여기에도 오지 않는다.)
  */
-export type PotFilter = 'all' | 'lunch' | 'cafe' | 'closed';
+export type PotFilter = 'all' | 'lunch' | 'cafe' | 'other' | 'closed';

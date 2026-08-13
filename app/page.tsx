@@ -25,7 +25,7 @@ export default function HomePage() {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
   const [statusFilter, setStatusFilterState] = useState<'active' | 'closed'>('active');
-  const [categoryFilter, setCategoryFilterState] = useState<'all' | 'lunch' | 'cafe'>('all');
+  const [categoryFilter, setCategoryFilterState] = useState<'all' | 'lunch' | 'cafe' | 'other'>('all');
   const now = useClock();
   const { toast, showToast } = useToastNotice();
 
@@ -49,12 +49,12 @@ export default function HomePage() {
     const category = params.get('category');
     const timer = window.setTimeout(() => {
       if (status === 'closed') setStatusFilterState('closed');
-      if (category === 'lunch' || category === 'cafe') setCategoryFilterState(category);
+      if (category === 'lunch' || category === 'cafe' || category === 'other') setCategoryFilterState(category);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
-  function syncFilters(status: 'active' | 'closed', category: 'all' | 'lunch' | 'cafe') {
+  function syncFilters(status: 'active' | 'closed', category: 'all' | 'lunch' | 'cafe' | 'other') {
     const params = new URLSearchParams();
     if (status !== 'active') params.set('status', status);
     if (category !== 'all') params.set('category', category);
@@ -66,7 +66,7 @@ export default function HomePage() {
     syncFilters(status, categoryFilter);
   }
 
-  function setCategoryFilter(category: 'all' | 'lunch' | 'cafe') {
+  function setCategoryFilter(category: 'all' | 'lunch' | 'cafe' | 'other') {
     setCategoryFilterState(category);
     syncFilters(statusFilter, category);
   }
