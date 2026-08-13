@@ -507,27 +507,31 @@ export async function getAnyRestaurant(id: string): Promise<Restaurant | undefin
   const seeded = RESTAURANTS.find((r) => r.id === id);
   if (seeded) return seeded;
 
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data } = await supabase.from("restaurants").select("*").eq("id", id).maybeSingle();
-    if (data) {
-      return {
-        id: data.id,
-        name: data.name,
-        emoji: data.emoji,
-        category: data.category as "lunch" | "cafe",
-        subCategory: data.sub_category ?? undefined,
-        minOrder: data.min_order,
-        deliveryTime: data.delivery_time,
-        menus: data.menus ?? [],
-        address: data.address ?? undefined,
-        phone: data.phone ?? undefined,
-        businessHours: data.business_hours ?? undefined,
-        closedDays: data.closed_days ?? undefined,
-        rating: data.rating ? Number(data.rating) : undefined,
-        isCustom: data.is_custom,
-      };
+  try {
+    const supabase = getSupabase();
+    if (supabase) {
+      const { data, error } = await supabase.from("restaurants").select("*").eq("id", id).maybeSingle();
+      if (data && !error) {
+        return {
+          id: data.id,
+          name: data.name,
+          emoji: data.emoji,
+          category: data.category as "lunch" | "cafe",
+          subCategory: data.sub_category ?? undefined,
+          minOrder: data.min_order,
+          deliveryTime: data.delivery_time,
+          menus: data.menus ?? [],
+          address: data.address ?? undefined,
+          phone: data.phone ?? undefined,
+          businessHours: data.business_hours ?? undefined,
+          closedDays: data.closed_days ?? undefined,
+          rating: data.rating ? Number(data.rating) : undefined,
+          isCustom: data.is_custom,
+        };
+      }
     }
+  } catch (err) {
+    console.error("getAnyRestaurant exception:", err);
   }
 
   const client = getRedis();
