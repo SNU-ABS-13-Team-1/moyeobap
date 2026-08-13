@@ -118,33 +118,37 @@ export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot[
 }
 
 async function ensureRestaurantExistsInSupabase(restaurantId: string): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
 
-  const { data } = await supabase.from("restaurants").select("id").eq("id", restaurantId).maybeSingle();
-  if (data) return;
+    const { data } = await supabase.from("restaurants").select("id").eq("id", restaurantId).maybeSingle();
+    if (data) return;
 
-  const restaurant = RESTAURANTS.find((r) => r.id === restaurantId) ?? memoryCustomRestaurants.get(restaurantId);
-  if (restaurant) {
-    const { error } = await supabase.from("restaurants").upsert({
-      id: restaurant.id,
-      name: restaurant.name,
-      emoji: restaurant.emoji,
-      category: restaurant.category,
-      sub_category: restaurant.subCategory ?? null,
-      min_order: restaurant.minOrder,
-      delivery_time: restaurant.deliveryTime,
-      menus: restaurant.menus,
-      address: restaurant.address ?? null,
-      phone: restaurant.phone ?? null,
-      business_hours: restaurant.businessHours ?? null,
-      closed_days: restaurant.closedDays ?? null,
-      rating: restaurant.rating ?? 5.0,
-      is_custom: restaurant.isCustom ?? false,
-    });
-    if (error) {
-      console.error("Supabase ensureRestaurantExistsInSupabase error:", error);
+    const restaurant = RESTAURANTS.find((r) => r.id === restaurantId) ?? memoryCustomRestaurants.get(restaurantId);
+    if (restaurant) {
+      const { error } = await supabase.from("restaurants").upsert({
+        id: restaurant.id,
+        name: restaurant.name,
+        emoji: restaurant.emoji,
+        category: restaurant.category,
+        sub_category: restaurant.subCategory ?? null,
+        min_order: restaurant.minOrder,
+        delivery_time: restaurant.deliveryTime,
+        menus: restaurant.menus,
+        address: restaurant.address ?? null,
+        phone: restaurant.phone ?? null,
+        business_hours: restaurant.businessHours ?? null,
+        closed_days: restaurant.closedDays ?? null,
+        rating: restaurant.rating ?? 5.0,
+        is_custom: restaurant.isCustom ?? false,
+      });
+      if (error) {
+        console.error("Supabase ensureRestaurantExistsInSupabase error:", error);
+      }
     }
+  } catch (err) {
+    console.error("ensureRestaurantExistsInSupabase exception:", err);
   }
 }
 
@@ -198,84 +202,77 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
 
     const supabase = getSupabase();
     if (supabase) {
-    // Foreign key 무결성 보장을 위해 음식점 레코드가 있는지 먼저 확인 후 자동으로 넣어줍니다.
-    await ensureRestaurantExistsInSupabase(normalized.restaurantId);
+      try {
+        await ensureRestaurantExistsInSupabase(normalized.restaurantId);
 
-    // 1. Upsert pot row (DB에 creator_id/manager_id 칼럼이 없어도 호환되도록 안전 처리)
-    let { error: potErr } = await supabase.from("pots").upsert({
-      id: normalized.id,
-      restaurant_id: normalized.restaurantId,
-      deadline: normalized.deadline,
-      status: normalized.status,
-      max_participants: normalized.maxParticipants,
-      creator_id: normalized.creatorId,
-      manager_id: normalized.managerId,
-      order_completed_at: normalized.orderCompletedAt,
-      order_completed_by: normalized.orderCompletedBy,
-      created_at: normalized.createdAt,
-    });
+        let { error: potErr } = await supabase.from("pots").upsert({
+          id: normalized.id,
+          restaurant_id: normalized.restaurantId,
+          deadline: normalized.deadline,
+          status: normalized.status,
+          max_participants: normalized.maxParticipants,
+          creator_id: normalized.creatorId,
+          manager_id: normalized.managerId,
+          order_completed_at: normalized.orderCompletedAt,
+          order_completed_by: normalized.orderCompletedBy,
+          created_at: normalized.createdAt,
+        });
 
-    if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("order_completed"))) {
-      if (normalized.orderCompletedAt) {
-        console.error("Supabase order completion columns are not migrated:", potErr);
-        return false;
+        if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("order_completed"))) {
+          if (normalized.orderCompletedAt) {
+            console.error("Supabase order completion columns are not migrated:", potErr);
+            return false;
+          }
+          const legacyFallback = await supabase.from("pots").upsert({
+            id: normalized.id,
+            restaurant_id: normalized.restaurantId,
+            deadline: normalized.deadline,
+            status: normalized.status,
+            max_participants: normalized.maxParticipants,
+            creator_id: normalized.creatorId,
+            manager_id: normalized.managerId,
+            created_at: normalized.createdAt,
+          });
+          potErr = legacyFallback.error;
+        }
+
+        if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("creator_id"))) {
+          const basicFallback = await supabase.from("pots").upsert({
+            id: normalized.id,
+            restaurant_id: normalized.restaurantId,
+            deadline: normalized.deadline,
+            status: normalized.status,
+            max_participants: normalized.maxParticipants,
+            created_at: normalized.createdAt,
+          });
+          potErr = basicFallback.error;
+        }
+
+        if (!potErr) {
+          const { error: deleteErr } = await supabase
+            .from("pot_participants")
+            .delete()
+            .eq("pot_id", normalized.id);
+          if (!deleteErr && normalized.participants.length > 0) {
+            const participantRows = normalized.participants.map((p) => ({
+              pot_id: normalized.id,
+              user_id: p.id,
+              user_name: p.name,
+              user_initial: p.initial,
+              joined_at: new Date(p.joinedAt).toISOString(),
+            }));
+            const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
+            if (!partErr) return true;
+            console.error("Supabase savePot participants error:", partErr);
+          } else if (!deleteErr) {
+            return true;
+          }
+        } else {
+          console.error("Supabase savePot error:", potErr);
+        }
+      } catch (sbErr) {
+        console.error("Supabase savePot exception:", sbErr);
       }
-      // 신규 주문 완료 칼럼 마이그레이션 전에도 기존 팟 저장 동작은 유지합니다.
-      const legacyFallback = await supabase.from("pots").upsert({
-        id: normalized.id,
-        restaurant_id: normalized.restaurantId,
-        deadline: normalized.deadline,
-        status: normalized.status,
-        max_participants: normalized.maxParticipants,
-        creator_id: normalized.creatorId,
-        manager_id: normalized.managerId,
-        created_at: normalized.createdAt,
-      });
-      potErr = legacyFallback.error;
-    }
-
-    if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("creator_id"))) {
-      // creator_id/manager_id 칼럼까지 없는 초기 DB에서는 기본 칼럼만으로 재시도합니다.
-      const basicFallback = await supabase.from("pots").upsert({
-        id: normalized.id,
-        restaurant_id: normalized.restaurantId,
-        deadline: normalized.deadline,
-        status: normalized.status,
-        max_participants: normalized.maxParticipants,
-        created_at: normalized.createdAt,
-      });
-      potErr = basicFallback.error;
-    }
-
-    if (potErr) {
-      console.error("Supabase savePot error:", potErr);
-      return false;
-    }
-
-    // 2. Refresh participants
-    const { error: deleteErr } = await supabase
-      .from("pot_participants")
-      .delete()
-      .eq("pot_id", normalized.id);
-    if (deleteErr) {
-      console.error("Supabase savePot participants delete error:", deleteErr);
-      return false;
-    }
-    if (normalized.participants.length > 0) {
-      const participantRows = normalized.participants.map((p) => ({
-        pot_id: normalized.id,
-        user_id: p.id,
-        user_name: p.name,
-        user_initial: p.initial,
-        joined_at: new Date(p.joinedAt).toISOString(),
-      }));
-      const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
-      if (partErr) {
-        console.error("Supabase savePot participants error:", partErr);
-        return false;
-      }
-    }
-    return true;
     }
 
     const client = getRedis();
