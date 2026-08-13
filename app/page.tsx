@@ -13,6 +13,8 @@ import { DashboardFilters } from './components/moyeobap/DashboardFilters';
 import { PotCard } from './components/moyeobap/PotCard';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
 
+import { groupPotsByDate } from './lib/moyeobap-utils';
+
 function toPot(serverPot: SerializedPot): Pot {
   return { ...serverPot, deadline: new Date(serverPot.deadline) };
 }
@@ -97,6 +99,11 @@ export default function HomePage() {
     [categoryFilter, pots, restaurantsById, statusFilter],
   );
 
+  const closedGroupedPots = useMemo(
+    () => (statusFilter === 'closed' ? groupPotsByDate(filteredPots, now) : []),
+    [filteredPots, now, statusFilter],
+  );
+
   const activePotsCount = pots.filter((pot) => pot.status === 'active').length;
   const closedPotsCount = pots.filter((pot) => pot.status === 'closed').length;
   const isInitialLoading = !potsData || !restaurantsData;
@@ -115,7 +122,7 @@ export default function HomePage() {
         />
       </div>
 
-      <main aria-busy={isInitialLoading} className="grid">
+      <main aria-busy={isInitialLoading}>
         {hasLoadError ? (
           <div className="empty" role="alert">
             <div className="empty__emoji">⚠️</div>
@@ -134,22 +141,47 @@ export default function HomePage() {
               {statusFilter === 'closed' ? '아직 마감된 팟이 없어요' : '아직 열린 팟이 없어요'}
             </h2>
           </div>
+        ) : statusFilter === 'closed' ? (
+          closedGroupedPots.map((group) => (
+            <section className="dashboard-date-section" key={group.dateLabel}>
+              <h3 className="dashboard-date-header">{group.dateLabel}</h3>
+              <div className="grid">
+                {group.pots.map((pot) => {
+                  const restaurant = restaurantsById.get(pot.restaurantId);
+                  if (!restaurant) return null;
+                  return (
+                    <PotCard
+                      isAuthenticated={Boolean(currentUser)}
+                      key={pot.id}
+                      now={now}
+                      onJoinClick={handleJoinPot}
+                      onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
+                      pot={pot}
+                      restaurant={restaurant}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))
         ) : (
-          filteredPots.map((pot) => {
-            const restaurant = restaurantsById.get(pot.restaurantId);
-            if (!restaurant) return null;
-            return (
-              <PotCard
-                isAuthenticated={Boolean(currentUser)}
-                key={pot.id}
-                now={now}
-                onJoinClick={handleJoinPot}
-                onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
-                pot={pot}
-                restaurant={restaurant}
-              />
-            );
-          })
+          <div className="grid">
+            {filteredPots.map((pot) => {
+              const restaurant = restaurantsById.get(pot.restaurantId);
+              if (!restaurant) return null;
+              return (
+                <PotCard
+                  isAuthenticated={Boolean(currentUser)}
+                  key={pot.id}
+                  now={now}
+                  onJoinClick={handleJoinPot}
+                  onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
+                  pot={pot}
+                  restaurant={restaurant}
+                />
+              );
+            })}
+          </div>
         )}
       </main>
 

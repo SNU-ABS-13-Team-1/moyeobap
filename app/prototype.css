@@ -412,6 +412,22 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--primary);
 }
 
+.dashboard-date-section {
+  margin-bottom: var(--space-xl);
+}
+
+.dashboard-date-header {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ===== Pot detail page ===== */
 .pot-page__layout {
   display: grid;
@@ -1323,8 +1339,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .detail__management-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1349,6 +1365,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-color: rgba(239, 68, 68, 0.25);
   background: #fff;
   color: #dc2626;
+}
+
+.detail__management-actions .detail__delete-pot-btn {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.detail__management-actions .detail__delete-pot-btn:hover {
+  background: #fee2e2;
 }
 
 /* ===== Create Modal ===== */

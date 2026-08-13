@@ -42,6 +42,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   const [deadlineEdit, setDeadlineEdit] = useState<{ source: string; value: string } | null>(null);
   const [isManagingDeadline, setIsManagingDeadline] = useState(false);
   const [isTogglingPaid, setIsTogglingPaid] = useState(false);
+  const [isDeletingPot, setIsDeletingPot] = useState(false);
   const now = useClock();
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
@@ -174,6 +175,45 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
+  async function handleCompleteOrder() {
+    if (!window.confirm('실제 주문까지 완료했나요? 완료 후에는 되돌릴 수 없어요.')) return;
+
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete_order' }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      showToast('실제 주문 완료로 기록했어요.', 'success');
+    } catch (completeError) {
+      showToast(getErrorMessage(completeError, '주문 완료를 기록하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
+  async function handleDeletePot() {
+    if (isDeletingPot) return;
+    const confirmed = window.confirm(
+      '정말 이 팟을 삭제하시겠어요?\n삭제 시 대화 내용과 참여자 기록이 모두 삭제됩니다.',
+    );
+    if (!confirmed) return;
+
+    setIsDeletingPot(true);
+    try {
+      await requestJson(`/api/pots/${potId}`, { method: 'DELETE' });
+      await mutateCache('/api/pots');
+      showToast('팟을 삭제했어요.', 'success');
+      router.push('/');
+    } catch (deleteError) {
+      showToast(getErrorMessage(deleteError, '팟을 삭제하지 못했어요.'), 'error');
+    } finally {
+      setIsDeletingPot(false);
+    }
+  }
+
   async function handleCloseNow() {
     const confirmation = pot.participantCount >= 2
       ? `현재 ${pot.participantCount}명으로 지금 모집을 마감할까요? 마감 후에는 다시 열 수 없어요.`
@@ -196,25 +236,6 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
       showToast('모집을 마감했어요.', 'success');
     } catch (closeError) {
       showToast(getErrorMessage(closeError, '모집을 마감하지 못했어요.'), 'error');
-    } finally {
-      setIsManagingDeadline(false);
-    }
-  }
-
-  async function handleCompleteOrder() {
-    if (!window.confirm('실제 주문까지 완료했나요? 완료 후에는 되돌릴 수 없어요.')) return;
-
-    setIsManagingDeadline(true);
-    try {
-      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete_order' }),
-      });
-      await Promise.all([mutate(), mutateCache('/api/pots')]);
-      showToast('실제 주문 완료로 기록했어요.', 'success');
-    } catch (completeError) {
-      showToast(getErrorMessage(completeError, '주문 완료를 기록하지 못했어요.'), 'error');
     } finally {
       setIsManagingDeadline(false);
     }
@@ -337,6 +358,14 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   type="button"
                 >
                   지금 마감
+                </button>
+                <button
+                  className="detail__delete-pot-btn"
+                  disabled={isDeletingPot || isManagingDeadline}
+                  onClick={handleDeletePot}
+                  type="button"
+                >
+                  {isDeletingPot ? '삭제 중...' : '🗑️ 팟 삭제하기'}
                 </button>
               </div>
             </section>

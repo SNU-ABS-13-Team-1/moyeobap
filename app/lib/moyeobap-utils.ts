@@ -25,3 +25,42 @@ export function estimateNeededParticipants(minOrder: number, firstMenuPrice: str
   if (!price) return null;
   return Math.max(1, Math.ceil(minOrder / price));
 }
+
+export interface DateGroupedPots<T extends { deadline: Date }> {
+  dateLabel: string;
+  pots: T[];
+}
+
+export function groupPotsByDate<T extends { deadline: Date }>(
+  pots: T[],
+  now = Date.now(),
+): DateGroupedPots<T>[] {
+  const nowDate = new Date(now);
+  const todayStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+
+  const groups = new Map<string, { label: string; orderKey: number; pots: T[] }>();
+
+  for (const pot of pots) {
+    const potDate = new Date(pot.deadline);
+    const dayStart = new Date(potDate.getFullYear(), potDate.getMonth(), potDate.getDate()).getTime();
+
+    let label: string;
+    if (dayStart === todayStart) {
+      label = '📅 오늘 마감된 팟';
+    } else if (dayStart === yesterdayStart) {
+      label = '🗓️ 어제 마감된 팟';
+    } else {
+      label = `📁 ${potDate.getMonth() + 1}월 ${potDate.getDate()}일 마감된 팟`;
+    }
+
+    if (!groups.has(label)) {
+      groups.set(label, { label, orderKey: dayStart, pots: [] });
+    }
+    groups.get(label)!.pots.push(pot);
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => b.orderKey - a.orderKey)
+    .map((g) => ({ dateLabel: g.label, pots: g.pots }));
+}

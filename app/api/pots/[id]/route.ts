@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import {
+  deletePot,
   deriveStatus,
   getAnyRestaurant,
   getPot,
@@ -176,4 +177,32 @@ export async function PATCH(
   }
 
   return NextResponse.json({ error: "지원하지 않는 마감 관리 요청이에요." }, { status: 400 });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const user = await getSession();
+  if (!user) {
+    return NextResponse.json({ error: "로그인이 필요해요." }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const pot = await getPot(id);
+  if (!pot) {
+    return NextResponse.json({ error: "존재하지 않는 팟이에요." }, { status: 404 });
+  }
+
+  const isManagerOrCreator = pot.managerId === user.id || pot.creatorId === user.id;
+  if (!isManagerOrCreator) {
+    return NextResponse.json({ error: "팟을 만든 생성자 또는 현재 모집 관리자만 삭제할 수 있어요." }, { status: 403 });
+  }
+
+  const success = await deletePot(id);
+  if (!success) {
+    return NextResponse.json({ error: "팟을 삭제하지 못했어요. 잠시 후 다시 시도해주세요." }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

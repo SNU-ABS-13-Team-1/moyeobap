@@ -316,6 +316,33 @@ export async function toggleParticipantPaid(potId: string, userId: string): Prom
   return pot;
 }
 
+export async function deletePot(id: string): Promise<boolean> {
+  try {
+    memoryPots.delete(id);
+    memoryPotIndex.delete(id);
+    memoryMessages.delete(id);
+
+    const supabase = getSupabase();
+    if (supabase) {
+      const { error } = await supabase.from("pots").delete().eq("id", id);
+      if (error) {
+        console.error("Supabase deletePot error:", error);
+      }
+    }
+
+    const client = getRedis();
+    if (client) {
+      await client.del(potKey(id));
+      await client.del(potMessagesKey(id));
+      await client.srem(POT_INDEX_KEY, id);
+    }
+    return true;
+  } catch (error) {
+    console.error("deletePot exception:", error);
+    return false;
+  }
+}
+
 export async function getPot(id: string): Promise<ServerPot | null> {
   const memoryPot = memoryPots.get(id);
   const memoryPartMap = new Map(memoryPot?.participants.map((p) => [p.id, p.isPaid]));

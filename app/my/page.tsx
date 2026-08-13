@@ -8,6 +8,7 @@ import { fetcher } from '../lib/fetcher';
 import { useClock } from '../hooks/useClock';
 import { useAuth } from '../components/moyeobap/AuthProvider';
 import { PotCard } from '../components/moyeobap/PotCard';
+import { groupPotsByDate } from '../lib/moyeobap-utils';
 
 function toPot(pot: SerializedPot): Pot {
   return { ...pot, deadline: new Date(pot.deadline) };
@@ -122,24 +123,29 @@ export default function MyPotsPage() {
             {closedPots.length === 0 ? (
               <p className="my-page__empty">마감된 참여 모집이 없어요.</p>
             ) : (
-              <div className="grid my-page__grid">
-                {closedPots.map((pot) => {
-                  const restaurant = restaurantsById.get(pot.restaurantId);
-                  if (!restaurant) return null;
-                  return (
-                    <PotCard
-                      isAuthenticated
-                      key={pot.id}
-                      now={now}
-                      onJoinClick={(id) => router.push(`/pots/${encodeURIComponent(id)}`)}
-                      onOpenAuth={() => undefined}
-                      pot={pot}
-                      restaurant={restaurant}
-                      showChatSummary
-                    />
-                  );
-                })}
-              </div>
+              groupPotsByDate(closedPots, now).map((group) => (
+                <div className="dashboard-date-section" key={group.dateLabel}>
+                  <h3 className="dashboard-date-header">{group.dateLabel}</h3>
+                  <div className="grid my-page__grid">
+                    {group.pots.map((pot) => {
+                      const restaurant = restaurantsById.get(pot.restaurantId);
+                      if (!restaurant) return null;
+                      return (
+                        <PotCard
+                          isAuthenticated
+                          key={pot.id}
+                          now={now}
+                          onJoinClick={(id) => router.push(`/pots/${encodeURIComponent(id)}`)}
+                          onOpenAuth={() => undefined}
+                          pot={pot}
+                          restaurant={restaurant}
+                          showChatSummary
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
             )}
           </section>
         </>
