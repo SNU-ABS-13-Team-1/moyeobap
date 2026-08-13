@@ -14,11 +14,6 @@ export function getSupabase(): SupabaseClient | null {
   // 서버 API만 service-role 키로 DB를 읽고 수정하며, 로컬 개발에서는 보안
   // migration 적용 전 호환을 위해 publishable key로 fallback 합니다.
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!serviceRoleKey && process.env.NODE_ENV === "production") {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY 서버 환경 변수가 필요합니다.",
-    );
-  }
   const serverKey = serviceRoleKey || config.publishableKey;
 
   supabaseClient = createClient(config.url, serverKey, {
