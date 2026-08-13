@@ -359,40 +359,57 @@ export async function listPots(): Promise<ServerPot[]> {
       .select("*, pot_participants(*)")
       .order("created_at", { ascending: false });
 
-    if (error || !rows) {
+    if (!error && rows) {
+      type SupabaseParticipant = {
+        user_id: string;
+        user_name: string;
+        user_initial: string;
+        bank_account: string | null;
+        joined_at: string;
+      };
+
+      pots = rows.map((potRow) =>
+        normalizePot({
+          id: potRow.id,
+          restaurantId: potRow.restaurant_id,
+          deadline: potRow.deadline,
+          status: potRow.status as ServerPot["status"],
+          maxParticipants: potRow.max_participants,
+          createdAt: potRow.created_at,
+          creatorId: potRow.creator_id ?? undefined,
+          managerId: potRow.manager_id ?? undefined,
+          orderCompletedAt: potRow.order_completed_at ?? null,
+          orderCompletedBy: potRow.order_completed_by ?? null,
+          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
+            id: p.user_id,
+            name: p.user_name,
+            initial: p.user_initial,
+            email: p.user_id,
+            joinedAt: new Date(p.joined_at).getTime(),
+          })),
+        }),
+      );
+    } else {
       console.error("Supabase listPots error:", error);
-      return [];
+      const client = getRedis();
+      if (!client) {
+        pots = [...memoryPotIndex]
+          .map((id) => memoryPots.get(id))
+          .filter((pot): pot is ServerPot => Boolean(pot))
+          .map(clonePot);
+      } else {
+        const ids = await client.smembers(POT_INDEX_KEY).catch(() => []);
+        if (ids.length === 0) {
+          pots = [...memoryPotIndex]
+            .map((id) => memoryPots.get(id))
+            .filter((pot): pot is ServerPot => Boolean(pot))
+            .map(clonePot);
+        } else {
+          const items = await client.mget<(StoredPot | null)[]>(...ids.map(potKey)).catch(() => []);
+          pots = (items.filter(Boolean) as StoredPot[]).map(normalizePot);
+        }
+      }
     }
-
-    type SupabaseParticipant = {
-      user_id: string;
-      user_name: string;
-      user_initial: string;
-      bank_account: string | null;
-      joined_at: string;
-    };
-
-    pots = rows.map((potRow) =>
-      normalizePot({
-        id: potRow.id,
-        restaurantId: potRow.restaurant_id,
-        deadline: potRow.deadline,
-        status: potRow.status as ServerPot["status"],
-        maxParticipants: potRow.max_participants,
-        createdAt: potRow.created_at,
-        creatorId: potRow.creator_id ?? undefined,
-        managerId: potRow.manager_id ?? undefined,
-        orderCompletedAt: potRow.order_completed_at ?? null,
-        orderCompletedBy: potRow.order_completed_by ?? null,
-        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-          id: p.user_id,
-          name: p.user_name,
-          initial: p.user_initial,
-          email: p.user_id,
-          joinedAt: new Date(p.joined_at).getTime(),
-        })),
-      }),
-    );
   } else {
     const client = getRedis();
     if (!client) {
@@ -401,10 +418,16 @@ export async function listPots(): Promise<ServerPot[]> {
         .filter((pot): pot is ServerPot => Boolean(pot))
         .map(clonePot);
     } else {
-      const ids = await client.smembers(POT_INDEX_KEY);
-      if (ids.length === 0) return [];
-      const items = await client.mget<(StoredPot | null)[]>(...ids.map(potKey));
-      pots = items.filter((pot): pot is StoredPot => Boolean(pot)).map(normalizePot);
+      const ids = await client.smembers(POT_INDEX_KEY).catch(() => []);
+      if (ids.length === 0) {
+        pots = [...memoryPotIndex]
+          .map((id) => memoryPots.get(id))
+          .filter((pot): pot is ServerPot => Boolean(pot))
+          .map(clonePot);
+      } else {
+        const items = await client.mget<(StoredPot | null)[]>(...ids.map(potKey)).catch(() => []);
+        pots = (items.filter(Boolean) as StoredPot[]).map(normalizePot);
+      }
     }
   }
 
