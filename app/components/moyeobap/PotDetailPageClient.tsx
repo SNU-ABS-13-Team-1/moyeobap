@@ -175,6 +175,23 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
+  async function handleMaxParticipantsUpdate(newCap: number | null) {
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_max_participants', maxParticipants: newCap }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      showToast(newCap === null ? '인원수 제한을 해제했어요.' : `최대 인원수를 ${newCap}명으로 변경했어요.`, 'success');
+    } catch (capError) {
+      showToast(getErrorMessage(capError, '인원수 제한을 변경하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
   async function handleCompleteOrder() {
     if (!window.confirm('실제 주문까지 완료했나요? 완료 후에는 되돌릴 수 없어요.')) return;
 
@@ -342,6 +359,31 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   value={deadlineDraft}
                 />
                 <small>현재부터 5분 뒤~24시간 사이로 설정할 수 있어요.</small>
+              </label>
+
+              <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
+                <span>최대 인원수 제한</span>
+                <select
+                  disabled={isManagingDeadline}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const cap = val === 'none' ? null : Number(val);
+                    handleMaxParticipantsUpdate(cap);
+                  }}
+                  value={pot.maxParticipants === null ? 'none' : String(pot.maxParticipants)}
+                >
+                  <option value="none">제한 없음</option>
+                  <option value="2">2명</option>
+                  <option value="3">3명</option>
+                  <option value="4">4명</option>
+                  <option value="5">5명</option>
+                  <option value="6">6명</option>
+                  <option value="8">8명</option>
+                  <option value="10">10명</option>
+                  <option value="15">15명</option>
+                  <option value="20">20명</option>
+                </select>
+                <small>현재 {pot.participantCount}명 참여 중 ({pot.maxParticipants ? `최대 ${pot.maxParticipants}명` : '현재 제한 없음'})</small>
               </label>
               <div className="detail__management-actions">
                 <button

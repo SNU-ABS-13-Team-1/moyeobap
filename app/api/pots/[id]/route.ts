@@ -162,6 +162,34 @@ export async function PATCH(
     return NextResponse.json({ pot: toPotView(pot, user) });
   }
 
+  if (body?.action === "update_max_participants") {
+    const rawCap = body.maxParticipants;
+    let maxParticipants: number | null = null;
+    if (rawCap !== null && rawCap !== undefined && rawCap !== "") {
+      const parsed = Number(rawCap);
+      if (!Number.isInteger(parsed) || parsed < 2 || parsed > 50) {
+        return NextResponse.json({ error: "최대 인원수는 2~50명 사이 정수 또는 제한 없음으로 설정해주세요." }, { status: 400 });
+      }
+      if (parsed < pot.participants.length) {
+        return NextResponse.json(
+          { error: `현재 이미 ${pot.participants.length}명이 참여 중이어서 ${parsed}명으로 줄일 수 없어요.` },
+          { status: 400 }
+        );
+      }
+      maxParticipants = parsed;
+    }
+
+    pot.maxParticipants = maxParticipants;
+    const saved = await savePot(pot);
+    if (!saved) {
+      return NextResponse.json(
+        { error: "인원수 제한 변경을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ pot: toPotView(pot, user) });
+  }
+
   if (body?.action === "close_now") {
     pot.deadline = new Date().toISOString();
     pot.status = pot.participants.length >= 2 ? "closed" : "failed";
