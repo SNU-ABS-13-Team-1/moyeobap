@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DataNoticeModal } from './DataNoticeModal';
 import { Modal } from './Modal';
 
 interface AuthModalProps {
@@ -9,6 +10,7 @@ interface AuthModalProps {
 export function AuthModal({ onClose, onLogin }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showDataNotice, setShowDataNotice] = useState(false);
 
   async function handleLogin() {
     setSubmitting(true);
@@ -44,9 +46,18 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
         <div className="auth__divider"><span>안내</span></div>
         <p className="auth__guest-note">
           로그인 시 이름, 이메일과 프로필 이미지를 서비스 이용에 사용해요.<br />
-          로그인 없이도 진행 중인 팟은 볼 수 있어요.
+          로그인 없이도 진행 중인 팟은 볼 수 있어요.<br />
+          이용 기록은 서비스 운영과 수업 발표용 통계에만 활용하며 상업적으로 이용하지 않아요.{' '}
+          <button
+            className="auth__link-btn"
+            onClick={() => setShowDataNotice(true)}
+            type="button"
+          >
+            자세히 보기
+          </button>
         </p>
       </div>
+      {showDataNotice && <DataNoticeModal onClose={() => setShowDataNotice(false)} />}
     </Modal>
   );
 }
