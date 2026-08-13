@@ -197,9 +197,8 @@ export async function listEvents(): Promise<PotEvent[]> {
 }
 
 export async function savePot(pot: ServerPot): Promise<boolean> {
+  const normalized = normalizePot(pot);
   try {
-    const normalized = normalizePot(pot);
-
     const supabase = getSupabase();
     if (supabase) {
       try {
@@ -219,21 +218,19 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
         });
 
         if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("order_completed"))) {
-          if (normalized.orderCompletedAt) {
-            console.error("Supabase order completion columns are not migrated:", potErr);
-            return false;
+          if (!normalized.orderCompletedAt) {
+            const legacyFallback = await supabase.from("pots").upsert({
+              id: normalized.id,
+              restaurant_id: normalized.restaurantId,
+              deadline: normalized.deadline,
+              status: normalized.status,
+              max_participants: normalized.maxParticipants,
+              creator_id: normalized.creatorId,
+              manager_id: normalized.managerId,
+              created_at: normalized.createdAt,
+            });
+            potErr = legacyFallback.error;
           }
-          const legacyFallback = await supabase.from("pots").upsert({
-            id: normalized.id,
-            restaurant_id: normalized.restaurantId,
-            deadline: normalized.deadline,
-            status: normalized.status,
-            max_participants: normalized.maxParticipants,
-            creator_id: normalized.creatorId,
-            manager_id: normalized.managerId,
-            created_at: normalized.createdAt,
-          });
-          potErr = legacyFallback.error;
         }
 
         if (potErr && (potErr.code === "PGRST204" || potErr.message?.includes("creator_id"))) {
@@ -253,19 +250,23 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
             .from("pot_participants")
             .delete()
             .eq("pot_id", normalized.id);
-          if (!deleteErr && normalized.participants.length > 0) {
-            const participantRows = normalized.participants.map((p) => ({
-              pot_id: normalized.id,
-              user_id: p.id,
-              user_name: p.name,
-              user_initial: p.initial,
-              joined_at: new Date(p.joinedAt).toISOString(),
-            }));
-            const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
-            if (!partErr) return true;
-            console.error("Supabase savePot participants error:", partErr);
-          } else if (!deleteErr) {
-            return true;
+          if (!deleteErr) {
+            if (normalized.participants.length > 0) {
+              const participantRows = normalized.participants.map((p) => ({
+                pot_id: normalized.id,
+                user_id: p.id,
+                user_name: p.name,
+                user_initial: p.initial,
+                joined_at: new Date(p.joinedAt).toISOString(),
+              }));
+              const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
+              if (!partErr) return true;
+              console.error("Supabase savePot participants error:", partErr);
+            } else {
+              return true;
+            }
+          } else {
+            console.error("Supabase savePot participants delete error:", deleteErr);
           }
         } else {
           console.error("Supabase savePot error:", potErr);
@@ -287,7 +288,10 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("팟 저장 실패", error);
-    return false;
+    const snapshot = clonePot(normalized);
+    memoryPots.set(snapshot.id, snapshot);
+    memoryPotIndex.add(snapshot.id);
+    return true;
   }
 }
 
