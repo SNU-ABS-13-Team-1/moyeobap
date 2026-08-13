@@ -1192,6 +1192,59 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-weight: 600;
 }
 
+.detail__participant-paid-badge {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: #ecfdf5;
+  color: #059669;
+  font-weight: 700;
+  border: 1px solid #a7f3d0;
+}
+
+.detail__participant-unpaid-badge {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.detail__paid-toggle-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detail__paid-toggle-btn {
+  background: #fff;
+  color: #059669;
+  border: 1.5px solid #059669;
+  border-radius: var(--radius-full);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.detail__paid-toggle-btn:hover {
+  background: #ecfdf5;
+}
+
+.detail__paid-toggle-btn--active {
+  background: #059669;
+  color: #fff;
+  border-color: #059669;
+}
+
+.detail__paid-toggle-btn--active:hover {
+  background: #047857;
+}
+
 .detail__participant-hidden {
   text-align: center;
   color: var(--text-muted);

@@ -40,6 +40,7 @@ export interface ParticipantProfile {
   name: string;
   initial: string;
   isManager: boolean;
+  isPaid?: boolean;
 }
 
 export interface ChatMessage {

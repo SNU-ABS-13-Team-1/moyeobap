@@ -41,6 +41,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   const [mobileTab, setMobileTab] = useState<'info' | 'chat'>('info');
   const [deadlineEdit, setDeadlineEdit] = useState<{ source: string; value: string } | null>(null);
   const [isManagingDeadline, setIsManagingDeadline] = useState(false);
+  const [isTogglingPaid, setIsTogglingPaid] = useState(false);
   const now = useClock();
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
@@ -93,6 +94,31 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     && deadlineDraftTime >= now + 5 * 60_000
     && deadlineDraftTime <= now + 24 * 60 * 60_000;
   const neededForMinOrder = estimateNeededParticipants(restaurant.minOrder, restaurant.menus[0]?.price);
+
+  const myParticipant = pot.participants?.find((p) => p.name === currentUser?.name);
+
+  async function handleTogglePaid() {
+    if (isTogglingPaid) return;
+    setIsTogglingPaid(true);
+    try {
+      const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/paid`, {
+        method: 'POST',
+      });
+      await Promise.all([
+        mutate((prev) => (prev ? { ...prev, pot: response.pot } : prev), false),
+        mutateCache('/api/pots'),
+      ]);
+      const updatedMine = response.pot.participants?.find((p) => p.name === currentUser?.name);
+      showToast(
+        updatedMine?.isPaid ? '송금 완료 상태로 표시했어요.' : '송금 완료 표시를 해제했어요.',
+        'success',
+      );
+    } catch (toggleErr) {
+      showToast(getErrorMessage(toggleErr, '송금 상태를 변경하지 못했어요.'), 'error');
+    } finally {
+      setIsTogglingPaid(false);
+    }
+  }
 
   async function handleJoin() {
     if (!currentUser) {
@@ -346,13 +372,32 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   : '🔒 로그인 후 참여하면 참여자를 확인할 수 있어요.'}
               </div>
             ) : pot.isParticipating && pot.participants ? (
-              pot.participants.map((participant, index) => (
-                <div className="detail__participant" key={`${participant.name}-${index}`}>
-                  <div className="detail__participant-avatar">{participant.initial}</div>
-                  <span className="detail__participant-name">{participant.name}</span>
-                  {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
-                </div>
-              ))
+              <>
+                {pot.participants.map((participant, index) => (
+                  <div className="detail__participant" key={`${participant.name}-${index}`}>
+                    <div className="detail__participant-avatar">{participant.initial}</div>
+                    <span className="detail__participant-name">{participant.name}</span>
+                    {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
+                    {participant.isPaid ? (
+                      <span className="detail__participant-paid-badge">✓ 송금 완료</span>
+                    ) : (
+                      <span className="detail__participant-unpaid-badge">미송금</span>
+                    )}
+                  </div>
+                ))}
+                {myParticipant && (
+                  <div className="detail__paid-toggle-box">
+                    <button
+                      type="button"
+                      className={`detail__paid-toggle-btn ${myParticipant.isPaid ? 'detail__paid-toggle-btn--active' : ''}`}
+                      onClick={handleTogglePaid}
+                      disabled={isTogglingPaid}
+                    >
+                      {myParticipant.isPaid ? '✓ 송금 완료 표시 취소' : '💸 내 송금 완료 표시하기'}
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="detail__participant-hidden">
                 {pot.status === 'closed'

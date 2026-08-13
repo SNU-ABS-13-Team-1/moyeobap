@@ -17,7 +17,7 @@ export type ServerPot = {
   id: string;
   restaurantId: string;
   deadline: string; // ISO timestamp
-  participants: (User & { joinedAt: number })[];
+  participants: (User & { joinedAt: number; isPaid?: boolean })[];
   status: "active" | "closed" | "failed";
   maxParticipants: number | null;
   createdAt: string;
@@ -93,6 +93,7 @@ export function toPotView(
           name: participant.name,
           initial: participant.initial,
           isManager: participant.id === pot.managerId,
+          isPaid: Boolean(participant.isPaid),
         }))
       : null,
     isParticipating,
@@ -257,9 +258,21 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                 user_id: p.id,
                 user_name: p.name,
                 user_initial: p.initial,
+                is_paid: p.isPaid ?? false,
                 joined_at: new Date(p.joinedAt).toISOString(),
               }));
-              const { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
+              let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
+              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+                const fallbackRows = normalized.participants.map((p) => ({
+                  pot_id: normalized.id,
+                  user_id: p.id,
+                  user_name: p.name,
+                  user_initial: p.initial,
+                  joined_at: new Date(p.joinedAt).toISOString(),
+                }));
+                const fallbackRes = await supabase.from("pot_participants").insert(fallbackRows);
+                partErr = fallbackRes.error;
+              }
               if (!partErr) return true;
               console.error("Supabase savePot participants error:", partErr);
             } else {
@@ -276,26 +289,37 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
       }
     }
 
+    memoryPots.set(normalized.id, normalized);
+    memoryPotIndex.add(normalized.id);
+
     const client = getRedis();
-    const snapshot = clonePot(normalized);
-    if (!client) {
-      memoryPots.set(snapshot.id, snapshot);
-      memoryPotIndex.add(snapshot.id);
-      return true;
-    }
-    await client.set(potKey(snapshot.id), snapshot);
-    await client.sadd(POT_INDEX_KEY, snapshot.id);
+    if (!client) return true;
+    await client.set(potKey(normalized.id), JSON.stringify(normalized));
+    await client.sadd(POT_INDEX_KEY, normalized.id);
     return true;
   } catch (error) {
-    console.error("팟 저장 실패", error);
-    const snapshot = clonePot(normalized);
-    memoryPots.set(snapshot.id, snapshot);
-    memoryPotIndex.add(snapshot.id);
-    return true;
+    console.error("savePot exception:", error);
+    return false;
   }
 }
 
+export async function toggleParticipantPaid(potId: string, userId: string): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  const participant = pot.participants.find((p) => p.id === userId);
+  if (!participant) return null;
+
+  participant.isPaid = !participant.isPaid;
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
+}
+
 export async function getPot(id: string): Promise<ServerPot | null> {
+  const memoryPot = memoryPots.get(id);
+  const memoryPartMap = new Map(memoryPot?.participants.map((p) => [p.id, p.isPaid]));
+
   const supabase = getSupabase();
   if (supabase) {
     const { data: potRow, error } = await supabase
@@ -304,37 +328,37 @@ export async function getPot(id: string): Promise<ServerPot | null> {
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !potRow) return null;
+    if (!error && potRow) {
+      type SupabaseParticipant = {
+        user_id: string;
+        user_name: string;
+        user_initial: string;
+        bank_account: string | null;
+        joined_at: string;
+        is_paid?: boolean;
+      };
 
-    type SupabaseParticipant = {
-      user_id: string;
-      user_name: string;
-      user_initial: string;
-      bank_account: string | null;
-      joined_at: string;
-    };
-
-    const rawParticipants = ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-      id: p.user_id,
-      name: p.user_name,
-      initial: p.user_initial,
-      email: p.user_id,
-      joinedAt: new Date(p.joined_at).getTime(),
-    }));
-
-    return normalizePot({
-      id: potRow.id,
-      restaurantId: potRow.restaurant_id,
-      deadline: potRow.deadline,
-      status: potRow.status as ServerPot["status"],
-      maxParticipants: potRow.max_participants,
-      createdAt: potRow.created_at,
-      creatorId: potRow.creator_id ?? undefined,
-      managerId: potRow.manager_id ?? undefined,
-      orderCompletedAt: potRow.order_completed_at ?? null,
-      orderCompletedBy: potRow.order_completed_by ?? null,
-      participants: rawParticipants,
-    });
+      return normalizePot({
+        id: potRow.id,
+        restaurantId: potRow.restaurant_id,
+        deadline: potRow.deadline,
+        status: potRow.status as ServerPot["status"],
+        maxParticipants: potRow.max_participants,
+        createdAt: potRow.created_at,
+        creatorId: potRow.creator_id ?? undefined,
+        managerId: potRow.manager_id ?? undefined,
+        orderCompletedAt: potRow.order_completed_at ?? null,
+        orderCompletedBy: potRow.order_completed_by ?? null,
+        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
+          id: p.user_id,
+          name: p.user_name,
+          initial: p.user_initial,
+          email: p.user_id,
+          isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memoryPartMap.get(p.user_id)),
+          joinedAt: new Date(p.joined_at).getTime(),
+        })),
+      });
+    }
   }
 
   const client = getRedis();
@@ -366,10 +390,14 @@ export async function listPots(): Promise<ServerPot[]> {
         user_initial: string;
         bank_account: string | null;
         joined_at: string;
+        is_paid?: boolean;
       };
 
-      pots = rows.map((potRow) =>
-        normalizePot({
+      pots = rows.map((potRow) => {
+        const memPot = memoryPots.get(potRow.id);
+        const memPartMap = new Map(memPot?.participants.map((p) => [p.id, p.isPaid]));
+
+        return normalizePot({
           id: potRow.id,
           restaurantId: potRow.restaurant_id,
           deadline: potRow.deadline,
@@ -385,10 +413,11 @@ export async function listPots(): Promise<ServerPot[]> {
             name: p.user_name,
             initial: p.user_initial,
             email: p.user_id,
+            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memPartMap.get(p.user_id)),
             joinedAt: new Date(p.joined_at).getTime(),
           })),
-        }),
-      );
+        });
+      });
     } else {
       console.error("Supabase listPots error:", error);
       const client = getRedis();

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.pot_participants (
     user_name TEXT NOT NULL,
     user_initial TEXT NOT NULL,
     bank_account TEXT,
+    is_paid BOOLEAN NOT NULL DEFAULT FALSE,
     joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_pot_participant UNIQUE (pot_id, user_id)
 );
