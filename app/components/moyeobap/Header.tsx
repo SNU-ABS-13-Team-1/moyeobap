@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
+import { BgmPlayer } from './BgmPlayer';
 
 const NAV_ITEMS = [
   { href: '/', label: '현황판' },
@@ -40,6 +41,7 @@ export function Header() {
       </nav>
 
       <div className="header__auth">
+        <BgmPlayer />
         {currentUser ? (
           <button className="header__profile" onClick={openProfile} title="내 프로필" type="button">
             {currentUser.avatarUrl ? (
