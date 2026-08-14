@@ -574,6 +574,7 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
       closed_days: restaurant.closedDays ?? null,
       rating: restaurant.rating ?? 5.0,
       is_custom: true,
+      is_one_time: restaurant.isOneTime ?? false,
     });
       if (error) {
         console.error("Supabase saveCustomRestaurant error:", error);
@@ -622,6 +623,7 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
         closedDays: r.closed_days ?? undefined,
         rating: r.rating ? Number(r.rating) : undefined,
         isCustom: true,
+        isOneTime: r.is_one_time ?? false,
       }));
     }
   } catch (err) {

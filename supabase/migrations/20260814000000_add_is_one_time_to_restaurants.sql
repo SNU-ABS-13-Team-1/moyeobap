@@ -1,0 +1,2 @@
+ALTER TABLE public.restaurants
+    ADD COLUMN IF NOT EXISTS is_one_time BOOLEAN NOT NULL DEFAULT FALSE;

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     emoji TEXT NOT NULL DEFAULT '🍱',
-    category TEXT NOT NULL CHECK (category IN ('lunch', 'cafe')),
+    category TEXT NOT NULL CHECK (category IN ('lunch', 'cafe', 'other')),
     sub_category TEXT,
     min_order INTEGER NOT NULL DEFAULT 0,
     delivery_time TEXT NOT NULL DEFAULT '30~40분',
@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
     closed_days TEXT,
     rating NUMERIC(3, 1) DEFAULT 5.0,
     is_custom BOOLEAN NOT NULL DEFAULT FALSE,
+    is_one_time BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

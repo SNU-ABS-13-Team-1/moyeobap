@@ -318,8 +318,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <div className="detail__emoji">{restaurant.emoji}</div>
             <div>
               <div className="card__badges">
-                <span className={`card__category ${restaurant.category === 'lunch' ? 'card__category--lunch' : 'card__category--cafe'}`}>
-                  {restaurant.category === 'lunch' ? '점심' : '카페'}
+                <span className={`card__category ${restaurant.category === 'lunch' ? 'card__category--lunch' : restaurant.category === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>
+                  {restaurant.category === 'lunch' ? '점심' : restaurant.category === 'other' ? '기타' : '카페'}
                 </span>
                 {pot.isManaging && <span className="detail__participant-badge">👑 내가 관리 중</span>}
               </div>
