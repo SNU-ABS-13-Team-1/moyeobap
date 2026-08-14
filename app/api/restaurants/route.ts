@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
   }
 
   const customRestaurants = await listCustomRestaurants();
+  const reusableRestaurants = customRestaurants.filter((r) => !r.isOneTime);
   const existingRestaurant = findExactRestaurant(
-    [...RESTAURANTS, ...customRestaurants],
+    [...RESTAURANTS, ...reusableRestaurants],
     name,
     category,
   );

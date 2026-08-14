@@ -385,7 +385,7 @@ export function CreatePotForm({
                             <span aria-hidden="true">{restaurant.emoji}</span>
                             <span>
                               <strong>{restaurant.name}</strong>
-                              <small>{restaurant.subCategory ?? (restaurant.category === 'lunch' ? '점심' : '카페')}</small>
+                              <small>{restaurant.subCategory ?? (restaurant.category === 'lunch' ? '점심' : restaurant.category === 'other' ? '기타' : '카페')}</small>
                             </span>
                           </span>
                           <span>{selected ? '선택됨' : '이 매장 선택'}</span>

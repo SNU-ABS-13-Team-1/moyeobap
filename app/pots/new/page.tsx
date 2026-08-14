@@ -93,7 +93,7 @@ export default function NewPotPage() {
           onCreateCustomRestaurant={handleCreateCustomRestaurant}
           onSubmit={handleCreateSubmit}
           pots={potsData.pots}
-          restaurants={restaurantsData.restaurants}
+          restaurants={restaurantsData.restaurants.filter((restaurant) => !restaurant.isOneTime)}
         />
       )}
     </main>

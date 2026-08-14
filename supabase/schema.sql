@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     emoji TEXT NOT NULL DEFAULT '🍱',
-    category TEXT NOT NULL CHECK (category IN ('lunch', 'cafe')),
+    category TEXT NOT NULL CHECK (category IN ('lunch', 'cafe', 'other')),
     sub_category TEXT,
     min_order INTEGER NOT NULL DEFAULT 0,
     delivery_time TEXT NOT NULL DEFAULT '30~40분',
