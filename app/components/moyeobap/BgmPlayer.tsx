@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const BGM_STORAGE_KEY = 'moyeobap:bgm:playing';
 const BGM_VOLUME = 0.5;
+const BGM_START_SECONDS = 64.5;
 
 export function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -18,12 +19,26 @@ export function BgmPlayer() {
 
   useEffect(() => {
     const audio = audioRef.current;
+    if (!audio) return;
+
+    function handleEnded() {
+      audio!.currentTime = BGM_START_SECONDS;
+      audio!.play().catch(() => {});
+    }
+
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
     if (!audio || !mounted) return;
 
     audio.volume = BGM_VOLUME;
     localStorage.setItem(BGM_STORAGE_KEY, String(isPlaying));
 
     if (isPlaying) {
+      audio.currentTime = BGM_START_SECONDS;
       audio.play().catch(() => setIsPlaying(false));
     } else {
       audio.pause();
@@ -34,7 +49,7 @@ export function BgmPlayer() {
 
   return (
     <>
-      <audio loop ref={audioRef} src="/bgm.mp3" />
+      <audio preload="auto" ref={audioRef} src="/bgm.mp3" />
       <button
         aria-label={isPlaying ? '배경음악 끄기' : '배경음악 켜기'}
         aria-pressed={isPlaying}
