@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.restaurants (
     closed_days TEXT,
     rating NUMERIC(3, 1) DEFAULT 5.0,
     is_custom BOOLEAN NOT NULL DEFAULT FALSE,
+    is_one_time BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

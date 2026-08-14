@@ -574,6 +574,7 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
       closed_days: restaurant.closedDays ?? null,
       rating: restaurant.rating ?? 5.0,
       is_custom: true,
+      is_one_time: restaurant.isOneTime ?? false,
     });
       if (error) {
         console.error("Supabase saveCustomRestaurant error:", error);
@@ -604,7 +605,8 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
       const { data, error } = await supabase
         .from("restaurants")
         .select("*")
-        .eq("is_custom", true);
+        .eq("is_custom", true)
+        .eq("is_one_time", false);
 
       if (error || !data) return [];
       return data.map((r) => ({
@@ -632,12 +634,13 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
   if (!client) {
     return [...memoryCustomRestaurantIndex]
       .map((id) => memoryCustomRestaurants.get(id))
-      .filter((r): r is Restaurant => Boolean(r));
+      .filter((r): r is Restaurant => Boolean(r))
+      .filter((r) => !r.isOneTime);
   }
   const ids = await client.smembers(CUSTOM_RESTAURANT_INDEX_KEY);
   if (ids.length === 0) return [];
   const items = await client.mget<Restaurant[]>(...ids.map(customRestaurantKey));
-  return items.filter((r): r is Restaurant => Boolean(r));
+  return items.filter((r): r is Restaurant => Boolean(r)).filter((r) => !r.isOneTime);
 }
 
 export async function getAnyRestaurant(id: string): Promise<Restaurant | undefined> {
