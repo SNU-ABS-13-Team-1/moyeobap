@@ -7,7 +7,7 @@ export interface Restaurant {
   id: string;
   name: string;
   emoji: string;
-  category: 'lunch' | 'cafe';
+  category: 'lunch' | 'cafe' | 'other';
   /** 배민 소분류 14종(한식/중식/찜·탕/족발·보쌈/카페·디저트 등, data/DATA_GUIDE.md 참고). 목록 그룹핑용. 직접 추가한 매장은 없을 수 있습니다. */
   subCategory?: string;
   minOrder: number;
@@ -21,14 +21,29 @@ export interface Restaurant {
   rating?: number;
   /** 목록에 없어서 사용자가 방 만들 때 직접 추가한 매장인지 여부. */
   isCustom?: boolean;
+  /** 1회성 팟 생성을 위한 일회성 매장인지 여부. 정식 매장 목록에는 노출되지 않습니다. */
+  isOneTime?: boolean;
 }
 
 export interface User {
   id: string;
   name: string;
   initial: string;
-  /** 선택 입력. 채팅방에서 "계좌번호 전송" 버튼을 누르면 이 값을 그대로 공유합니다. */
-  bankAccount?: string;
+  /** Google 계정 이메일. 계정 식별 정보이며 서비스에서는 수정하지 않습니다. */
+  email: string;
+  avatarUrl?: string;
+  /** 선택 입력. 프로필에서만 수정하며 공개 API 응답에는 포함하지 않습니다. */
+  bankName?: string;
+  accountNumber?: string;
+}
+
+/** 참여자끼리 확인할 수 있는 최소 프로필입니다. 사용자 id·이메일·계좌는 노출하지 않습니다. */
+export interface ParticipantProfile {
+  name: string;
+  initial: string;
+  isManager: boolean;
+  isPaid?: boolean;
+  orderMemo?: string;
 }
 
 export interface ChatMessage {
@@ -42,22 +57,49 @@ export interface ChatMessage {
   kind?: 'text' | 'account';
 }
 
+export interface ChatMessageView {
+  id: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+  kind?: 'text' | 'account';
+  isMine: boolean;
+}
+
+export interface ChatMessagePreview {
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
+export type PotStatus = 'active' | 'closed' | 'failed';
+
+/**
+ * 브라우저에 전달하는 모집 정보입니다. 참여자 신원은 현재 사용자가 그 모집에
+ * 참여한 경우에만 채워집니다.
+ */
 export interface Pot {
   id: string;
   restaurantId: string;
   deadline: Date;
-  /** 전체 참여 인원수. 신원과 무관하게 누구에게나 보이는 값. */
   participantCount: number;
-  /**
-   * 참여자 신원은 그 팟 참여자끼리만 볼 수 있어서(AGENTS.md 6장), 서버는
-   * 내가 참여한 팟에만 이 배열을 채워 보냅니다. 비참여자에게는 빈 배열.
-   * 계좌번호는 어떤 응답에도 실리지 않습니다.
-   */
-  participants: User[];
-  status: 'active' | 'closed' | 'failed';
+  participants: ParticipantProfile[] | null;
+  isParticipating: boolean;
+  isManaging: boolean;
+  status: PotStatus;
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */
   maxParticipants: number | null;
+  /** 외부 주문까지 실제로 완료한 시각. 모집 마감과는 별개의 상태입니다. */
+  orderCompletedAt: string | null;
+  /** 상단 고정된 대화 메시지/배민 함께주문 링크입니다. */
+  pinnedMessage?: { id: string; authorName: string; text: string } | null;
+  /** 참여자에게만 제공되는 최근 채팅 미리보기입니다. */
+  latestMessage: ChatMessagePreview | null;
+  /** 현재 사용자가 아직 읽지 않은 다른 참여자의 메시지 수입니다. */
+  unreadMessageCount: number;
 }
+
+export type SerializedPot = Omit<Pot, 'deadline'> & { deadline: string };
 
 export interface ToastNotice {
   message: string;
@@ -74,15 +116,17 @@ export type PotEventType =
   | 'pot_created'
   | 'pot_joined'
   | 'pot_left'
+  | 'pot_deadline_updated'
   | 'pot_closed'
-  | 'pot_failed';
+  | 'pot_failed'
+  | 'order_completed';
 
 export interface PotEvent {
   id: string;
   type: PotEventType;
   potId: string;
   restaurantId: string;
-  /** 행동을 한 사람. 마감·실패는 시간이나 정원 때문에 자동으로 일어나므로 비어 있다. */
+  /** 행동을 한 사람. 자동 마감·실패면 비어 있고 시간 변경·빠른 마감이면 관리자가 들어간다. */
   userId?: string;
   /** 이 사건 직후의 참여 인원. 성공률과 평균 모집 규모를 낼 때 쓴다. */
   participantCount: number;
@@ -95,4 +139,4 @@ export interface PotEvent {
  * 지금 참여할 수 있는 팟을 찾기 어려워지기 때문이다.
  * (인원 미달로 실패한 팟은 서버가 목록에서 빼므로 여기에도 오지 않는다.)
  */
-export type PotFilter = 'all' | 'lunch' | 'cafe' | 'closed';
+export type PotFilter = 'all' | 'lunch' | 'cafe' | 'other' | 'closed';

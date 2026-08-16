@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, logEvent, savePot, toPublicPot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot, toPotView } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -14,23 +14,39 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "존재하지 않는 팟이에요." }, { status: 404 });
   }
 
-  // 저장된 status가 아직 active여도 마감 시간이 지났으면 취소를 막습니다
-  // (참여 route와 같은 기준 — AGENTS.md: 마감 이후에는 신규 참여와 취소 모두 불허).
-  if (deriveStatus(pot) !== "active") {
-    return NextResponse.json({ pot: toPublicPot(pot, user.id) });
+  const currentStatus = deriveStatus(pot);
+  if (currentStatus !== "active") {
+    if (currentStatus !== pot.status) await savePot({ ...pot, status: currentStatus });
+    return NextResponse.json(
+      { error: "모집 마감 뒤에는 참여를 취소할 수 없어요." },
+      { status: 409 },
+    );
   }
 
+  const wasParticipating = pot.participants.some((participant) => participant.id === user.id);
+  if (!wasParticipating) {
+    return NextResponse.json({ pot: toPotView(pot, user) });
+  }
+
+  const wasManager = pot.managerId === user.id;
   pot.participants = pot.participants.filter((p) => p.id !== user.id);
-  // 방장(맨 처음 참여자)이 나가면 다음 참여자가 자동으로 그 자리를 물려받습니다
-  // (배열 순서가 곧 방장 판정 기준이라 별도 필드 없이 자연스럽게 처리됩니다).
   if (pot.participants.length === 0) {
     pot.status = "failed";
+    pot.managerId = null;
+  } else if (wasManager) {
+    pot.managerId = pot.participants[0].id;
   }
-  await savePot(pot);
+  const saved = await savePot(pot);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "참여 취소를 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   await logEvent("pot_left", pot, user.id);
   if (pot.status === "failed") {
     await logEvent("pot_failed", pot);
   }
 
-  return NextResponse.json({ pot: toPublicPot(pot, user.id) });
+  return NextResponse.json({ pot: toPotView(pot, user) });
 }

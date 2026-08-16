@@ -1,5 +1,5 @@
-export function getTimeRemaining(deadline: Date) {
-  const total = deadline.getTime() - Date.now();
+export function getTimeRemaining(deadline: Date, now = Date.now()) {
+  const total = deadline.getTime() - now;
   const minutes = Math.max(0, Math.floor(total / 60000));
   const seconds = Math.max(0, Math.floor((total / 1000) % 60));
   return {
@@ -26,40 +26,41 @@ export function estimateNeededParticipants(minOrder: number, firstMenuPrice: str
   return Math.max(1, Math.ceil(minOrder / price));
 }
 
-export function triggerConfetti() {
-  if (typeof window === 'undefined') return;
-  const colors = ['#FF6B35', '#FF8C42', '#7C5CFC', '#22C55E', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#A78BFA', '#34D399'];
+export interface DateGroupedPots<T extends { deadline: Date }> {
+  dateLabel: string;
+  pots: T[];
+}
 
-  for (let i = 0; i < 35; i++) {
-    const el = document.createElement('div');
-    const size = Math.random() * 8 + 4;
-    el.style.cssText = `
-      position: fixed;
-      pointer-events: none;
-      z-index: 400;
-      width: ${size}px;
-      height: ${size}px;
-      background: ${colors[Math.floor(Math.random() * colors.length)]};
-      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
-      left: ${Math.random() * 100}vw;
-      top: -10px;
-    `;
+export function groupPotsByDate<T extends { deadline: Date }>(
+  pots: T[],
+  now = Date.now(),
+): DateGroupedPots<T>[] {
+  const nowDate = new Date(now);
+  const todayStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
 
-    document.body.appendChild(el);
+  const groups = new Map<string, { label: string; orderKey: number; pots: T[] }>();
 
-    const duration = 1500 + Math.random() * 2000;
-    const delay = Math.random() * 500;
-    const targetX = (Math.random() - 0.5) * 300;
-    const rotation = Math.random() * 720 - 360;
+  for (const pot of pots) {
+    const potDate = new Date(pot.deadline);
+    const dayStart = new Date(potDate.getFullYear(), potDate.getMonth(), potDate.getDate()).getTime();
 
-    el.animate([
-      { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
-      { transform: `translate(${targetX}px, ${window.innerHeight + 50}px) rotate(${rotation}deg)`, opacity: 0 }
-    ], {
-      duration,
-      delay,
-      easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-      fill: 'forwards'
-    }).onfinish = () => el.remove();
+    let label: string;
+    if (dayStart === todayStart) {
+      label = '📅 오늘 마감된 팟';
+    } else if (dayStart === yesterdayStart) {
+      label = '🗓️ 어제 마감된 팟';
+    } else {
+      label = `📁 ${potDate.getMonth() + 1}월 ${potDate.getDate()}일 마감된 팟`;
+    }
+
+    if (!groups.has(label)) {
+      groups.set(label, { label, orderKey: dayStart, pots: [] });
+    }
+    groups.get(label)!.pots.push(pot);
   }
+
+  return Array.from(groups.values())
+    .sort((a, b) => b.orderKey - a.orderKey)
+    .map((g) => ({ dateLabel: g.label, pots: g.pots }));
 }

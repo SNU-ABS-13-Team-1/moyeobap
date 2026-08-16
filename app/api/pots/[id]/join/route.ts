@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
-import { deriveStatus, getPot, logEvent, savePot, toPublicPot } from "@/app/lib/backend";
+import { deriveStatus, getPot, logEvent, savePot, toPotView } from "@/app/lib/backend";
 
 export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const user = await getSession();
@@ -14,22 +14,30 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "존재하지 않는 팟이에요." }, { status: 404 });
   }
 
-  if (deriveStatus(pot) !== "active") {
+  const currentStatus = deriveStatus(pot);
+  if (currentStatus !== "active") {
+    if (currentStatus !== pot.status) await savePot({ ...pot, status: currentStatus });
     return NextResponse.json({ error: "이미 마감된 팟이에요." }, { status: 409 });
   }
 
   if (pot.participants.some((p) => p.id === user.id)) {
-    return NextResponse.json({ pot: toPublicPot(pot, user.id) });
+    return NextResponse.json({ pot: toPotView(pot, user) });
   }
 
   pot.participants.push({ ...user, joinedAt: Date.now() });
   pot.status = deriveStatus(pot);
-  await savePot(pot);
+  const saved = await savePot(pot);
+  if (!saved) {
+    return NextResponse.json(
+      { error: "참여 정보를 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+      { status: 503 },
+    );
+  }
   await logEvent("pot_joined", pot, user.id);
   // 이 참여로 정원이 차서 바로 마감된 경우, 마감도 별도 사건으로 남깁니다.
   if (pot.status !== "active") {
     await logEvent(pot.status === "closed" ? "pot_closed" : "pot_failed", pot);
   }
 
-  return NextResponse.json({ pot: toPublicPot(pot, user.id) });
+  return NextResponse.json({ pot: toPotView(pot, user) });
 }

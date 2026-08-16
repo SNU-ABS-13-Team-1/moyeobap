@@ -1,72 +1,63 @@
-import React from 'react';
-import { PotFilter, User } from '../../types/moyeobap';
+'use client';
 
-interface HeaderProps {
-  activeFilter: PotFilter;
-  setActiveFilter: (filter: PotFilter) => void;
-  isAuthenticated: boolean;
-  currentUser: User | null;
-  onAuthClick: () => void;
-  /** 마감 탭에 붙는 개수. 0이면 탭 자체를 숨긴다. */
-  closedPotsCount: number;
-}
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from './AuthProvider';
+import { BgmPlayer } from './BgmPlayer';
 
-export const Header: React.FC<HeaderProps> = ({
-  activeFilter,
-  setActiveFilter,
-  isAuthenticated,
-  currentUser,
-  onAuthClick,
-  closedPotsCount,
-}) => {
+const NAV_ITEMS = [
+  { href: '/', label: '현황판' },
+  { href: '/my', label: '내 참여' },
+  { href: '/pots/new', label: '새 모집' },
+] as const;
+
+export function Header() {
+  const pathname = usePathname();
+  const { currentUser, openAuth, openProfile } = useAuth();
+
   return (
     <header className="header">
-      <div className="header__logo">
+      <Link aria-label="모여밥 현황판" className="header__logo" href="/">
         <span className="header__logo-emoji">🍚</span>
-        <span className="header__logo-text text-gradient">모여밥</span>
-      </div>
+        <span className="header__logo-text">모여밥</span>
+      </Link>
 
-      <nav className="header__nav">
-        <button
-          className={`header__tab ${activeFilter === 'all' ? 'header__tab--active' : ''}`}
-          onClick={() => setActiveFilter('all')}
-        >
-          전체
-        </button>
-        <button
-          className={`header__tab ${activeFilter === 'lunch' ? 'header__tab--active' : ''}`}
-          onClick={() => setActiveFilter('lunch')}
-        >
-          점심 🍱
-        </button>
-        <button
-          className={`header__tab ${activeFilter === 'cafe' ? 'header__tab--active' : ''}`}
-          onClick={() => setActiveFilter('cafe')}
-        >
-          카페 ☕
-        </button>
-        {closedPotsCount > 0 && (
-          <button
-            className={`header__tab ${activeFilter === 'closed' ? 'header__tab--active' : ''}`}
-            onClick={() => setActiveFilter('closed')}
-          >
-            마감 {closedPotsCount}
-          </button>
-        )}
+      <nav aria-label="주요 메뉴" className="site-nav">
+        {NAV_ITEMS.map((item) => {
+          const active = item.href === '/'
+            ? pathname === '/'
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              aria-current={active ? 'page' : undefined}
+              className={`site-nav__link ${active ? 'site-nav__link--active' : ''}`}
+              href={item.href}
+              key={item.href}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="header__auth">
-        {isAuthenticated && currentUser ? (
-          <div className="header__profile" onClick={onAuthClick} title="클릭하여 로그아웃">
-            <div className="header__profile-avatar">{currentUser.initial}</div>
+        <BgmPlayer />
+        {currentUser ? (
+          <button className="header__profile" onClick={openProfile} title="내 프로필" type="button">
+            {currentUser.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="" className="header__profile-avatar" src={currentUser.avatarUrl} />
+            ) : (
+              <div className="header__profile-avatar">{currentUser.initial}</div>
+            )}
             <span className="header__profile-name">{currentUser.name}</span>
-          </div>
+          </button>
         ) : (
-          <button className="header__auth-btn" onClick={onAuthClick}>
-            <span>로그인</span>
+          <button className="header__auth-btn" onClick={() => openAuth()} type="button">
+            로그인
           </button>
         )}
       </div>
     </header>
   );
-};
+}

@@ -1,48 +1,62 @@
-import { cookies } from "next/headers";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { User } from "../types/moyeobap";
+import { getSupabaseConfig } from "./supabase/config";
+import { createSupabaseServerClient } from "./supabase/server";
 
-const COOKIE_NAME = "moyeobap_session";
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
-
-/**
- * 로그인은 이메일 입력뿐입니다 (비밀번호·인증코드 없음). 같은 이메일로 다시
- * 들어오면 같은 사람으로 인식되도록 이메일을 그대로 사용자 id로 씁니다.
- */
-export async function getSession(): Promise<User | null> {
-  const store = await cookies();
-  const raw = store.get(COOKIE_NAME)?.value;
-  if (!raw) return null;
-
-  try {
-    const payload = JSON.parse(Buffer.from(raw, "base64url").toString("utf-8")) as User;
-    if (!payload.id || !payload.name) return null;
-    return payload;
-  } catch {
-    return null;
-  }
+interface ProfileRow {
+  display_name: string | null;
+  avatar_url: string | null;
+  bank_name: string | null;
+  account_number: string | null;
 }
 
-export async function setSession(user: User): Promise<void> {
-  const store = await cookies();
-  const raw = Buffer.from(JSON.stringify(user), "utf-8").toString("base64url");
-  store.set(COOKIE_NAME, raw, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: MAX_AGE_SECONDS,
-  });
+function metadataString(user: SupabaseUser, key: string): string | undefined {
+  const value = user.user_metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function fallbackName(user: SupabaseUser): string {
+  return (
+    metadataString(user, "full_name") ??
+    metadataString(user, "name") ??
+    user.email?.split("@")[0] ??
+    "사용자"
+  ).slice(0, 40);
+}
+
+function toAppUser(authUser: SupabaseUser, profile: ProfileRow | null): User {
+  const name = profile?.display_name?.trim() || fallbackName(authUser);
+  const avatarUrl = profile?.avatar_url?.trim() || metadataString(authUser, "avatar_url");
+
+  return {
+    id: authUser.id,
+    name,
+    initial: name.charAt(0) || "밥",
+    email: authUser.email ?? "",
+    avatarUrl,
+    bankName: profile?.bank_name?.trim() || undefined,
+    accountNumber: profile?.account_number?.trim() || undefined,
+  };
+}
+
+export async function getSession(): Promise<User | null> {
+  if (!getSupabaseConfig()) return null;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url, bank_name, account_number")
+    .eq("id", data.user.id)
+    .maybeSingle<ProfileRow>();
+
+  return toAppUser(data.user, profile ?? null);
 }
 
 export async function clearSession(): Promise<void> {
-  const store = await cookies();
-  store.delete(COOKIE_NAME);
-}
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-export function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!getSupabaseConfig()) return;
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut({ scope: "local" });
 }

@@ -1,12 +1,13 @@
 # 모여밥
 
-서울대학교 시흥캠퍼스 구성원이 같은 음식점에서 함께 주문할 사람을 찾고,
-모집에 참여할 수 있도록 만드는 웹앱입니다.
+같은 음식점에서 공동주문할 사람을 찾고 참여하는 웹앱입니다. 제품 범위와 UX
+결정은 [AGENTS.md](AGENTS.md)를 단일 기준으로
+관리합니다.
 
-## 바로 확인하기
+## 현재 구현
 
 - 배포된 사이트: [moyeobap.vercel.app](https://moyeobap.vercel.app/)
-- GitHub 저장소: [KangGwonJae/moyeobap](https://github.com/KangGwonJae/moyeobap)
+- GitHub 저장소: [famegon/moyeobap](https://github.com/famegon/moyeobap)
 - 제품 범위와 세부 결정: [모여밥 작업 지침서](AGENTS.md)
 
 음식점과 메뉴는 팀이 직접 조사한 실제 데이터 112곳입니다. 모집 정보는 접속한
@@ -27,7 +28,7 @@
 
 1. Slack 공지에 있는 모여밥 링크를 눌러 실시간 모집을 확인합니다.
 2. 원하는 음식점의 모집을 열어 마감 시간, 참여 인원과 매장 정보를 확인합니다.
-3. 참여하려면 Slack 계정으로 로그인한 뒤 모집에 참여합니다.
+3. 참여하려면 Google 계정으로 로그인한 뒤 모집에 참여합니다.
 4. 원하는 모집이 없다면 음식점과 마감 시간을 골라 새 모집을 만듭니다.
 5. 모집이 끝나면 확정된 참여자들과 팟 채팅에서 실제 주문을 논의합니다.
 
@@ -76,12 +77,12 @@
 | 항목 | 현재 상태 |
 |---|---|
 | 음식점·메뉴 데이터 | 팀이 조사한 실제 데이터 112곳 |
-| 참여·새 모집·채팅 | Upstash Redis에 저장 |
+| 참여·새 모집·채팅 | Supabase PostgreSQL에 저장 |
 | 새로고침 후 변경사항 | 유지됨 |
-| 여러 사용자의 실시간 참여 | 4초마다 목록 갱신 (채팅은 3초) |
+| 여러 사용자의 실시간 참여 | 4초마다 목록 갱신, 채팅은 Supabase Realtime과 3초 보조 갱신 |
 | 모집 마감 자동 처리 | 마감 시간이나 정원 도달 시 자동 마감 |
-| 로그인 | 이메일·이름 입력. **인증 절차는 없음** |
-| Slack 로그인·알림 | 미구현. 연동 방식 결정 전 |
+| 로그인 | Supabase Auth 기반 Google OAuth |
+| Slack 알림 | 미구현. 연동 범위 결정 전 |
 | 참여자 대화 | 앱 안의 팟 채팅으로 처리. Slack 인계는 계획에서 제외 |
 
 ## 데이터 구분
@@ -187,23 +188,54 @@ git switch --track origin/dev/wip
 ### 실행
 
 ```bash
-npm install
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-실행 후 [http://localhost:3000](http://localhost:3000)을 브라우저에서 엽니다.
-서버를 종료하려면 실행한 터미널에서 `Ctrl+C`를 누릅니다.
+[http://localhost:3000](http://localhost:3000)에서 확인할 수 있습니다. Redis 환경
+변수가 없으면 모집과 채팅은 실행 중인 개발 서버의 메모리에 저장되며 서버를
+재시작하면 초기화됩니다.
 
-배포 전에 아래 명령으로 빌드 오류를 확인할 수 있습니다.
+## 환경 변수
 
-```bash
-npm run build
+운영 환경에서는 다음 값을 설정해야 합니다.
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=<Supabase project URL>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
+SUPABASE_SERVICE_ROLE_KEY=<Supabase server-only service role key>
+UPSTASH_REDIS_REST_URL=<Upstash REST URL>
+UPSTASH_REDIS_REST_TOKEN=<Upstash REST token>
 ```
+
+기존 프로젝트의 legacy 키를 사용하는 동안에는
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`도 지원합니다. Google provider를 활성화하고
+Supabase Auth의 Redirect URLs에 로컬 `http://localhost:3000/auth/callback`과
+운영 도메인의 `/auth/callback`을 등록해야 합니다. 프로필 테이블과 RLS는
+`supabase/migrations/`의 SQL을 파일명 순서대로 적용합니다. 현재는 Google
+프로필 마이그레이션과 피드백·채팅 읽음·주문 완료 마이그레이션이 포함됩니다.
+새 프로젝트라면 SQL Editor에서 먼저 `supabase/schema.sql`을 적용하고, 기존
+프로젝트라면 적용하지 않은 migration만 순서대로 실행합니다.
+
+`SUPABASE_SERVICE_ROLE_KEY`는 핵심 테이블을 수정하는 서버 API에서만 사용합니다.
+절대로 `NEXT_PUBLIC_` 접두사를 붙이거나 브라우저 코드·Git 저장소에 넣지 않습니다.
+
+Vercel KV 이름을 사용하는 경우 `KV_REST_API_URL`, `KV_REST_API_TOKEN`도
+지원합니다. `.env*` 파일은 Git에서 제외됩니다.
 
 `UPSTASH_REDIS_REST_URL`과 `UPSTASH_REDIS_REST_TOKEN`이 없으면 모집 정보가
 프로세스 메모리에만 남습니다. 혼자 화면을 확인할 때는 문제없지만, 배포
 환경에서는 요청마다 다른 인스턴스에 닿아 팟이 사라졌다 나타납니다. 개인
 Vercel에 배포한다면 Storage 탭에서 데이터베이스를 먼저 연결하세요.
+
+## 검증 명령
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
 ## 매장 데이터 고치기
 
@@ -219,7 +251,7 @@ npm run data:build               # data/*.csv → app/data/restaurants.ts
 
 ## 배포
 
-GitHub 저장소를 Vercel에 연결해 [moyeobap.vercel.app](https://moyeobap.vercel.app/)
+GitHub 저장소를 Vercel에 연결해 [moyeobap2.vercel.app](https://moyeobap.vercel.app/)
 으로 배포하고 있습니다.
 
 ## 프로젝트 구조
@@ -227,13 +259,16 @@ GitHub 저장소를 Vercel에 연결해 [moyeobap.vercel.app](https://moyeobap.v
 ```text
 moyeobap/
 ├─ app/
-│  ├─ api/               모집·참여·채팅·로그인 API와 행동 기록
-│  ├─ components/moyeobap/  헤더, 모집 카드, 상세·생성 모달, 채팅
+│  ├─ api/               인증·프로필·모집·참여·채팅 API와 행동 기록
+│  ├─ components/moyeobap/  헤더, 모집 카드, 페이지 UI와 채팅
 │  ├─ data/restaurants.ts   매장 데이터 (생성물, 직접 수정 금지)
-│  ├─ lib/               저장소 연결, 세션, 팟·이벤트 처리
+│  ├─ lib/               Supabase·Redis 연결, 세션, 팟·이벤트 처리
 │  ├─ types/moyeobap.ts  공용 타입
+│  ├─ my/                내 참여 모집과 채팅방 허브
+│  ├─ pots/              새 모집과 모집 상세 페이지
 │  ├─ page.tsx           실시간 현황판
-│  ├─ globals.css        전체 화면 스타일
+│  ├─ prototype.css      현재 화면 스타일
+│  ├─ globals.css        전역 리셋
 │  └─ layout.tsx         공통 화면 틀과 페이지 정보
 ├─ scripts/              엑셀 → CSV → 앱 데이터 변환
 ├─ public/               공유 이미지와 정적 파일
@@ -245,5 +280,6 @@ moyeobap/
 ```
 
 화면에 보이는 음식점은 `app/data/restaurants.ts`(CSV에서 생성)에서 오고,
-모집·채팅은 사용자가 만든 실제 데이터가 Upstash Redis에 저장된 것입니다.
+모집·채팅은 사용자가 만든 실제 데이터가 Supabase에 저장됩니다. 환경변수가 없는
+로컬 환경에서는 Upstash Redis 또는 프로세스 메모리로 대체됩니다.
 별도의 예시(Mock) 데이터 파일은 없습니다.
