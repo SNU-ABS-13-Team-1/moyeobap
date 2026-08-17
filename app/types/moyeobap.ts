@@ -53,8 +53,9 @@ export interface ChatMessage {
   authorName: string;
   text: string;
   createdAt: string;
-  /** 'account'면 계좌번호, 'order_link'면 외부 주문 링크 공유 메시지입니다. */
-  kind?: 'text' | 'account' | 'order_link';
+  /** 'account'면 계좌번호, 'order_link'면 주문 링크, 'image'면 사진 메시지입니다. */
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
 }
 
 export interface ChatMessageView {
@@ -62,7 +63,8 @@ export interface ChatMessageView {
   authorName: string;
   text: string;
   createdAt: string;
-  kind?: 'text' | 'account' | 'order_link';
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
   isMine: boolean;
 }
 

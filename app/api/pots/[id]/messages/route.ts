@@ -35,6 +35,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     text: message.text,
     createdAt: message.createdAt,
     kind: message.kind,
+    imageUrl: message.imageUrl,
     isMine: message.authorId === user.id,
   }));
   return NextResponse.json({ messages: view });
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
   let text: string;
   let kind: ChatMessage["kind"] = "text";
+  let imageUrl: string | undefined;
 
   if (body?.shareAccount === true) {
     // 계좌번호는 클라이언트가 보낸 텍스트를 그대로 믿지 않고, 로그인 세션에 저장된
@@ -65,6 +67,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
     text = `💳 ${user.name}님 계좌번호: ${user.bankName} ${user.accountNumber}`;
     kind = "account";
+  } else if (typeof body?.imageUrl === "string" && body.imageUrl.trim()) {
+    imageUrl = body.imageUrl.trim();
+    text = "📷 사진";
+    kind = "image";
   } else if (typeof body?.orderLink === "string" && body.orderLink.trim()) {
     const rawLink = body.orderLink.trim();
     if (!/^https?:\/\//i.test(rawLink)) {
@@ -90,6 +96,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     text,
     createdAt: new Date().toISOString(),
     kind,
+    imageUrl,
   };
   const saved = await addMessage(message);
   if (!saved) {
@@ -105,6 +112,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     text: message.text,
     createdAt: message.createdAt,
     kind: message.kind,
+    imageUrl: message.imageUrl,
     isMine: true,
   };
   return NextResponse.json({ message: view }, { status: 201 });

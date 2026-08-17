@@ -43,7 +43,10 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
   const [orderLinkUrl, setOrderLinkUrl] = useState('');
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<number | null>(null);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
@@ -216,6 +219,61 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     }
   }
 
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSendError('5MB 이하의 이미지만 업로드할 수 있어요.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setImagePreview(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  async function handleSendImage() {
+    if (!imagePreview || sending) return;
+
+    setSending(true);
+    setSendError(null);
+    const dataUrl = imagePreview;
+    setImagePreview(null);
+
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: '📷 사진',
+      createdAt: new Date().toISOString(),
+      kind: 'image',
+      imageUrl: dataUrl,
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: dataUrl }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '사진을 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="chat-panel">
       {pinnedOrderLink && (
@@ -268,6 +326,8 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
                   ? 'chat-panel__bubble--account'
                   : m.kind === 'order_link'
                   ? 'chat-panel__bubble--order-link'
+                  : m.kind === 'image'
+                  ? 'chat-panel__bubble--image'
                   : ''
               }`}
             >
@@ -284,6 +344,16 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
                     {m.text} ↗
                   </a>
                 </div>
+              ) : m.kind === 'image' && m.imageUrl ? (
+                <div className="chat-panel__image-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.imageUrl}
+                    alt="공유된 사진"
+                    className="chat-panel__image-thumb"
+                    onClick={() => setViewingImage(m.imageUrl ?? null)}
+                  />
+                </div>
               ) : (
                 renderMessageText(m.text)
               )}
@@ -291,6 +361,49 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           </div>
         ))}
       </div>
+
+      {imagePreview && (
+        <div className="chat-panel__preview-box">
+          <div className="chat-panel__preview-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="선택한 사진 미리보기" className="chat-panel__preview-img" />
+            <div className="chat-panel__preview-actions">
+              <button
+                type="button"
+                className="chat-panel__preview-send"
+                onClick={handleSendImage}
+                disabled={sending}
+              >
+                {sending ? '전송 중...' : '사진 전송'}
+              </button>
+              <button
+                type="button"
+                className="chat-panel__preview-cancel"
+                onClick={() => setImagePreview(null)}
+                disabled={sending}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingImage && (
+        <div className="chat-panel__image-modal" onClick={() => setViewingImage(null)}>
+          <div className="chat-panel__image-modal-content" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={viewingImage} alt="원본 사진" className="chat-panel__image-modal-img" />
+            <button
+              type="button"
+              className="chat-panel__image-modal-close"
+              onClick={() => setViewingImage(null)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {isOrderLinkModalOpen && (
         <form className="chat-panel__link-form" onSubmit={handleShareOrderLink}>
@@ -324,7 +437,23 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
         </form>
       )}
 
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleImageSelect}
+      />
+
       <div className="chat-panel__quick-actions">
+        <button
+          type="button"
+          className="chat-panel__quick-btn chat-panel__photo-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+        >
+          📷 사진 첨부
+        </button>
         <button
           type="button"
           className="chat-panel__quick-btn chat-panel__order-link-btn"

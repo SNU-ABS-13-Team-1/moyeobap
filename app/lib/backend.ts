@@ -731,6 +731,8 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
       if (error && error.code === "23514") {
         const fallbackText = message.kind === "order_link"
           ? `[ORDER_LINK] ${message.text}`
+          : message.kind === "image"
+          ? `[IMAGE] ${message.imageUrl || message.text}`
           : message.text;
 
         const retry = await supabase.from("messages").insert({
@@ -782,11 +784,18 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
     return data.map((m) => {
       let kind = m.kind as ChatMessage["kind"];
       let text = m.text;
+      let imageUrl: string | undefined;
 
       // 마커로 저장된 order_link 복원
       if (text.startsWith("[ORDER_LINK] ")) {
         kind = "order_link";
         text = text.slice("[ORDER_LINK] ".length);
+      } else if (text.startsWith("[IMAGE] ")) {
+        kind = "image";
+        imageUrl = text.slice("[IMAGE] ".length);
+        text = "📷 사진";
+      } else if (kind === "image") {
+        imageUrl = text;
       }
 
       return {
@@ -796,6 +805,7 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
         authorName: m.author_name,
         text,
         kind,
+        imageUrl,
         createdAt: m.created_at,
       };
     });
@@ -818,12 +828,16 @@ function toChatPreview(message: ChatMessage): ChatMessagePreview {
   let text = message.text;
   if (text.startsWith("[ORDER_LINK] ")) {
     text = text.slice("[ORDER_LINK] ".length);
+  } else if (text.startsWith("[IMAGE] ")) {
+    text = "📷 사진";
   }
 
   const normalizedText = message.kind === "account"
     ? `${message.authorName}님이 계좌를 공유했어요.`
     : message.kind === "order_link" || message.text.startsWith("[ORDER_LINK] ")
     ? `${message.authorName}님이 주문 링크를 공유했어요.`
+    : message.kind === "image" || message.text.startsWith("[IMAGE] ")
+    ? `${message.authorName}님이 사진을 보냈어요.`
     : text.replace(/\s+/g, " ").trim().slice(0, 80);
 
   return {
