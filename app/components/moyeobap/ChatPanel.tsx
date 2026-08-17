@@ -41,10 +41,13 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
+  const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
+  const [orderLinkUrl, setOrderLinkUrl] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<number | null>(null);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
+  const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
 
   function getAccountText(message: ChatMessageView) {
     const marker = '계좌번호:';
@@ -172,8 +175,67 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     }
   }
 
+  async function handleShareOrderLink(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = orderLinkUrl.trim();
+    if (!trimmed || sending) return;
+
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setSendError('올바른 웹 링크(http:// 또는 https://)를 입력해주세요.');
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+    setIsOrderLinkModalOpen(false);
+    setOrderLinkUrl('');
+
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+      kind: 'order_link',
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderLink: trimmed }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '주문 링크를 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="chat-panel">
+      {pinnedOrderLink && (
+        <div className="chat-panel__pinned-order-link">
+          <div>
+            <span>🛒 주문 링크 · {pinnedOrderLink.authorName}</span>
+            <strong>{pinnedOrderLink.text}</strong>
+          </div>
+          <div className="chat-panel__pinned-actions">
+            <a
+              href={pinnedOrderLink.text}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="chat-panel__link-btn"
+            >
+              열기 ↗
+            </a>
+          </div>
+        </div>
+      )}
       {pinnedAccount && (
         <div className="chat-panel__pinned-account">
           <div>
@@ -201,23 +263,88 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
               <span className="chat-panel__author">{m.authorName}</span>
             )}
             <span
-              className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
+              className={`chat-panel__bubble ${
+                m.kind === 'account'
+                  ? 'chat-panel__bubble--account'
+                  : m.kind === 'order_link'
+                  ? 'chat-panel__bubble--order-link'
+                  : ''
+              }`}
             >
-              {renderMessageText(m.text)}
+              {m.kind === 'order_link' ? (
+                <div className="chat-panel__order-link-content">
+                  <span className="chat-panel__order-link-badge">🛒 주문 링크</span>
+                  <a
+                    href={m.text}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="chat-panel__link"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {m.text} ↗
+                  </a>
+                </div>
+              ) : (
+                renderMessageText(m.text)
+              )}
             </span>
           </div>
         ))}
       </div>
-      {currentUser.bankName && currentUser.accountNumber && (
+
+      {isOrderLinkModalOpen && (
+        <form className="chat-panel__link-form" onSubmit={handleShareOrderLink}>
+          <div className="chat-panel__link-input-wrap">
+            <input
+              type="url"
+              className="chat-panel__input chat-panel__link-input"
+              placeholder="공유할 주문 링크 URL을 입력하세요 (https://...)"
+              value={orderLinkUrl}
+              onChange={(e) => setOrderLinkUrl(e.target.value)}
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="chat-panel__link-submit"
+              disabled={!orderLinkUrl.trim() || sending}
+            >
+              공유
+            </button>
+            <button
+              type="button"
+              className="chat-panel__link-cancel"
+              onClick={() => {
+                setIsOrderLinkModalOpen(false);
+                setOrderLinkUrl('');
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="chat-panel__quick-actions">
         <button
           type="button"
-          className="chat-panel__account-btn"
-          onClick={handleShareAccount}
+          className="chat-panel__quick-btn chat-panel__order-link-btn"
+          onClick={() => setIsOrderLinkModalOpen((prev) => !prev)}
           disabled={sending}
         >
-          💳 계좌번호 전송
+          🔗 주문 링크 공유
         </button>
-      )}
+        {currentUser.bankName && currentUser.accountNumber && (
+          <button
+            type="button"
+            className="chat-panel__quick-btn chat-panel__account-btn"
+            onClick={handleShareAccount}
+            disabled={sending}
+          >
+            💳 계좌번호 전송
+          </button>
+        )}
+      </div>
+
       {sendError && <p className="chat-panel__error" role="alert">{sendError}</p>}
       <form className="chat-panel__form" onSubmit={handleSubmit}>
         <input

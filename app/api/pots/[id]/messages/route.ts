@@ -65,6 +65,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
     text = `💳 ${user.name}님 계좌번호: ${user.bankName} ${user.accountNumber}`;
     kind = "account";
+  } else if (typeof body?.orderLink === "string" && body.orderLink.trim()) {
+    const rawLink = body.orderLink.trim();
+    if (!/^https?:\/\//i.test(rawLink)) {
+      return NextResponse.json(
+        { error: "올바른 웹 링크(http:// 또는 https://)를 입력해주세요." },
+        { status: 400 },
+      );
+    }
+    text = rawLink.slice(0, 1000);
+    kind = "order_link";
   } else {
     text = typeof body?.text === "string" ? body.text.trim().slice(0, 500) : "";
     if (!text) {

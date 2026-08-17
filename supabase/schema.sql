@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
     author_id TEXT NOT NULL,
     author_name TEXT NOT NULL,
     text TEXT NOT NULL,
-    kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'account')),
+    kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text', 'account', 'order_link', 'image')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
