@@ -37,8 +37,9 @@ export function PotCard({
   if (isClosed && !isParticipating) cardClasses += ' card--closed';
   if (isParticipating) cardClasses += ' card--mine';
 
-  const catLabel = restaurant.category === 'lunch' ? '점심' : restaurant.category === 'other' ? '기타' : '카페';
-  const catClass = restaurant.category === 'lunch' ? 'card__category--lunch' : restaurant.category === 'other' ? 'card__category--other' : 'card__category--cafe';
+  const effectiveCategory = pot.category ?? restaurant.category;
+  const catLabel = effectiveCategory === 'lunch' ? '점심' : effectiveCategory === 'other' ? '기타' : '카페';
+  const catClass = effectiveCategory === 'lunch' ? 'card__category--lunch' : effectiveCategory === 'other' ? 'card__category--other' : 'card__category--cafe';
 
   let statusClass = 'card__status--open';
   let statusText = '모집 중';

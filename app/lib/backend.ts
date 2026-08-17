@@ -19,6 +19,7 @@ export type ServerPot = {
   deadline: string; // ISO timestamp
   participants: (User & { joinedAt: number; isPaid?: boolean; orderMemo?: string })[];
   status: "active" | "closed" | "failed";
+  category?: "lunch" | "cafe" | "other";
   maxParticipants: number | null;
   createdAt: string;
   creatorId: string;
@@ -62,6 +63,7 @@ function normalizePot(pot: StoredPot): ServerPot {
 
   return {
     ...pot,
+    category: pot.category,
     participants,
     creatorId: pot.creatorId ?? firstParticipantId ?? "",
     managerId: pot.managerId ?? firstParticipantId,
@@ -113,6 +115,7 @@ export function toPotView(
     isParticipating,
     isManaging: Boolean(currentUser && currentUser.id === pot.managerId),
     status: pot.status,
+    category: pot.category,
     maxParticipants: pot.maxParticipants,
     orderCompletedAt: pot.orderCompletedAt,
     pinnedMessage,
@@ -124,6 +127,7 @@ export function toPotView(
 /** 마감 시간이 지났거나 정원이 찼는데 아직 반영 안 된 상태를 지금 시각 기준으로 계산합니다. */
 export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot["status"] {
   if (pot.status !== "active") return pot.status;
+  if (pot.participants.length === 0) return "failed";
 
   const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
   const capReached =
@@ -375,12 +379,21 @@ export async function deletePot(id: string): Promise<boolean> {
     memoryPots.delete(id);
     memoryPotIndex.delete(id);
     memoryMessages.delete(id);
+    memoryMessageReads.delete(id);
 
     const supabase = getSupabase();
     if (supabase) {
-      const { error } = await supabase.from("pots").delete().eq("id", id);
-      if (error) {
-        console.error("Supabase deletePot error:", error);
+      // 외래 키 제약 조건 및 RLS에 안전하도록 자식 테이블을 먼저 명시적으로 삭제합니다.
+      try {
+        await supabase.from("messages").delete().eq("pot_id", id);
+        await supabase.from("message_reads").delete().eq("pot_id", id);
+        await supabase.from("pot_participants").delete().eq("pot_id", id);
+        const { error } = await supabase.from("pots").delete().eq("id", id);
+        if (error) {
+          console.error("Supabase deletePot error:", error);
+        }
+      } catch (sbErr) {
+        console.error("Supabase deletePot exception:", sbErr);
       }
     }
 
@@ -395,6 +408,23 @@ export async function deletePot(id: string): Promise<boolean> {
     console.error("deletePot exception:", error);
     return false;
   }
+}
+
+export async function updatePotCategory(
+  potId: string,
+  category: "lunch" | "cafe" | "other",
+): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  pot.category = category;
+  const memoryPot = memoryPots.get(potId);
+  if (memoryPot) {
+    memoryPot.category = category;
+  }
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
 }
 
 export async function getPot(id: string): Promise<ServerPot | null> {
@@ -424,6 +454,7 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         restaurantId: potRow.restaurant_id,
         deadline: potRow.deadline,
         status: potRow.status as ServerPot["status"],
+        category: (potRow.category as ServerPot["category"]) ?? memoryPot?.category,
         maxParticipants: potRow.max_participants,
         createdAt: potRow.created_at,
         creatorId: potRow.creator_id ?? undefined,
@@ -483,6 +514,7 @@ export async function listPots(): Promise<ServerPot[]> {
           restaurantId: potRow.restaurant_id,
           deadline: potRow.deadline,
           status: potRow.status as ServerPot["status"],
+          category: (potRow.category as ServerPot["category"]) ?? memPot?.category,
           maxParticipants: potRow.max_participants,
           createdAt: potRow.created_at,
           creatorId: potRow.creator_id ?? undefined,
@@ -541,7 +573,7 @@ export async function listPots(): Promise<ServerPot[]> {
     }
   }
 
-  return Promise.all(
+  const resolved = await Promise.all(
     pots.map(async (pot) => {
       const nextStatus = deriveStatus(pot, now);
       if (nextStatus !== pot.status) {
@@ -553,6 +585,8 @@ export async function listPots(): Promise<ServerPot[]> {
       return pot;
     }),
   );
+
+  return resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
@@ -684,14 +718,32 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
   try {
     const supabase = getSupabase();
     if (supabase) {
-    const { error } = await supabase.from("messages").insert({
-      pot_id: message.potId,
-      author_id: message.authorId,
-      author_name: message.authorName,
-      text: message.text,
-      kind: message.kind ?? "text",
-      created_at: message.createdAt,
-    });
+      let { error } = await supabase.from("messages").insert({
+        pot_id: message.potId,
+        author_id: message.authorId,
+        author_name: message.authorName,
+        text: message.text,
+        kind: message.kind ?? "text",
+        created_at: message.createdAt,
+      });
+
+      // 만약 Supabase DB에 신규 kind 제약조건이 아직 반영되지 않았다면 text 마커로 fallback 저장
+      if (error && error.code === "23514") {
+        const fallbackText = message.kind === "order_link"
+          ? `[ORDER_LINK] ${message.text}`
+          : message.text;
+
+        const retry = await supabase.from("messages").insert({
+          pot_id: message.potId,
+          author_id: message.authorId,
+          author_name: message.authorName,
+          text: fallbackText,
+          kind: "text",
+          created_at: message.createdAt,
+        });
+        error = retry.error;
+      }
+
       if (error) {
         console.error("Supabase addMessage error:", error);
         return false;
@@ -727,15 +779,26 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
       .limit(MAX_MESSAGES_PER_POT);
 
     if (error || !data) return [];
-    return data.map((m) => ({
-      id: m.id,
-      potId: m.pot_id,
-      authorId: m.author_id,
-      authorName: m.author_name,
-      text: m.text,
-      kind: m.kind as ChatMessage["kind"],
-      createdAt: m.created_at,
-    }));
+    return data.map((m) => {
+      let kind = m.kind as ChatMessage["kind"];
+      let text = m.text;
+
+      // 마커로 저장된 order_link 복원
+      if (text.startsWith("[ORDER_LINK] ")) {
+        kind = "order_link";
+        text = text.slice("[ORDER_LINK] ".length);
+      }
+
+      return {
+        id: m.id,
+        potId: m.pot_id,
+        authorId: m.author_id,
+        authorName: m.author_name,
+        text,
+        kind,
+        createdAt: m.created_at,
+      };
+    });
   }
 
   const client = getRedis();
@@ -752,9 +815,16 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
 }
 
 function toChatPreview(message: ChatMessage): ChatMessagePreview {
+  let text = message.text;
+  if (text.startsWith("[ORDER_LINK] ")) {
+    text = text.slice("[ORDER_LINK] ".length);
+  }
+
   const normalizedText = message.kind === "account"
     ? `${message.authorName}님이 계좌를 공유했어요.`
-    : message.text.replace(/\s+/g, " ").trim().slice(0, 80);
+    : message.kind === "order_link" || message.text.startsWith("[ORDER_LINK] ")
+    ? `${message.authorName}님이 주문 링크를 공유했어요.`
+    : text.replace(/\s+/g, " ").trim().slice(0, 80);
 
   return {
     authorName: message.authorName,

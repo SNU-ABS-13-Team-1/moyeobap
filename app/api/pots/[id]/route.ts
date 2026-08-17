@@ -136,6 +136,26 @@ export async function PATCH(
     return NextResponse.json({ error: "이미 마감된 팟은 변경할 수 없어요." }, { status: 409 });
   }
 
+  if (body?.action === "update_category") {
+    const category = body.category;
+    if (category !== "lunch" && category !== "cafe" && category !== "other") {
+      return NextResponse.json(
+        { error: "올바른 카테고리(점심/카페/기타)를 선택해주세요." },
+        { status: 400 },
+      );
+    }
+
+    pot.category = category;
+    const saved = await savePot(pot);
+    if (!saved) {
+      return NextResponse.json(
+        { error: "카테고리 변경을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ pot: toPotView(pot, user) });
+  }
+
   if (body?.action === "update_deadline") {
     const deadline = typeof body.deadline === "string" ? new Date(body.deadline) : null;
     const now = Date.now();

@@ -19,7 +19,7 @@ export async function GET() {
     const sessionSupabase = user ? await createSupabaseServerClient() : undefined;
     const chatSummaries = await getPotChatSummaries(pots, user, sessionSupabase).catch(() => new Map());
     const visible = pots
-      .filter((pot) => pot.status !== "failed")
+      .filter((pot) => pot.status !== "failed" && pot.participants.length > 0)
       .map((pot) => toPotView(pot, user, chatSummaries.get(pot.id)));
     return NextResponse.json({ pots: visible });
   } catch (error) {
