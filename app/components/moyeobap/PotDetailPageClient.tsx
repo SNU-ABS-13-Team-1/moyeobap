@@ -379,77 +379,83 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           {pot.isManaging && pot.status === 'active' && (
             <section className="detail__management" aria-labelledby="deadline-management-title">
               <div className="detail__management-heading">
-                <div>
-                  <h2 id="deadline-management-title">모집 마감 관리</h2>
-                  <p>현재 관리자만 변경할 수 있어요.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="detail__management-tag">👑 관리자 설정</span>
+                  <h2 id="deadline-management-title" style={{ fontSize: '0.92rem', fontWeight: 700, margin: 0 }}>모집 마감 및 설정</h2>
                 </div>
-                <span>👑 관리자</span>
               </div>
-              <label className="detail__deadline-field">
-                <span>원하는 마감 시간</span>
-                <input
-                  disabled={isManagingDeadline}
-                  max={maxDeadlineValue}
-                  min={minDeadlineValue}
-                  onChange={(event) => setDeadlineEdit({
-                    source: data.pot.deadline,
-                    value: event.target.value,
-                  })}
-                  type="datetime-local"
-                  value={deadlineDraft}
-                />
-                <small>현재부터 5분 뒤~24시간 사이로 설정할 수 있어요.</small>
-              </label>
 
-              <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
-                <span>주문 종류(카테고리) 변경</span>
-                <select
-                  disabled={isManagingDeadline}
-                  onChange={(e) => {
-                    const val = e.target.value as 'lunch' | 'cafe' | 'other';
-                    handleCategoryUpdate(val);
-                  }}
-                  value={effectiveCategory}
-                >
-                  <option value="lunch">🍱 점심</option>
-                  <option value="cafe">☕ 카페</option>
-                  <option value="other">📦 기타</option>
-                </select>
-                <small>목록 필터 및 현황판 뱃지에 반영됩니다.</small>
-              </label>
+              <div className="detail__management-grid">
+                <label className="detail__deadline-field">
+                  <span>마감 시간 변경</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      disabled={isManagingDeadline}
+                      max={maxDeadlineValue}
+                      min={minDeadlineValue}
+                      onChange={(event) => setDeadlineEdit({
+                        source: data.pot.deadline,
+                        value: event.target.value,
+                      })}
+                      type="datetime-local"
+                      value={deadlineDraft}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      disabled={isManagingDeadline || !canUpdateDeadline}
+                      onClick={handleDeadlineUpdate}
+                      type="button"
+                      className="detail__deadline-update-btn"
+                    >
+                      {isManagingDeadline ? '...' : '변경'}
+                    </button>
+                  </div>
+                </label>
 
-              <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
-                <span>최대 인원수 제한</span>
-                <select
-                  disabled={isManagingDeadline}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const cap = val === 'none' ? null : Number(val);
-                    handleMaxParticipantsUpdate(cap);
-                  }}
-                  value={pot.maxParticipants === null ? 'none' : String(pot.maxParticipants)}
-                >
-                  <option value="none">제한 없음</option>
-                  <option value="2">2명</option>
-                  <option value="3">3명</option>
-                  <option value="4">4명</option>
-                  <option value="5">5명</option>
-                  <option value="6">6명</option>
-                  <option value="8">8명</option>
-                  <option value="10">10명</option>
-                  <option value="15">15명</option>
-                  <option value="20">20명</option>
-                </select>
-                <small>현재 {pot.participantCount}명 참여 중 ({pot.maxParticipants ? `최대 ${pot.maxParticipants}명` : '현재 제한 없음'})</small>
-              </label>
-              <div className="detail__management-actions">
-                <button
-                  disabled={isManagingDeadline || !canUpdateDeadline}
-                  onClick={handleDeadlineUpdate}
-                  type="button"
-                >
-                  {isManagingDeadline ? '처리 중...' : '마감 시간 변경'}
-                </button>
+                <div className="detail__management-row">
+                  <label className="detail__deadline-field" style={{ flex: 1 }}>
+                    <span>주문 종류</span>
+                    <select
+                      disabled={isManagingDeadline}
+                      onChange={(e) => {
+                        const val = e.target.value as 'lunch' | 'cafe' | 'other';
+                        handleCategoryUpdate(val);
+                      }}
+                      value={effectiveCategory}
+                    >
+                      <option value="lunch">🍱 점심</option>
+                      <option value="cafe">☕ 카페</option>
+                      <option value="other">📦 기타</option>
+                    </select>
+                  </label>
+
+                  <label className="detail__deadline-field" style={{ flex: 1 }}>
+                    <span>최대 정원</span>
+                    <select
+                      disabled={isManagingDeadline}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cap = val === 'none' ? null : Number(val);
+                        handleMaxParticipantsUpdate(cap);
+                      }}
+                      value={pot.maxParticipants === null ? 'none' : String(pot.maxParticipants)}
+                    >
+                      <option value="none">제한 없음</option>
+                      <option value="2">2명</option>
+                      <option value="3">3명</option>
+                      <option value="4">4명</option>
+                      <option value="5">5명</option>
+                      <option value="6">6명</option>
+                      <option value="8">8명</option>
+                      <option value="10">10명</option>
+                      <option value="15">15명</option>
+                      <option value="20">20명</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="detail__management-footer">
                 <button
                   className="detail__close-now-btn"
                   disabled={isManagingDeadline}
@@ -464,7 +470,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   onClick={handleDeletePot}
                   type="button"
                 >
-                  {isDeletingPot ? '삭제 중...' : '🗑️ 팟 삭제하기'}
+                  {isDeletingPot ? '삭제 중...' : '🗑️ 팟 삭제'}
                 </button>
               </div>
             </section>

@@ -1523,107 +1523,132 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .detail__management {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: var(--space-lg);
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid rgba(255, 107, 53, 0.2);
-  border-radius: var(--radius-md);
-  background: #fffaf7;
+  border-radius: var(--radius-lg);
+  background: #fffbf9;
 }
 
 .detail__management-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
 }
 
-.detail__management-heading h2 {
-  color: var(--text-primary);
-  font-size: 0.95rem;
-}
-
-.detail__management-heading p,
-.detail__deadline-field small {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.detail__management-heading > span {
-  flex: 0 0 auto;
-  padding: 4px 8px;
+.detail__management-tag {
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: rgba(255, 107, 53, 0.1);
+  background: rgba(255, 107, 53, 0.12);
   color: var(--primary);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
+}
+
+.detail__management-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.detail__management-row {
+  display: flex;
+  gap: 10px;
 }
 
 .detail__deadline-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
 
 .detail__deadline-field input,
 .detail__deadline-field select {
   width: 100%;
-  padding: 11px 12px;
+  padding: 7px 10px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text-primary);
   font: inherit;
+  font-size: 0.82rem;
 }
 
 .detail__deadline-field input:focus,
 .detail__deadline-field select:focus {
   border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.12);
 }
 
-.detail__management-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail__management-actions button {
-  padding: 10px 14px;
+.detail__deadline-update-btn {
+  padding: 0 14px;
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   background: var(--primary);
   color: #fff;
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s ease;
 }
 
-.detail__management-actions button:disabled {
+.detail__deadline-update-btn:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.detail__deadline-update-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.detail__management-actions .detail__close-now-btn {
-  border-color: rgba(239, 68, 68, 0.25);
+.detail__management-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 107, 53, 0.15);
+}
+
+.detail__close-now-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.detail__close-now-btn:hover:not(:disabled) {
+  background: #fff7ed;
+  border-color: var(--primary);
+}
+
+.detail__delete-pot-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-sm);
   background: #fff;
   color: #dc2626;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
 }
 
-.detail__management-actions .detail__delete-pot-btn {
-  border-color: rgba(220, 38, 38, 0.4);
+.detail__delete-pot-btn:hover:not(:disabled) {
   background: #fef2f2;
-  color: #dc2626;
-}
-
-.detail__management-actions .detail__delete-pot-btn:hover {
-  background: #fee2e2;
+  border-color: #dc2626;
 }
 
 /* ===== Create Modal ===== */

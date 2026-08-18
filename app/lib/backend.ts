@@ -283,7 +283,8 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
               }));
               let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
               if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
-                const fallbackRows = normalized.participants.map((p) => ({
+                // 1단계 폴백: is_paid만 포함
+                const fallbackRows1 = normalized.participants.map((p) => ({
                   pot_id: normalized.id,
                   user_id: p.id,
                   user_name: p.name,
@@ -291,8 +292,21 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                   is_paid: p.isPaid ?? false,
                   joined_at: new Date(p.joinedAt).toISOString(),
                 }));
-                const fallbackRes = await supabase.from("pot_participants").insert(fallbackRows);
-                partErr = fallbackRes.error;
+                const res1 = await supabase.from("pot_participants").insert(fallbackRows1);
+                partErr = res1.error;
+
+                // 2단계 폴백: 기본 컬럼만 포함
+                if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+                  const fallbackRows2 = normalized.participants.map((p) => ({
+                    pot_id: normalized.id,
+                    user_id: p.id,
+                    user_name: p.name,
+                    user_initial: p.initial,
+                    joined_at: new Date(p.joinedAt).toISOString(),
+                  }));
+                  const res2 = await supabase.from("pot_participants").insert(fallbackRows2);
+                  partErr = res2.error;
+                }
               }
               if (!partErr) return true;
               console.error("Supabase savePot participants error:", partErr);
