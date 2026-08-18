@@ -77,10 +77,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   background: rgba(248, 250, 252, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: var(--space-md);
   padding: var(--space-md) 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
@@ -90,6 +90,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   align-items: center;
   gap: var(--space-sm);
   text-decoration: none;
+  justify-self: start;
 }
 
 .site-nav {
@@ -99,6 +100,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: 4px;
   border-radius: var(--radius-full);
   background: var(--bg-secondary);
+  justify-self: center;
 }
 
 .site-nav__link {
@@ -260,6 +262,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  justify-self: end;
 }
 
 .header__bgm-btn {
