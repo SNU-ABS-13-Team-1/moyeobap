@@ -501,75 +501,78 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
               </div>
             ) : pot.isParticipating && pot.participants ? (
               <>
-                {pot.participants.map((participant, index) => (
-                  <div className="detail__participant" key={`${participant.name}-${index}`}>
-                    <div className="detail__participant-avatar">{participant.initial}</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="detail__participant-name">{participant.name}</span>
-                        {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
+                {pot.participants.map((participant, index) => {
+                  const isMe = currentUser?.name === participant.name;
+                  return (
+                    <div
+                      className={`detail__participant ${isMe ? 'detail__participant--me' : ''}`}
+                      key={`${participant.name}-${index}`}
+                    >
+                      <div className="detail__participant-avatar">{participant.initial}</div>
+                      <div className="detail__participant-info">
+                        <div className="detail__participant-name-row">
+                          <span className="detail__participant-name">{participant.name}</span>
+                          {isMe && <span className="detail__participant-me-badge">나</span>}
+                          {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
+                        </div>
+                        {participant.orderMemo ? (
+                          <div className="detail__participant-memo-tag">
+                            ✏️ {participant.orderMemo}
+                          </div>
+                        ) : isMe ? (
+                          <div className="detail__participant-memo-empty">
+                            ✏️ 주문 메모 없음
+                          </div>
+                        ) : null}
                       </div>
-                      {participant.orderMemo && (
-                        <small style={{ color: 'var(--primary)', fontWeight: 600, marginTop: '2px' }}>
-                          ✏️ {participant.orderMemo}
-                        </small>
-                      )}
+
+                      <div className="detail__participant-actions">
+                        {isMe ? (
+                          <button
+                            type="button"
+                            className={`detail__paid-badge-btn ${participant.isPaid ? 'detail__paid-badge-btn--active' : ''}`}
+                            onClick={handleTogglePaid}
+                            disabled={isTogglingPaid}
+                            title="클릭하여 송금 상태 변경"
+                          >
+                            {participant.isPaid ? '✓ 송금 완료' : '💸 미송금 (클릭)'}
+                          </button>
+                        ) : participant.isPaid ? (
+                          <span className="detail__participant-paid-badge">✓ 송금 완료</span>
+                        ) : (
+                          <span className="detail__participant-unpaid-badge">미송금</span>
+                        )}
+                      </div>
                     </div>
-                    {participant.isPaid ? (
-                      <span className="detail__participant-paid-badge">✓ 송금 완료</span>
-                    ) : (
-                      <span className="detail__participant-unpaid-badge">미송금</span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
+
                 {myParticipant && (
-                  <div className="detail__paid-toggle-box" style={{ flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                  <form
+                    className="detail__my-memo-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSaveMemo(memoEdit ?? myParticipant.orderMemo ?? '');
+                    }}
+                  >
+                    <div className="detail__my-memo-input-wrap">
                       <input
                         type="text"
-                        placeholder="✏️ 주문 메모 (선택): 예) 제육 1개 / 양 많이"
+                        className="detail__my-memo-input"
+                        placeholder="내 주문 메모 입력 (예: 제육 1개, 맵기 덜맵게)"
                         value={memoEdit ?? myParticipant.orderMemo ?? ''}
                         onChange={(e) => setMemoEdit(e.target.value)}
                         maxLength={100}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid rgba(0,0,0,0.12)',
-                          fontSize: '0.85rem',
-                        }}
                       />
                       <button
-                        type="button"
-                        onClick={() => handleSaveMemo(memoEdit ?? myParticipant.orderMemo ?? '')}
+                        type="submit"
+                        className="detail__my-memo-submit"
                         disabled={isSavingMemo}
-                        style={{
-                          padding: '8px 14px',
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--primary)',
-                          color: '#fff',
-                          border: 'none',
-                          fontWeight: 600,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                        }}
                       >
-                        {isSavingMemo ? '저장 중...' : '메모 저장'}
+                        {isSavingMemo ? '저장...' : '메모 저장'}
                       </button>
                     </div>
-                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '-4px' }}>
-                      💡 배민 함께주문 이용 시에는 적지 않으셔도 괜찮아요.
-                    </small>
-                    <button
-                      type="button"
-                      className={`detail__paid-toggle-btn ${myParticipant.isPaid ? 'detail__paid-toggle-btn--active' : ''}`}
-                      onClick={handleTogglePaid}
-                      disabled={isTogglingPaid}
-                      style={{ alignSelf: 'flex-end', marginTop: '4px' }}
-                    >
-                      {myParticipant.isPaid ? '✓ 송금 완료 표시 취소' : '💸 내 송금 완료 표시하기'}
-                    </button>
-                  </div>
+                  </form>
                 )}
               </>
             ) : (
