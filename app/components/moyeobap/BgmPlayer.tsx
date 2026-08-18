@@ -53,12 +53,18 @@ export function BgmPlayer() {
       <button
         aria-label={isPlaying ? '배경음악 끄기' : '배경음악 켜기'}
         aria-pressed={isPlaying}
-        className="header__bgm-btn"
+        className={`header__bgm-btn ${isPlaying ? 'header__bgm-btn--playing' : ''}`}
         onClick={() => setIsPlaying((prev) => !prev)}
         title={isPlaying ? '배경음악 끄기' : '배경음악 켜기'}
         type="button"
       >
-        {isPlaying ? '🔊' : '🔇'}
+        <div className="header__bgm-waves" aria-hidden="true">
+          <span className="header__bgm-bar header__bgm-bar--1" />
+          <span className="header__bgm-bar header__bgm-bar--2" />
+          <span className="header__bgm-bar header__bgm-bar--3" />
+          <span className="header__bgm-bar header__bgm-bar--4" />
+        </div>
+        <span className="header__bgm-label">{isPlaying ? 'BGM ON' : 'BGM OFF'}</span>
       </button>
     </>
   );
