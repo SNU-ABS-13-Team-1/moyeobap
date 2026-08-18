@@ -278,15 +278,17 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                 user_name: p.name,
                 user_initial: p.initial,
                 is_paid: p.isPaid ?? false,
+                order_memo: p.orderMemo ?? null,
                 joined_at: new Date(p.joinedAt).toISOString(),
               }));
               let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
-              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
                 const fallbackRows = normalized.participants.map((p) => ({
                   pot_id: normalized.id,
                   user_id: p.id,
                   user_name: p.name,
                   user_initial: p.initial,
+                  is_paid: p.isPaid ?? false,
                   joined_at: new Date(p.joinedAt).toISOString(),
                 }));
                 const fallbackRes = await supabase.from("pot_participants").insert(fallbackRows);
@@ -429,7 +431,9 @@ export async function updatePotCategory(
 
 export async function getPot(id: string): Promise<ServerPot | null> {
   const memoryPot = memoryPots.get(id);
-  const memoryPartMap = new Map(memoryPot?.participants.map((p) => [p.id, p.isPaid]));
+  const memoryPartMap = new Map(
+    memoryPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+  );
 
   const supabase = getSupabase();
   if (supabase) {
@@ -447,6 +451,7 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       return normalizePot({
@@ -461,14 +466,18 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         managerId: potRow.manager_id ?? undefined,
         orderCompletedAt: potRow.order_completed_at ?? null,
         orderCompletedBy: potRow.order_completed_by ?? null,
-        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-          id: p.user_id,
-          name: p.user_name,
-          initial: p.user_initial,
-          email: p.user_id,
-          isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memoryPartMap.get(p.user_id)),
-          joinedAt: new Date(p.joined_at).getTime(),
-        })),
+        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+          const mem = memoryPartMap.get(p.user_id);
+          return {
+            id: p.user_id,
+            name: p.user_name,
+            initial: p.user_initial,
+            email: p.user_id,
+            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+            orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+            joinedAt: new Date(p.joined_at).getTime(),
+          };
+        }),
       });
     }
   }
@@ -503,11 +512,14 @@ export async function listPots(): Promise<ServerPot[]> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       pots = rows.map((potRow) => {
         const memPot = memoryPots.get(potRow.id);
-        const memPartMap = new Map(memPot?.participants.map((p) => [p.id, p.isPaid]));
+        const memPartMap = new Map(
+          memPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+        );
 
         return normalizePot({
           id: potRow.id,
@@ -521,14 +533,18 @@ export async function listPots(): Promise<ServerPot[]> {
           managerId: potRow.manager_id ?? undefined,
           orderCompletedAt: potRow.order_completed_at ?? null,
           orderCompletedBy: potRow.order_completed_by ?? null,
-          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-            id: p.user_id,
-            name: p.user_name,
-            initial: p.user_initial,
-            email: p.user_id,
-            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memPartMap.get(p.user_id)),
-            joinedAt: new Date(p.joined_at).getTime(),
-          })),
+          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+            const mem = memPartMap.get(p.user_id);
+            return {
+              id: p.user_id,
+              name: p.user_name,
+              initial: p.user_initial,
+              email: p.user_id,
+              isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+              orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+              joinedAt: new Date(p.joined_at).getTime(),
+            };
+          }),
         });
       });
     } else {

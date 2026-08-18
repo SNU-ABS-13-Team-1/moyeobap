@@ -49,9 +49,13 @@ CREATE TABLE IF NOT EXISTS public.pot_participants (
     user_initial TEXT NOT NULL,
     bank_account TEXT,
     is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+    order_memo TEXT,
     joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT unique_pot_participant UNIQUE (pot_id, user_id)
 );
+
+ALTER TABLE public.pot_participants
+    ADD COLUMN IF NOT EXISTS order_memo TEXT;
 
 -- 4. 팟 대화 메시지 (messages) 테이블 생성
 CREATE TABLE IF NOT EXISTS public.messages (
