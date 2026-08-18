@@ -19,6 +19,7 @@ export type ServerPot = {
   deadline: string; // ISO timestamp
   participants: (User & { joinedAt: number; isPaid?: boolean; orderMemo?: string })[];
   status: "active" | "closed" | "failed";
+  category?: "lunch" | "cafe" | "other";
   maxParticipants: number | null;
   createdAt: string;
   creatorId: string;
@@ -62,6 +63,7 @@ function normalizePot(pot: StoredPot): ServerPot {
 
   return {
     ...pot,
+    category: pot.category,
     participants,
     creatorId: pot.creatorId ?? firstParticipantId ?? "",
     managerId: pot.managerId ?? firstParticipantId,
@@ -113,6 +115,7 @@ export function toPotView(
     isParticipating,
     isManaging: Boolean(currentUser && currentUser.id === pot.managerId),
     status: pot.status,
+    category: pot.category,
     maxParticipants: pot.maxParticipants,
     orderCompletedAt: pot.orderCompletedAt,
     pinnedMessage,
@@ -124,6 +127,7 @@ export function toPotView(
 /** 마감 시간이 지났거나 정원이 찼는데 아직 반영 안 된 상태를 지금 시각 기준으로 계산합니다. */
 export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot["status"] {
   if (pot.status !== "active") return pot.status;
+  if (pot.participants.length === 0) return "failed";
 
   const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
   const capReached =
@@ -274,15 +278,17 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                 user_name: p.name,
                 user_initial: p.initial,
                 is_paid: p.isPaid ?? false,
+                order_memo: p.orderMemo ?? null,
                 joined_at: new Date(p.joinedAt).toISOString(),
               }));
               let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
-              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
                 const fallbackRows = normalized.participants.map((p) => ({
                   pot_id: normalized.id,
                   user_id: p.id,
                   user_name: p.name,
                   user_initial: p.initial,
+                  is_paid: p.isPaid ?? false,
                   joined_at: new Date(p.joinedAt).toISOString(),
                 }));
                 const fallbackRes = await supabase.from("pot_participants").insert(fallbackRows);
@@ -375,12 +381,21 @@ export async function deletePot(id: string): Promise<boolean> {
     memoryPots.delete(id);
     memoryPotIndex.delete(id);
     memoryMessages.delete(id);
+    memoryMessageReads.delete(id);
 
     const supabase = getSupabase();
     if (supabase) {
-      const { error } = await supabase.from("pots").delete().eq("id", id);
-      if (error) {
-        console.error("Supabase deletePot error:", error);
+      // 외래 키 제약 조건 및 RLS에 안전하도록 자식 테이블을 먼저 명시적으로 삭제합니다.
+      try {
+        await supabase.from("messages").delete().eq("pot_id", id);
+        await supabase.from("message_reads").delete().eq("pot_id", id);
+        await supabase.from("pot_participants").delete().eq("pot_id", id);
+        const { error } = await supabase.from("pots").delete().eq("id", id);
+        if (error) {
+          console.error("Supabase deletePot error:", error);
+        }
+      } catch (sbErr) {
+        console.error("Supabase deletePot exception:", sbErr);
       }
     }
 
@@ -397,9 +412,28 @@ export async function deletePot(id: string): Promise<boolean> {
   }
 }
 
+export async function updatePotCategory(
+  potId: string,
+  category: "lunch" | "cafe" | "other",
+): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  pot.category = category;
+  const memoryPot = memoryPots.get(potId);
+  if (memoryPot) {
+    memoryPot.category = category;
+  }
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
+}
+
 export async function getPot(id: string): Promise<ServerPot | null> {
   const memoryPot = memoryPots.get(id);
-  const memoryPartMap = new Map(memoryPot?.participants.map((p) => [p.id, p.isPaid]));
+  const memoryPartMap = new Map(
+    memoryPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+  );
 
   const supabase = getSupabase();
   if (supabase) {
@@ -417,6 +451,7 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       return normalizePot({
@@ -424,20 +459,25 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         restaurantId: potRow.restaurant_id,
         deadline: potRow.deadline,
         status: potRow.status as ServerPot["status"],
+        category: (potRow.category as ServerPot["category"]) ?? memoryPot?.category,
         maxParticipants: potRow.max_participants,
         createdAt: potRow.created_at,
         creatorId: potRow.creator_id ?? undefined,
         managerId: potRow.manager_id ?? undefined,
         orderCompletedAt: potRow.order_completed_at ?? null,
         orderCompletedBy: potRow.order_completed_by ?? null,
-        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-          id: p.user_id,
-          name: p.user_name,
-          initial: p.user_initial,
-          email: p.user_id,
-          isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memoryPartMap.get(p.user_id)),
-          joinedAt: new Date(p.joined_at).getTime(),
-        })),
+        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+          const mem = memoryPartMap.get(p.user_id);
+          return {
+            id: p.user_id,
+            name: p.user_name,
+            initial: p.user_initial,
+            email: p.user_id,
+            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+            orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+            joinedAt: new Date(p.joined_at).getTime(),
+          };
+        }),
       });
     }
   }
@@ -472,31 +512,39 @@ export async function listPots(): Promise<ServerPot[]> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       pots = rows.map((potRow) => {
         const memPot = memoryPots.get(potRow.id);
-        const memPartMap = new Map(memPot?.participants.map((p) => [p.id, p.isPaid]));
+        const memPartMap = new Map(
+          memPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+        );
 
         return normalizePot({
           id: potRow.id,
           restaurantId: potRow.restaurant_id,
           deadline: potRow.deadline,
           status: potRow.status as ServerPot["status"],
+          category: (potRow.category as ServerPot["category"]) ?? memPot?.category,
           maxParticipants: potRow.max_participants,
           createdAt: potRow.created_at,
           creatorId: potRow.creator_id ?? undefined,
           managerId: potRow.manager_id ?? undefined,
           orderCompletedAt: potRow.order_completed_at ?? null,
           orderCompletedBy: potRow.order_completed_by ?? null,
-          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-            id: p.user_id,
-            name: p.user_name,
-            initial: p.user_initial,
-            email: p.user_id,
-            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memPartMap.get(p.user_id)),
-            joinedAt: new Date(p.joined_at).getTime(),
-          })),
+          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+            const mem = memPartMap.get(p.user_id);
+            return {
+              id: p.user_id,
+              name: p.user_name,
+              initial: p.user_initial,
+              email: p.user_id,
+              isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+              orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+              joinedAt: new Date(p.joined_at).getTime(),
+            };
+          }),
         });
       });
     } else {
@@ -541,7 +589,7 @@ export async function listPots(): Promise<ServerPot[]> {
     }
   }
 
-  return Promise.all(
+  const resolved = await Promise.all(
     pots.map(async (pot) => {
       const nextStatus = deriveStatus(pot, now);
       if (nextStatus !== pot.status) {
@@ -553,6 +601,8 @@ export async function listPots(): Promise<ServerPot[]> {
       return pot;
     }),
   );
+
+  return resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
@@ -684,14 +734,34 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
   try {
     const supabase = getSupabase();
     if (supabase) {
-    const { error } = await supabase.from("messages").insert({
-      pot_id: message.potId,
-      author_id: message.authorId,
-      author_name: message.authorName,
-      text: message.text,
-      kind: message.kind ?? "text",
-      created_at: message.createdAt,
-    });
+      let { error } = await supabase.from("messages").insert({
+        pot_id: message.potId,
+        author_id: message.authorId,
+        author_name: message.authorName,
+        text: message.text,
+        kind: message.kind ?? "text",
+        created_at: message.createdAt,
+      });
+
+      // 만약 Supabase DB에 신규 kind 제약조건이 아직 반영되지 않았다면 text 마커로 fallback 저장
+      if (error && error.code === "23514") {
+        const fallbackText = message.kind === "order_link"
+          ? `[ORDER_LINK] ${message.text}`
+          : message.kind === "image"
+          ? `[IMAGE] ${message.imageUrl || message.text}`
+          : message.text;
+
+        const retry = await supabase.from("messages").insert({
+          pot_id: message.potId,
+          author_id: message.authorId,
+          author_name: message.authorName,
+          text: fallbackText,
+          kind: "text",
+          created_at: message.createdAt,
+        });
+        error = retry.error;
+      }
+
       if (error) {
         console.error("Supabase addMessage error:", error);
         return false;
@@ -727,15 +797,34 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
       .limit(MAX_MESSAGES_PER_POT);
 
     if (error || !data) return [];
-    return data.map((m) => ({
-      id: m.id,
-      potId: m.pot_id,
-      authorId: m.author_id,
-      authorName: m.author_name,
-      text: m.text,
-      kind: m.kind as ChatMessage["kind"],
-      createdAt: m.created_at,
-    }));
+    return data.map((m) => {
+      let kind = m.kind as ChatMessage["kind"];
+      let text = m.text;
+      let imageUrl: string | undefined;
+
+      // 마커로 저장된 order_link 복원
+      if (text.startsWith("[ORDER_LINK] ")) {
+        kind = "order_link";
+        text = text.slice("[ORDER_LINK] ".length);
+      } else if (text.startsWith("[IMAGE] ")) {
+        kind = "image";
+        imageUrl = text.slice("[IMAGE] ".length);
+        text = "📷 사진";
+      } else if (kind === "image") {
+        imageUrl = text;
+      }
+
+      return {
+        id: m.id,
+        potId: m.pot_id,
+        authorId: m.author_id,
+        authorName: m.author_name,
+        text,
+        kind,
+        imageUrl,
+        createdAt: m.created_at,
+      };
+    });
   }
 
   const client = getRedis();
@@ -752,9 +841,20 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
 }
 
 function toChatPreview(message: ChatMessage): ChatMessagePreview {
+  let text = message.text;
+  if (text.startsWith("[ORDER_LINK] ")) {
+    text = text.slice("[ORDER_LINK] ".length);
+  } else if (text.startsWith("[IMAGE] ")) {
+    text = "📷 사진";
+  }
+
   const normalizedText = message.kind === "account"
     ? `${message.authorName}님이 계좌를 공유했어요.`
-    : message.text.replace(/\s+/g, " ").trim().slice(0, 80);
+    : message.kind === "order_link" || message.text.startsWith("[ORDER_LINK] ")
+    ? `${message.authorName}님이 주문 링크를 공유했어요.`
+    : message.kind === "image" || message.text.startsWith("[IMAGE] ")
+    ? `${message.authorName}님이 사진을 보냈어요.`
+    : text.replace(/\s+/g, " ").trim().slice(0, 80);
 
   return {
     authorName: message.authorName,

@@ -53,8 +53,9 @@ export interface ChatMessage {
   authorName: string;
   text: string;
   createdAt: string;
-  /** 'account'면 계좌번호 공유 메시지 — 채팅에서 살짝 다르게 표시합니다. */
-  kind?: 'text' | 'account';
+  /** 'account'면 계좌번호, 'order_link'면 주문 링크, 'image'면 사진 메시지입니다. */
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
 }
 
 export interface ChatMessageView {
@@ -62,7 +63,8 @@ export interface ChatMessageView {
   authorName: string;
   text: string;
   createdAt: string;
-  kind?: 'text' | 'account';
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
   isMine: boolean;
 }
 
@@ -87,6 +89,8 @@ export interface Pot {
   isParticipating: boolean;
   isManaging: boolean;
   status: PotStatus;
+  /** 팟 자체의 카테고리(점심/카페/기타). 미지정 시 매장 카테고리를 따릅니다. */
+  category?: 'lunch' | 'cafe' | 'other';
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */
   maxParticipants: number | null;
   /** 외부 주문까지 실제로 완료한 시각. 모집 마감과는 별개의 상태입니다. */

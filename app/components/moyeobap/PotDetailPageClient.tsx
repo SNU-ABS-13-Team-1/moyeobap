@@ -195,6 +195,24 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
+  async function handleCategoryUpdate(newCategory: 'lunch' | 'cafe' | 'other') {
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_category', category: newCategory }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      const categoryLabel = newCategory === 'lunch' ? '점심' : newCategory === 'cafe' ? '카페' : '기타';
+      showToast(`주문 종류를 '${categoryLabel}'(으)로 변경했어요.`, 'success');
+    } catch (catError) {
+      showToast(getErrorMessage(catError, '카테고리를 변경하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
   async function handleMaxParticipantsUpdate(newCap: number | null) {
     setIsManagingDeadline(true);
     try {
@@ -241,9 +259,9 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     setIsDeletingPot(true);
     try {
       await requestJson(`/api/pots/${potId}`, { method: 'DELETE' });
-      await mutateCache('/api/pots');
+      await mutateCache('/api/pots', undefined, { revalidate: true });
       showToast('팟을 삭제했어요.', 'success');
-      router.push('/');
+      router.replace('/');
     } catch (deleteError) {
       showToast(getErrorMessage(deleteError, '팟을 삭제하지 못했어요.'), 'error');
     } finally {
@@ -301,6 +319,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     action = <button className="create__submit-btn" onClick={handleJoin} type="button">참여하기</button>;
   }
 
+  const effectiveCategory = pot.category ?? restaurant.category;
+
   return (
     <main className="page-content pot-page">
       <div className="page-heading page-heading--compact">
@@ -318,8 +338,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <div className="detail__emoji">{restaurant.emoji}</div>
             <div>
               <div className="card__badges">
-                <span className={`card__category ${restaurant.category === 'lunch' ? 'card__category--lunch' : restaurant.category === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>
-                  {restaurant.category === 'lunch' ? '점심' : restaurant.category === 'other' ? '기타' : '카페'}
+                <span className={`card__category ${effectiveCategory === 'lunch' ? 'card__category--lunch' : effectiveCategory === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>
+                  {effectiveCategory === 'lunch' ? '점심' : effectiveCategory === 'other' ? '기타' : '카페'}
                 </span>
                 {pot.isManaging && <span className="detail__participant-badge">👑 내가 관리 중</span>}
               </div>
@@ -379,6 +399,23 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   value={deadlineDraft}
                 />
                 <small>현재부터 5분 뒤~24시간 사이로 설정할 수 있어요.</small>
+              </label>
+
+              <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
+                <span>주문 종류(카테고리) 변경</span>
+                <select
+                  disabled={isManagingDeadline}
+                  onChange={(e) => {
+                    const val = e.target.value as 'lunch' | 'cafe' | 'other';
+                    handleCategoryUpdate(val);
+                  }}
+                  value={effectiveCategory}
+                >
+                  <option value="lunch">🍱 점심</option>
+                  <option value="cafe">☕ 카페</option>
+                  <option value="other">📦 기타</option>
+                </select>
+                <small>목록 필터 및 현황판 뱃지에 반영됩니다.</small>
               </label>
 
               <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
