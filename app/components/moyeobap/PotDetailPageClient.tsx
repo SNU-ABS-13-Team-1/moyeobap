@@ -521,15 +521,11 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                           {isMe && <span className="detail__participant-me-badge">나</span>}
                           {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
                         </div>
-                        {participant.orderMemo ? (
+                        {participant.orderMemo && (
                           <div className="detail__participant-memo-tag">
                             ✏️ {participant.orderMemo}
                           </div>
-                        ) : isMe ? (
-                          <div className="detail__participant-memo-empty">
-                            ✏️ 주문 메모 없음
-                          </div>
-                        ) : null}
+                        )}
                       </div>
 
                       <div className="detail__participant-actions">

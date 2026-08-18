@@ -1312,18 +1312,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  transition: background 0.15s ease;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.detail__participant:hover {
-  background: #f8fafc;
+.detail__participant:last-child {
+  border-bottom: none;
 }
 
 .detail__participant--me {
-  background: rgba(255, 107, 53, 0.04);
-  border: 1px solid rgba(255, 107, 53, 0.15);
+  background: transparent;
 }
 
 .detail__participant-avatar {
@@ -1456,10 +1454,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 /* 내 주문 메모 입력 폼 */
 .detail__my-memo-form {
   margin-top: 10px;
-  padding: 10px;
-  background: #f8fafc;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 8px;
 }
 
 .detail__my-memo-input-wrap {
