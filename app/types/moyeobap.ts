@@ -144,3 +144,61 @@ export interface PotEvent {
  * (인원 미달로 실패한 팟은 서버가 목록에서 빼므로 여기에도 오지 않는다.)
  */
 export type PotFilter = 'all' | 'lunch' | 'cafe' | 'other' | 'closed';
+
+/** 시간대별 팟 개설 통계 */
+export interface PeakHourStat {
+  hour: number;
+  label: string;
+  count: number;
+}
+
+/** 음식 카테고리별 점유율 통계 */
+export interface CategoryStat {
+  category: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+/** 인기 음식점 랭킹 통계 */
+export interface TopRestaurantStat {
+  restaurantId: string;
+  name: string;
+  category: string;
+  potCount: number;
+  participantCount: number;
+  successRate: number;
+}
+
+/** 밥친구 랭킹 통계 */
+export interface DiningMateStat {
+  name: string;
+  initial: string;
+  count: number;
+}
+
+/** 전체 캠퍼스 식사 트렌드 통계 */
+export interface CampusStats {
+  totalPots: number;
+  totalCompletedPots: number;
+  totalParticipants: number;
+  totalSavedDeliveryFee: number;
+  avgMatchingMinutes: number;
+  fastestMatchingMinutes: number;
+  avgParticipantsPerPot: number;
+  lunchRatio: number;
+  cafeRatio: number;
+  peakHours: PeakHourStat[];
+  categoryDistribution: CategoryStat[];
+  topRestaurants: TopRestaurantStat[];
+}
+
+/** 로그인 사용자 개인화 리포트 */
+export interface MyStatsReport {
+  totalJoinedPots: number;
+  totalCompletedPots: number;
+  savedDeliveryFee: number;
+  topMates: DiningMateStat[];
+  favoriteCategory: string;
+  favoriteCategoryPercentage: number;
+}
