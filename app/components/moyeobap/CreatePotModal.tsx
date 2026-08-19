@@ -300,41 +300,6 @@ export function CreatePotForm({
                 />
               </div>
 
-              {selectedRestaurantId && mode === 'list' && (() => {
-                const sel = restaurants.find((r) => r.id === selectedRestaurantId);
-                if (!sel) return null;
-                return (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      background: 'rgba(255, 107, 53, 0.08)',
-                      border: '1.5px solid var(--primary)',
-                      borderRadius: 'var(--radius-md)',
-                      marginBottom: '14px',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.25rem' }}>{sel.emoji}</span>
-                      <div>
-                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.92rem' }}>
-                          {sel.name}
-                        </strong>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                          {sel.minOrder > 0 ? `최소 ${sel.minOrder.toLocaleString()}원` : ''} · {sel.deliveryTime}
-                        </span>
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', background: '#fff', padding: '3px 8px', borderRadius: 'var(--radius-full)', border: '1px solid rgba(255, 107, 53, 0.3)', flexShrink: 0 }}>
-                      ✓ 선택됨
-                    </span>
-                  </div>
-                );
-              })()}
-
               <div className="create__restaurant-list">
                 {groupedRestaurants.map(group => (
                   <div key={group.key} className="create__restaurant-group">
