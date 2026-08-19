@@ -273,6 +273,8 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
               .eq("pot_id", normalized.id);
             if (deleteErr) {
               console.error("Supabase savePot participants delete error:", deleteErr);
+            } else {
+              return true;
             }
           } else {
             const participantRows = normalized.participants.map((p) => ({
@@ -325,6 +327,12 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
       } catch (sbErr) {
         console.error("Supabase savePot exception:", sbErr);
       }
+
+      // Supabase가 정본 저장소인데 저장에 실패했다면 성공으로 위장하지 않습니다.
+      // 여기서 메모리에 담고 true를 돌려주면, 호출한 API는 200을 응답하고 화면에는
+      // "참여 중"으로 보이지만 다음 요청이 다른 서버리스 인스턴스로 가는 순간
+      // 그 상태가 사라집니다. 사용자가 실패를 알 수 있도록 false를 반환합니다.
+      return false;
     }
 
     memoryPots.set(normalized.id, normalized);
