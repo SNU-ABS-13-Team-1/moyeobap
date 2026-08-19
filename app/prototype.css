@@ -3789,5 +3789,15 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .trends-my-grid {
     grid-template-columns: 1fr;
   }
+
+  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않도록 가로 스크롤 처리 */
+  .trends-bar-chart__bars {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .trends-bar-col {
+    min-width: 26px;
+  }
 }
 
