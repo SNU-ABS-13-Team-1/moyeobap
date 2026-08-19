@@ -251,7 +251,7 @@ npm run data:build               # data/*.csv → app/data/restaurants.ts
 
 ## 배포
 
-GitHub 저장소를 Vercel에 연결해 [moyeobap2.vercel.app](https://moyeobap.vercel.app/)
+GitHub 저장소를 Vercel에 연결해 [moyeobap.vercel.app](https://moyeobap.vercel.app/)
 으로 배포하고 있습니다.
 
 ## 프로젝트 구조
