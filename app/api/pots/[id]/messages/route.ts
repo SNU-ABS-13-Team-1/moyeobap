@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { addMessage, getPot, listMessages, markPotMessagesRead } from "@/app/lib/backend";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
+import { getChatEmojiById } from "@/app/data/chat-emojis";
 import type { ChatMessage, ChatMessageView } from "@/app/types/moyeobap";
 
 async function requireParticipant(potId: string, userId: string) {
@@ -67,6 +68,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
     text = `💳 ${user.name}님 계좌번호: ${user.bankName} ${user.accountNumber}`;
     kind = "account";
+  } else if (body && typeof body === "object" && "emojiId" in body) {
+    const emoji = getChatEmojiById(body.emojiId);
+    if (!emoji) {
+      return NextResponse.json({ error: "올바르지 않은 이모티콘이에요." }, { status: 400 });
+    }
+    imageUrl = emoji.src;
+    text = emoji.src;
+    kind = "image";
   } else if (typeof body?.imageUrl === "string" && body.imageUrl.trim()) {
     const rawImage = body.imageUrl.trim();
     // 5MB 바이너리 기준 Base64 길이는 약 7MB (7 * 1024 * 1024)
@@ -83,7 +92,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
     imageUrl = rawImage;
-    text = "📷 사진";
+    // imageUrl 컬럼이 따로 없으므로 실제 경로를 messages.text에 저장합니다.
+    text = rawImage;
     kind = "image";
   } else if (typeof body?.orderLink === "string" && body.orderLink.trim()) {
     const rawLink = body.orderLink.trim();

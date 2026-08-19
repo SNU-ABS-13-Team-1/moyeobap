@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
 import { RESTAURANTS } from "../data/restaurants";
+import { isChatEmojiPath } from "../data/chat-emojis";
 import type {
   CampusStats,
   CategoryStat,
@@ -895,16 +896,20 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
 
 function toChatPreview(message: ChatMessage): ChatMessagePreview {
   let text = message.text;
+  let imageUrl = message.imageUrl;
   if (text.startsWith("[ORDER_LINK] ")) {
     text = text.slice("[ORDER_LINK] ".length);
   } else if (text.startsWith("[IMAGE] ")) {
-    text = "📷 사진";
+    imageUrl = text.slice("[IMAGE] ".length);
   }
 
   const normalizedText = message.kind === "account"
     ? `${message.authorName}님이 계좌를 공유했어요.`
     : message.kind === "order_link" || message.text.startsWith("[ORDER_LINK] ")
     ? `${message.authorName}님이 주문 링크를 공유했어요.`
+    : (message.kind === "image" || message.text.startsWith("[IMAGE] "))
+      && isChatEmojiPath(imageUrl ?? text)
+    ? `${message.authorName}님이 이모티콘을 보냈어요.`
     : message.kind === "image" || message.text.startsWith("[IMAGE] ")
     ? `${message.authorName}님이 사진을 보냈어요.`
     : text.replace(/\s+/g, " ").trim().slice(0, 80);
