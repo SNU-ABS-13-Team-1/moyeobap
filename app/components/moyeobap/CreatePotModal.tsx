@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findExactRestaurant, findRestaurantSuggestions } from '../../lib/restaurant-matching';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
@@ -61,9 +61,6 @@ export function CreatePotForm({
     [initialRestaurantId, restaurants],
   );
 
-  const selectedItemRef = useRef<HTMLButtonElement | null>(null);
-  const timeSectionRef = useRef<HTMLDivElement | null>(null);
-
   const [mode, setMode] = useState<'list' | 'custom'>('list');
   const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>(
     initialRest?.category ?? 'lunch',
@@ -75,20 +72,19 @@ export function CreatePotForm({
   );
 
   useEffect(() => {
-    if (initialRestaurantId && restaurants.length > 0) {
+    if (initialRestaurantId) {
       setSelectedRestaurantId(initialRestaurantId);
       const rest = restaurants.find((r) => r.id === initialRestaurantId);
       if (rest) {
         setCategoryFilter(rest.category);
       }
-      const timer = setTimeout(() => {
-        if (selectedItemRef.current) {
-          selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else if (timeSectionRef.current) {
-          timeSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const timer = window.setTimeout(() => {
+        const el = document.getElementById(`restaurant-item-${initialRestaurantId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 150);
-      return () => clearTimeout(timer);
+      return () => window.clearTimeout(timer);
     }
   }, [initialRestaurantId, restaurants]);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
@@ -304,6 +300,41 @@ export function CreatePotForm({
                 />
               </div>
 
+              {selectedRestaurantId && mode === 'list' && (() => {
+                const sel = restaurants.find((r) => r.id === selectedRestaurantId);
+                if (!sel) return null;
+                return (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: 'rgba(255, 107, 53, 0.08)',
+                      border: '1.5px solid var(--primary)',
+                      borderRadius: 'var(--radius-md)',
+                      marginBottom: '14px',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{sel.emoji}</span>
+                      <div>
+                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                          {sel.name}
+                        </strong>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                          {sel.minOrder > 0 ? `최소 ${sel.minOrder.toLocaleString()}원` : ''} · {sel.deliveryTime}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', background: '#fff', padding: '3px 8px', borderRadius: 'var(--radius-full)', border: '1px solid rgba(255, 107, 53, 0.3)', flexShrink: 0 }}>
+                      ✓ 선택됨
+                    </span>
+                  </div>
+                );
+              })()}
+
               <div className="create__restaurant-list">
                 {groupedRestaurants.map(group => (
                   <div key={group.key} className="create__restaurant-group">
@@ -314,13 +345,12 @@ export function CreatePotForm({
                     <div className="create__restaurant-gallery">
                       {group.items.map(r => {
                         const activePotCount = activePotsByRestaurant.get(r.id)?.length ?? 0;
-                        const isSelected = selectedRestaurantId === r.id;
                         return (
                           <button
-                            aria-pressed={isSelected}
+                            id={`restaurant-item-${r.id}`}
+                            aria-pressed={selectedRestaurantId === r.id}
                             key={r.id}
-                            ref={isSelected ? selectedItemRef : undefined}
-                            className={`create__restaurant-item ${isSelected ? 'create__restaurant-item--selected' : ''}`}
+                            className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
                             onClick={() => setSelectedRestaurantId(r.id)}
                             type="button"
                           >
@@ -460,7 +490,7 @@ export function CreatePotForm({
 
           {(mode === 'custom' || selectedRestaurantId) && (
             <>
-              <div className="create__time-section" ref={timeSectionRef}>
+              <div className="create__time-section">
                 <label className="create__time-label">마감 시간</label>
                 <div className="create__time-options">
                   {DEADLINE_OPTIONS.map(mins => (
