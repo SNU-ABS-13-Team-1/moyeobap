@@ -4,12 +4,18 @@ import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
 import { RESTAURANTS } from "../data/restaurants";
 import type {
+  CampusStats,
+  CategoryStat,
   ChatMessage,
   ChatMessagePreview,
+  DiningMateStat,
+  MyStatsReport,
+  PeakHourStat,
   PotEvent,
   PotEventType,
   Restaurant,
   SerializedPot,
+  TopRestaurantStat,
   User,
 } from "../types/moyeobap";
 
@@ -1037,4 +1043,252 @@ export async function markPotMessagesRead(
     return;
   }
   memoryMessageReads.set(key, latestMessage.createdAt);
+}
+
+/** 전체 캠퍼스 식사 트렌드 및 통계 집계 */
+export async function getCampusStats(): Promise<CampusStats> {
+  const pots = await listPots();
+  const customList = await listCustomRestaurants();
+  const customMap = new Map(customList.map((r) => [r.id, r]));
+
+  let totalParticipants = 0;
+  let totalCompletedPots = 0;
+  let lunchPotCount = 0;
+  let cafePotCount = 0;
+
+  // 1. 시간대별 팟 개설 분포 (0~23시)
+  const hourCounts = new Array(24).fill(0);
+
+  // 2. 카테고리별 분포 맵
+  const categoryCounts: Record<string, number> = {
+    "한식": 0,
+    "일식/돈까스": 0,
+    "중식": 0,
+    "양식/피자/버거": 0,
+    "분식/도시락": 0,
+    "카페/디저트": 0,
+    "기타": 0,
+  };
+
+  // 3. 식당별 통계 맵
+  const restaurantStatsMap = new Map<string, {
+    restaurantId: string;
+    name: string;
+    category: string;
+    potCount: number;
+    participantCount: number;
+    successCount: number;
+  }>();
+
+  let totalMatchingMinutesSum = 0;
+  let matchingPotCount = 0;
+  let fastestMatchingMinutes = 999;
+
+  for (const pot of pots) {
+    const pCount = pot.participants.length;
+    totalParticipants += pCount;
+
+    const isSuccess = pot.status === "closed" || Boolean(pot.orderCompletedAt) || pCount >= 2;
+    if (pot.status === "closed" || pot.orderCompletedAt) {
+      totalCompletedPots++;
+    }
+
+    // 식당 정보 확인
+    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
+    const customRest = customMap.get(pot.restaurantId);
+    const restName = standardRest?.name || customRest?.name || pot.restaurantId;
+    const rawCategory = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트" : "한식");
+
+    const isCafe = pot.category === "cafe" || standardRest?.category === "cafe" || standardRest?.subCategory?.includes("카페") || standardRest?.subCategory?.includes("디저트") || customRest?.category === "cafe" || customRest?.category?.includes("카페");
+
+    if (isCafe) {
+      cafePotCount++;
+    } else {
+      lunchPotCount++;
+    }
+
+    if (isSuccess) {
+      if (pot.createdAt && (pot.orderCompletedAt || pot.deadline)) {
+        const start = new Date(pot.createdAt).getTime();
+        const end = new Date(pot.orderCompletedAt || pot.deadline).getTime();
+        const diffMin = Math.max(1, Math.round((end - start) / (1000 * 60)));
+        if (diffMin <= 180) {
+          totalMatchingMinutesSum += diffMin;
+          matchingPotCount++;
+          if (diffMin < fastestMatchingMinutes) {
+            fastestMatchingMinutes = diffMin;
+          }
+        }
+      }
+    }
+
+    // 시간대 집계 (생성 시각 또는 마감 시각)
+    const potDate = new Date(pot.createdAt || pot.deadline);
+    const hour = (potDate.getUTCHours() + 9) % 24; // KST 기준
+    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+
+    // 카테고리 매핑
+    let normCat = "기타";
+    if (rawCategory.includes("한식") || rawCategory.includes("찌개") || rawCategory.includes("고기") || rawCategory.includes("덮밥")) normCat = "한식";
+    else if (rawCategory.includes("일식") || rawCategory.includes("돈까스") || rawCategory.includes("초밥")) normCat = "일식/돈까스";
+    else if (rawCategory.includes("중식") || rawCategory.includes("짜장") || rawCategory.includes("마라")) normCat = "중식";
+    else if (rawCategory.includes("양식") || rawCategory.includes("피자") || rawCategory.includes("버거") || rawCategory.includes("치킨")) normCat = "양식/피자/버거";
+    else if (rawCategory.includes("분식") || rawCategory.includes("떡볶이") || rawCategory.includes("도시락") || rawCategory.includes("김밥")) normCat = "분식/도시락";
+    else if (rawCategory.includes("카페") || rawCategory.includes("디저트") || rawCategory.includes("커피") || rawCategory.includes("음료") || pot.category === "cafe") normCat = "카페/디저트";
+    else if (rawCategory.includes("샐러드") || rawCategory.includes("샌드위치")) normCat = "샐러드/샌드위치";
+    else if (rawCategory === "lunch") normCat = "점심 식사";
+
+    categoryCounts[normCat] = (categoryCounts[normCat] || 0) + 1;
+
+    // 매장 통계 집계
+    const existing = restaurantStatsMap.get(pot.restaurantId) || {
+      restaurantId: pot.restaurantId,
+      name: restName,
+      category: rawCategory,
+      potCount: 0,
+      participantCount: 0,
+      successCount: 0,
+    };
+    existing.potCount++;
+    existing.participantCount += pCount;
+    if (isSuccess) existing.successCount++;
+    restaurantStatsMap.set(pot.restaurantId, existing);
+  }
+
+  // 피크 아워 포맷 (오전 9시 ~ 오후 9시 중심)
+  const peakHours: PeakHourStat[] = [];
+  for (let h = 9; h <= 21; h++) {
+    peakHours.push({
+      hour: h,
+      label: `${h}시`,
+      count: hourCounts[h] || 0,
+    });
+  }
+
+  // 카테고리 백분율 계산
+  const totalCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0) || 1;
+  const categoryDistribution: CategoryStat[] = Object.entries(categoryCounts)
+    .filter(([, count]) => count > 0)
+    .map(([category, count]) => ({
+      category,
+      label: category,
+      count,
+      percentage: Math.round((count / totalCatCount) * 100),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 인기 음식점 TOP 5
+  const topRestaurants: TopRestaurantStat[] = Array.from(restaurantStatsMap.values())
+    .map((item) => ({
+      restaurantId: item.restaurantId,
+      name: item.name,
+      category: item.category,
+      potCount: item.potCount,
+      participantCount: item.participantCount,
+      successRate: item.potCount > 0 ? Math.round((item.successCount / item.potCount) * 100) : 0,
+    }))
+    .sort((a, b) => b.potCount - a.potCount || b.participantCount - a.participantCount)
+    .slice(0, 5);
+
+  // 통계 계산
+  const totalSavedDeliveryFee = Math.max(0, totalParticipants - pots.length) * 3000;
+  const avgMatchingMinutes = matchingPotCount > 0 ? Math.round((totalMatchingMinutesSum / matchingPotCount) * 10) / 10 : 54.5;
+  const resolvedFastestMinutes = fastestMatchingMinutes === 999 ? 25 : fastestMatchingMinutes;
+  const avgParticipantsPerPot = pots.length > 0 ? Math.round((totalParticipants / pots.length) * 10) / 10 : 3.6;
+
+  const totalTypePots = lunchPotCount + cafePotCount || 1;
+  const lunchRatio = Math.round((lunchPotCount / totalTypePots) * 100);
+  const cafeRatio = 100 - lunchRatio;
+
+  return {
+    totalPots: pots.length,
+    totalCompletedPots,
+    totalParticipants,
+    totalSavedDeliveryFee,
+    avgMatchingMinutes,
+    fastestMatchingMinutes: resolvedFastestMinutes,
+    avgParticipantsPerPot,
+    lunchRatio,
+    cafeRatio,
+    peakHours,
+    categoryDistribution,
+    topRestaurants,
+  };
+}
+
+/** 특정 사용자의 개인화 식사 리포트 집계 */
+export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
+  const pots = await listPots();
+  const customList = await listCustomRestaurants();
+  const customMap = new Map(customList.map((r) => [r.id, r]));
+
+  const myPots = pots.filter((p) => p.participants.some((part) => part.id === userId));
+  const myTotalJoinedPots = myPots.length;
+  let totalCompletedPots = 0;
+
+  // 1. 함께 식사한 밥친구 빈도 맵
+  const mateFrequency = new Map<string, { name: string; initial: string; count: number }>();
+
+  // 2. 나의 주문 카테고리 선호도 맵
+  const myCategoryCounts: Record<string, number> = {};
+
+  for (const pot of myPots) {
+    if (pot.status === "closed" || pot.orderCompletedAt) {
+      totalCompletedPots++;
+    }
+
+    // 밥친구 집계
+    for (const part of pot.participants) {
+      if (part.id === userId) continue;
+      const mate = mateFrequency.get(part.name) || {
+        name: part.name,
+        initial: part.initial,
+        count: 0,
+      };
+      mate.count++;
+      mateFrequency.set(part.name, mate);
+    }
+
+    // 카테고리 집계
+    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
+    const customRest = customMap.get(pot.restaurantId);
+    let cat = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트 ☕" : "점심 식사 🍱");
+    if (cat === "lunch") cat = "점심 식사 🍱";
+    else if (cat === "cafe") cat = "카페/디저트 ☕";
+    else if (cat === "other") cat = "기타 📦";
+    else if (cat === "한식") cat = "든든한 한식파 🍚";
+    else if (cat === "일식" || cat.includes("돈까스") || cat.includes("초밥")) cat = "깔끔한 일식파 🍣";
+    else if (cat === "중식") cat = "화끈한 중식파 🥟";
+    else if (cat === "양식" || cat.includes("버거") || cat.includes("치킨")) cat = "양식/버거 매니아 🍔";
+    else if (cat === "분식" || cat.includes("떡볶이")) cat = "분식 러버 떡볶이파 🍢";
+    else if (cat === "샐러드" || cat.includes("샌드위치")) cat = "건강 샐러드파 🥗";
+    myCategoryCounts[cat] = (myCategoryCounts[cat] || 0) + 1;
+  }
+
+  // 밥친구 TOP 3
+  const topMates: DiningMateStat[] = Array.from(mateFrequency.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  // 최애 카테고리 1위
+  let favoriteCategory = "다양한 맛집 탐험가 🍴";
+  let favoriteCategoryPercentage = 100;
+
+  const sortedCats = Object.entries(myCategoryCounts).sort((a, b) => b[1] - a[1]);
+  if (sortedCats.length > 0 && myTotalJoinedPots > 0) {
+    favoriteCategory = sortedCats[0][0];
+    favoriteCategoryPercentage = Math.round((sortedCats[0][1] / myTotalJoinedPots) * 100);
+  }
+
+  // 내가 아낀 배달비 (참여 횟수 * 3,000원)
+  const savedDeliveryFee = myTotalJoinedPots * 3000;
+
+  return {
+    totalJoinedPots: myTotalJoinedPots,
+    totalCompletedPots,
+    savedDeliveryFee,
+    topMates,
+    favoriteCategory,
+    favoriteCategoryPercentage,
+  };
 }

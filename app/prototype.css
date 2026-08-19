@@ -420,7 +420,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .page-heading h1 {
   margin-top: 4px;
   color: var(--text-primary);
-  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-size: 1.75rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
@@ -3201,3 +3202,602 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding-left: 1.1em;
   list-style: disc;
 }
+
+/* ==========================================================================
+   식사 트렌드 & 데이터 인사이트 대시보드 (/trends)
+   ========================================================================== */
+
+.trends-page {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-xl) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.trends-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.trends-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 107, 53, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.trends-header {
+  margin-bottom: 8px;
+}
+
+.trends-header__badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: #fff3ed;
+  color: #ea580c;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.trends-header__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.trends-header__desc {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+/* 섹션 공통 */
+.trends-section {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  padding: 24px 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.trends-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.trends-section__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.trends-section__subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.trends-section__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* 1. 인기 맛집 핫플레이스 TOP 5 랭킹 리스트 */
+.trends-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trends-rank-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fafafa;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.trends-rank-card:hover {
+  background: #fff;
+  border-color: rgba(255, 107, 53, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.trends-rank-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.trends-rank-badge--1 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffae00 100%);
+  color: #78350f;
+  box-shadow: 0 2px 6px rgba(255, 174, 0, 0.4);
+}
+
+.trends-rank-badge--2 {
+  background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+  color: #1e293b;
+}
+
+.trends-rank-badge--3 {
+  background: linear-gradient(135deg, #fed7aa 0%, #f97316 100%);
+  color: #7c2d12;
+}
+
+.trends-rank-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.trends-rank-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trends-rank-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trends-rank-category {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.trends-rank-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.trends-rank-rate {
+  color: #059669;
+  font-weight: 600;
+}
+
+.trends-rank-btn {
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.trends-rank-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 2. 차트 섹션 (2열 구조) */
+.trends-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.trends-chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 시간대별 막대 차트 */
+.trends-bar-chart {
+  margin-top: 10px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.trends-bar-chart__bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 140px;
+  gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.trends-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.trends-bar-track {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+
+.trends-bar-value {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ea580c;
+  margin-bottom: 2px;
+}
+
+.trends-bar-fill {
+  width: 70%;
+  max-width: 22px;
+  border-radius: 4px 4px 0 0;
+  background: #cbd5e1;
+  transition: height 0.4s ease, background 0.2s ease;
+}
+
+.trends-bar-fill:hover {
+  background: #94a3b8;
+}
+
+.trends-bar-fill--peak {
+  background: linear-gradient(180deg, #ff8c42 0%, #ea580c 100%);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+}
+
+.trends-bar-label {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.trends-bar-label--peak {
+  font-weight: 800;
+  color: #ea580c;
+}
+
+/* 카테고리별 입맛 점유율 가로 바 */
+.trends-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.trends-cat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trends-cat-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.trends-cat-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trends-cat-count {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.trends-cat-bar-bg {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.trends-cat-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.trends-cat-bar-fill--0 { background: #ea580c; }
+.trends-cat-bar-fill--1 { background: #3b82f6; }
+.trends-cat-bar-fill--2 { background: #10b981; }
+.trends-cat-bar-fill--3 { background: #8b5cf6; }
+.trends-cat-bar-fill--4 { background: #f59e0b; }
+
+/* 3. 팟 성사 속도 & 매칭 인사이트 (4개 지표 2x2 그리드) */
+.trends-speed-section {
+  background: linear-gradient(135deg, #ffffff 0%, #fffbf8 100%);
+  border: 1px solid rgba(255, 107, 53, 0.15);
+}
+
+.trends-stats-4grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.trends-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.trends-stat-item:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 107, 53, 0.25);
+}
+
+.trends-stat-item__icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.trends-stat-item__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trends-stat-item__label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.trends-stat-item__val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.trends-stat-item__sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 4. 나의 모여밥 리포트 카드 (트렌드 페이지 내) */
+.trends-my-report {
+  border: 1.5px solid rgba(16, 185, 129, 0.3);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 40%);
+}
+
+.trends-my-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.trends-my-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trends-my-card__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.trends-my-card__category {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.trends-my-card__desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.trends-mates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.trends-mate-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.trends-mate-rank {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #059669;
+  width: 24px;
+}
+
+.trends-mate-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.trends-mate-name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.trends-mate-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 마이페이지(/my) 요약 카드 */
+.my-report-summary {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);
+}
+
+.my-report-summary__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.my-report-summary__header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.my-report-summary__more {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #059669;
+  text-decoration: none;
+}
+
+.my-report-summary__more:hover {
+  text-decoration: underline;
+}
+
+.my-report-summary__grid {
+  display: grid;
+  gap: 12px;
+}
+
+.my-report-summary__item {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-report-summary__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.my-report-summary__val {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #059669;
+}
+
+.my-report-summary__sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.my-report-summary__mate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.my-report-summary__mate-tag {
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .trends-charts-row,
+  .trends-stats-4grid,
+  .trends-my-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않도록 가로 스크롤 처리 */
+  .trends-bar-chart__bars {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .trends-bar-col {
+    min-width: 26px;
+  }
+}
+
