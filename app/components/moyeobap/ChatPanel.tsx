@@ -445,31 +445,34 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
         onChange={handleImageSelect}
       />
 
-      <div className="chat-panel__quick-actions">
+      <div className="chat-panel__toolbar">
         <button
           type="button"
-          className="chat-panel__quick-btn chat-panel__photo-btn"
+          className="chat-panel__tool-chip chat-panel__tool-chip--photo"
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
+          title="사진 첨부하기"
         >
-          📷 사진 첨부
+          📷 사진
         </button>
         <button
           type="button"
-          className="chat-panel__quick-btn chat-panel__order-link-btn"
+          className={`chat-panel__tool-chip chat-panel__tool-chip--link ${isOrderLinkModalOpen ? 'chat-panel__tool-chip--active' : ''}`}
           onClick={() => setIsOrderLinkModalOpen((prev) => !prev)}
           disabled={sending}
+          title="배달앱 주문 링크 공유"
         >
-          🔗 주문 링크 공유
+          🔗 주문 링크
         </button>
         {currentUser.bankName && currentUser.accountNumber && (
           <button
             type="button"
-            className="chat-panel__quick-btn chat-panel__account-btn"
+            className="chat-panel__tool-chip chat-panel__tool-chip--account"
             onClick={handleShareAccount}
             disabled={sending}
+            title="내 계좌번호 공유"
           >
-            💳 계좌번호 전송
+            💳 계좌 전송
           </button>
         )}
       </div>
@@ -480,13 +483,13 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           aria-label="메시지"
           type="text"
           className="chat-panel__input"
-          placeholder="메시지 보내기"
+          placeholder="메시지 보내기..."
           value={text}
           onChange={e => setText(e.target.value)}
           maxLength={500}
         />
         <button type="submit" className="chat-panel__send" disabled={!text.trim() || sending}>
-          보내기
+          전송
         </button>
       </form>
     </div>

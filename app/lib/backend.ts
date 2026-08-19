@@ -303,6 +303,20 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                 .from("pot_participants")
                 .upsert(fallbackRows, { onConflict: "pot_id,user_id" });
               partErr = fallbackRes.error;
+
+              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+                const fallbackRows2 = normalized.participants.map((p) => ({
+                  pot_id: normalized.id,
+                  user_id: p.id,
+                  user_name: p.name,
+                  user_initial: p.initial,
+                  joined_at: new Date(p.joinedAt).toISOString(),
+                }));
+                const fallbackRes2 = await supabase
+                  .from("pot_participants")
+                  .upsert(fallbackRows2, { onConflict: "pot_id,user_id" });
+                partErr = fallbackRes2.error;
+              }
             }
 
             if (!partErr) {
