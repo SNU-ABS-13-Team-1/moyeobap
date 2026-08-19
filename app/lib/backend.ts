@@ -378,6 +378,25 @@ export async function toggleParticipantPaid(potId: string, userId: string): Prom
   if (!participant) return null;
 
   participant.isPaid = !participant.isPaid;
+
+  const memoryPot = memoryPots.get(potId);
+  if (memoryPot) {
+    const memPart = memoryPot.participants.find((p) => p.id === userId);
+    if (memPart) memPart.isPaid = participant.isPaid;
+  } else {
+    memoryPots.set(potId, pot);
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    const { error } = await supabase
+      .from("pot_participants")
+      .update({ is_paid: participant.isPaid })
+      .eq("pot_id", potId)
+      .eq("user_id", userId);
+    if (!error) return pot;
+  }
+
   const saved = await savePot(pot);
   if (!saved) return null;
   return pot;
@@ -402,6 +421,16 @@ export async function updateParticipantMemo(
     if (memoryPart) memoryPart.orderMemo = participant.orderMemo;
   } else {
     memoryPots.set(potId, pot);
+  }
+
+  const supabase = getSupabase();
+  if (supabase) {
+    const { error } = await supabase
+      .from("pot_participants")
+      .update({ order_memo: participant.orderMemo })
+      .eq("pot_id", potId)
+      .eq("user_id", userId);
+    if (!error) return pot;
   }
 
   const saved = await savePot(pot);
@@ -1102,9 +1131,14 @@ export async function getCampusStats(): Promise<CampusStats> {
     const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
     const customRest = customMap.get(pot.restaurantId);
     const restName = standardRest?.name || customRest?.name || pot.restaurantId;
-    const rawCategory = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트" : "한식");
+    const catInfo = resolveFoodCategory({
+      subCategory: standardRest?.subCategory || customRest?.subCategory,
+      restaurantName: restName,
+      restaurantCategory: standardRest?.category || customRest?.category,
+      potCategory: pot.category,
+    });
 
-    const isCafe = pot.category === "cafe" || standardRest?.category === "cafe" || standardRest?.subCategory?.includes("카페") || standardRest?.subCategory?.includes("디저트") || customRest?.category === "cafe" || customRest?.category?.includes("카페");
+    const isCafe = catInfo.campusCategory === "카페/디저트";
 
     if (isCafe) {
       cafePotCount++;
@@ -1133,23 +1167,13 @@ export async function getCampusStats(): Promise<CampusStats> {
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
 
     // 카테고리 매핑
-    let normCat = "기타";
-    if (rawCategory.includes("한식") || rawCategory.includes("찌개") || rawCategory.includes("고기") || rawCategory.includes("덮밥")) normCat = "한식";
-    else if (rawCategory.includes("일식") || rawCategory.includes("돈까스") || rawCategory.includes("초밥")) normCat = "일식/돈까스";
-    else if (rawCategory.includes("중식") || rawCategory.includes("짜장") || rawCategory.includes("마라")) normCat = "중식";
-    else if (rawCategory.includes("양식") || rawCategory.includes("피자") || rawCategory.includes("버거") || rawCategory.includes("치킨")) normCat = "양식/피자/버거";
-    else if (rawCategory.includes("분식") || rawCategory.includes("떡볶이") || rawCategory.includes("도시락") || rawCategory.includes("김밥")) normCat = "분식/도시락";
-    else if (rawCategory.includes("카페") || rawCategory.includes("디저트") || rawCategory.includes("커피") || rawCategory.includes("음료") || pot.category === "cafe") normCat = "카페/디저트";
-    else if (rawCategory.includes("샐러드") || rawCategory.includes("샌드위치")) normCat = "샐러드/샌드위치";
-    else if (rawCategory === "lunch") normCat = "점심 식사";
-
-    categoryCounts[normCat] = (categoryCounts[normCat] || 0) + 1;
+    categoryCounts[catInfo.campusCategory] = (categoryCounts[catInfo.campusCategory] || 0) + 1;
 
     // 매장 통계 집계
     const existing = restaurantStatsMap.get(pot.restaurantId) || {
       restaurantId: pot.restaurantId,
       name: restName,
-      category: rawCategory,
+      category: standardRest?.subCategory || standardRest?.category || customRest?.category || catInfo.campusCategory,
       potCount: 0,
       participantCount: 0,
       successCount: 0,
@@ -1221,6 +1245,242 @@ export async function getCampusStats(): Promise<CampusStats> {
   };
 }
 
+/**
+ * 음식점 정보 및 매장명을 기반으로 표준 음식 카테고리와 개인 식사 스타일을 추론하는 헬퍼
+ */
+export function resolveFoodCategory(params: {
+  subCategory?: string | null;
+  restaurantName?: string | null;
+  restaurantCategory?: string | null;
+  potCategory?: "lunch" | "cafe" | "other" | null;
+}): { campusCategory: string; personalStyle: string } {
+  const { subCategory, restaurantName = "", restaurantCategory, potCategory } = params;
+  const name = (restaurantName || "").trim().toLowerCase();
+  const sub = (subCategory || "").trim().toLowerCase();
+  const cat = (restaurantCategory || "").trim().toLowerCase();
+
+  // 1. 카페 / 디저트 우선 판별
+  if (
+    potCategory === "cafe" ||
+    cat === "cafe" ||
+    sub.includes("카페") ||
+    sub.includes("디저트") ||
+    sub.includes("커피") ||
+    sub.includes("음료") ||
+    name.includes("카페") ||
+    name.includes("커피") ||
+    name.includes("디저트") ||
+    name.includes("베이커리") ||
+    name.includes("와플") ||
+    name.includes("마카롱") ||
+    name.includes("도넛") ||
+    name.includes("스타벅스") ||
+    name.includes("메가커피") ||
+    name.includes("빽다방") ||
+    name.includes("컴포즈") ||
+    name.includes("이디야") ||
+    name.includes("투썸") ||
+    name.includes("공차") ||
+    name.includes("요거트") ||
+    name.includes("빙수") ||
+    name.includes("설빙")
+  ) {
+    return {
+      campusCategory: "카페/디저트",
+      personalStyle: "디저트/카페 러버 ☕",
+    };
+  }
+
+  // 2. 표준 subCategory 기반 판별
+  if (sub.includes("한식") || sub.includes("찜·탕") || sub.includes("고기") || sub.includes("족발·보쌈")) {
+    return {
+      campusCategory: "한식",
+      personalStyle: "든든한 한식파 🍚",
+    };
+  }
+  if (sub.includes("일식") || sub.includes("돈까스·회") || sub.includes("돈까스") || sub.includes("초밥")) {
+    return {
+      campusCategory: "일식/돈까스",
+      personalStyle: "깔끔한 일식파 🍣",
+    };
+  }
+  if (sub.includes("중식")) {
+    return {
+      campusCategory: "중식",
+      personalStyle: "화끈한 중식파 🥟",
+    };
+  }
+  if (sub.includes("양식") || sub.includes("패스트푸드") || sub.includes("피자") || sub.includes("치킨")) {
+    return {
+      campusCategory: "양식/버거/치킨",
+      personalStyle: "양식/버거 매니아 🍔",
+    };
+  }
+  if (sub.includes("분식") || sub.includes("도시락")) {
+    return {
+      campusCategory: "분식/도시락",
+      personalStyle: "분식 러버 떡볶이파 🍢",
+    };
+  }
+  if (sub.includes("아시안") || sub.includes("샐러드") || sub.includes("샌드위치") || sub.includes("포케")) {
+    return {
+      campusCategory: "샐러드/아시안",
+      personalStyle: "건강 샐러드·아시안파 🥗",
+    };
+  }
+
+  // 3. 직접 등록 매장 등 subCategory가 없을 때 매장명(name) 기반 키워드 추론
+  // (1) 한식 키워드
+  if (
+    name.includes("한식") ||
+    name.includes("찌개") ||
+    name.includes("국밥") ||
+    name.includes("짜글이") ||
+    name.includes("삼겹") ||
+    name.includes("제육") ||
+    name.includes("갈비") ||
+    name.includes("불고기") ||
+    name.includes("백반") ||
+    name.includes("곰탕") ||
+    name.includes("설렁탕") ||
+    name.includes("순대") ||
+    name.includes("감자탕") ||
+    name.includes("보쌈") ||
+    name.includes("족발") ||
+    name.includes("육회") ||
+    name.includes("해장국") ||
+    name.includes("비빔밥") ||
+    name.includes("냉면") ||
+    name.includes("솥밥") ||
+    name.includes("덮밥") ||
+    name.includes("구이") ||
+    name.includes("탕") ||
+    name.includes("찜")
+  ) {
+    return {
+      campusCategory: "한식",
+      personalStyle: "든든한 한식파 🍚",
+    };
+  }
+
+  // (2) 일식 / 돈까스 키워드
+  if (
+    name.includes("일식") ||
+    name.includes("돈까스") ||
+    name.includes("돈가스") ||
+    name.includes("카츠") ||
+    name.includes("초밥") ||
+    name.includes("스시") ||
+    name.includes("라멘") ||
+    name.includes("우동") ||
+    name.includes("소바") ||
+    name.includes("텐동") ||
+    name.includes("사케동") ||
+    name.includes("연어") ||
+    name.includes("회") ||
+    name.includes("이자카야")
+  ) {
+    return {
+      campusCategory: "일식/돈까스",
+      personalStyle: "깔끔한 일식파 🍣",
+    };
+  }
+
+  // (3) 중식 키워드
+  if (
+    name.includes("중식") ||
+    name.includes("짜장") ||
+    name.includes("자장") ||
+    name.includes("짬뽕") ||
+    name.includes("마라") ||
+    name.includes("탕수육") ||
+    name.includes("반점") ||
+    name.includes("중화") ||
+    name.includes("훠궈") ||
+    name.includes("양꼬치") ||
+    name.includes("딤섬")
+  ) {
+    return {
+      campusCategory: "중식",
+      personalStyle: "화끈한 중식파 🥟",
+    };
+  }
+
+  // (4) 양식 / 피자 / 버거 / 치킨 키워드
+  if (
+    name.includes("양식") ||
+    name.includes("파스타") ||
+    name.includes("피자") ||
+    name.includes("버거") ||
+    name.includes("치킨") ||
+    name.includes("통닭") ||
+    name.includes("스테이크") ||
+    name.includes("리조또") ||
+    name.includes("맥도날드") ||
+    name.includes("버거킹") ||
+    name.includes("롯데리아") ||
+    name.includes("맘스터치") ||
+    name.includes("kfc") ||
+    name.includes("프랭크버거") ||
+    name.includes("비비큐") ||
+    name.includes("bbq") ||
+    name.includes("교촌") ||
+    name.includes("bhc") ||
+    name.includes("굽네")
+  ) {
+    return {
+      campusCategory: "양식/버거/치킨",
+      personalStyle: "양식/버거 매니아 🍔",
+    };
+  }
+
+  // (5) 분식 / 도시락 키워드
+  if (
+    name.includes("분식") ||
+    name.includes("떡볶이") ||
+    name.includes("김밥") ||
+    name.includes("라볶이") ||
+    name.includes("튀김") ||
+    name.includes("어묵") ||
+    name.includes("도시락") ||
+    name.includes("한솥") ||
+    name.includes("본도시락") ||
+    name.includes("엽기떡볶이") ||
+    name.includes("신전") ||
+    name.includes("배떡")
+  ) {
+    return {
+      campusCategory: "분식/도시락",
+      personalStyle: "분식 러버 떡볶이파 🍢",
+    };
+  }
+
+  // (6) 샐러드 / 샌드위치 / 아시안 키워드
+  if (
+    name.includes("샐러드") ||
+    name.includes("샌드위치") ||
+    name.includes("포케") ||
+    name.includes("서브웨이") ||
+    name.includes("샐러디") ||
+    name.includes("써브웨이") ||
+    name.includes("쌀국수") ||
+    name.includes("베트남") ||
+    name.includes("태국") ||
+    name.includes("팟타이")
+  ) {
+    return {
+      campusCategory: "샐러드/아시안",
+      personalStyle: "건강 샐러드·아시안파 🥗",
+    };
+  }
+
+  // 4. 어떤 키워드에도 걸리지 않은 직접 등록 매장
+  return {
+    campusCategory: "기타 일반식",
+    personalStyle: "다양한 맛집 탐험가 🍴",
+  };
+}
+
 /** 특정 사용자의 개인화 식사 리포트 집계 */
 export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
   const pots = await listPots();
@@ -1234,8 +1494,8 @@ export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
   // 1. 함께 식사한 밥친구 빈도 맵
   const mateFrequency = new Map<string, { name: string; initial: string; count: number }>();
 
-  // 2. 나의 주문 카테고리 선호도 맵
-  const myCategoryCounts: Record<string, number> = {};
+  // 2. 나의 주문 식사 스타일 선호도 맵
+  const myStyleCounts: Record<string, number> = {};
 
   for (const pot of myPots) {
     if (pot.status === "closed" || pot.orderCompletedAt) {
@@ -1254,20 +1514,18 @@ export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
       mateFrequency.set(part.name, mate);
     }
 
-    // 카테고리 집계
+    // 식사 스타일 집계
     const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
     const customRest = customMap.get(pot.restaurantId);
-    let cat = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트 ☕" : "점심 식사 🍱");
-    if (cat === "lunch") cat = "점심 식사 🍱";
-    else if (cat === "cafe") cat = "카페/디저트 ☕";
-    else if (cat === "other") cat = "기타 📦";
-    else if (cat === "한식") cat = "든든한 한식파 🍚";
-    else if (cat === "일식" || cat.includes("돈까스") || cat.includes("초밥")) cat = "깔끔한 일식파 🍣";
-    else if (cat === "중식") cat = "화끈한 중식파 🥟";
-    else if (cat === "양식" || cat.includes("버거") || cat.includes("치킨")) cat = "양식/버거 매니아 🍔";
-    else if (cat === "분식" || cat.includes("떡볶이")) cat = "분식 러버 떡볶이파 🍢";
-    else if (cat === "샐러드" || cat.includes("샌드위치")) cat = "건강 샐러드파 🥗";
-    myCategoryCounts[cat] = (myCategoryCounts[cat] || 0) + 1;
+    const restName = standardRest?.name || customRest?.name || pot.restaurantId;
+    const catInfo = resolveFoodCategory({
+      subCategory: standardRest?.subCategory || customRest?.subCategory,
+      restaurantName: restName,
+      restaurantCategory: standardRest?.category || customRest?.category,
+      potCategory: pot.category,
+    });
+
+    myStyleCounts[catInfo.personalStyle] = (myStyleCounts[catInfo.personalStyle] || 0) + 1;
   }
 
   // 밥친구 TOP 3
@@ -1279,10 +1537,10 @@ export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
   let favoriteCategory = "다양한 맛집 탐험가 🍴";
   let favoriteCategoryPercentage = 100;
 
-  const sortedCats = Object.entries(myCategoryCounts).sort((a, b) => b[1] - a[1]);
-  if (sortedCats.length > 0 && myTotalJoinedPots > 0) {
-    favoriteCategory = sortedCats[0][0];
-    favoriteCategoryPercentage = Math.round((sortedCats[0][1] / myTotalJoinedPots) * 100);
+  const sortedStyles = Object.entries(myStyleCounts).sort((a, b) => b[1] - a[1]);
+  if (sortedStyles.length > 0 && myTotalJoinedPots > 0) {
+    favoriteCategory = sortedStyles[0][0];
+    favoriteCategoryPercentage = Math.round((sortedStyles[0][1] / myTotalJoinedPots) * 100);
   }
 
   // 내가 아낀 배달비 (참여 횟수 * 3,000원)

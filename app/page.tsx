@@ -76,12 +76,30 @@ export default function HomePage() {
       openAuth(`/pots/${encodeURIComponent(potId)}`);
       return;
     }
+
+    // 낙관적 UI 업데이트 (0ms 즉시 참여 상태 및 인원수 +1 반영)
+    const targetPot = pots.find((p) => p.id === potId);
+    const restaurant = targetPot ? restaurantsById.get(targetPot.restaurantId) : undefined;
+
+    mutatePots((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pots: prev.pots.map((p) =>
+          p.id === potId
+            ? { ...p, isParticipating: true, participantCount: p.participantCount + 1 }
+            : p,
+        ),
+      };
+    }, false);
+
+    showToast(`${restaurant?.name ?? ''} 팟에 참여했어요.`, 'success');
+
     try {
-      const data = await requestJson<PotResponse>(`/api/pots/${potId}/join`, { method: 'POST' });
+      await requestJson<PotResponse>(`/api/pots/${potId}/join`, { method: 'POST' });
       await mutatePots();
-      const restaurant = restaurantsById.get(data.pot.restaurantId);
-      showToast(`${restaurant?.name ?? ''} 팟에 참여했어요.`, 'success');
     } catch (error) {
+      await mutatePots();
       showToast(getErrorMessage(error, '참여하지 못했어요.'), 'error');
     }
   }

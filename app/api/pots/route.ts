@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const deadline = new Date(Math.ceil((now.getTime() + minutes * 60000) / 60_000) * 60_000);
+    const deadline = new Date(now.getTime() + minutes * 60_000);
 
     const existingPot = (await listPots()).find((candidate) => (
       candidate.status === "active"
