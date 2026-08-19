@@ -226,9 +226,11 @@ export function TrendsPageClient() {
                 점심 {stats.lunchRatio}% : 카페 {stats.cafeRatio}%
               </strong>
               <span className="trends-stat-item__sub">
-                {stats.lunchRatio >= stats.cafeRatio
-                  ? `점심 식사 팟이 ${(stats.lunchRatio / (stats.cafeRatio || 1)).toFixed(1)}배 더 많아요`
-                  : "카페 디저트 팟이 더 활발해요"}
+                {stats.cafeRatio === 0
+                  ? "식사 팟 중심으로 개설되었어요"
+                  : stats.lunchRatio >= stats.cafeRatio
+                  ? `점심 식사 팟이 약 ${(stats.lunchRatio / stats.cafeRatio).toFixed(1)}배 더 자주 열려요`
+                  : `카페 디저트 팟이 약 ${(stats.cafeRatio / stats.lunchRatio).toFixed(1)}배 더 자주 열려요`}
               </span>
             </div>
           </div>

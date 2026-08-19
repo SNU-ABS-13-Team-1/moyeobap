@@ -1093,7 +1093,15 @@ export async function getCampusStats(): Promise<CampusStats> {
       totalCompletedPots++;
     }
 
-    if (pot.category === "cafe") {
+    // 식당 정보 확인
+    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
+    const customRest = customMap.get(pot.restaurantId);
+    const restName = standardRest?.name || customRest?.name || pot.restaurantId;
+    const rawCategory = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트" : "한식");
+
+    const isCafe = pot.category === "cafe" || standardRest?.category === "cafe" || standardRest?.subCategory?.includes("카페") || standardRest?.subCategory?.includes("디저트") || customRest?.category === "cafe" || customRest?.category?.includes("카페");
+
+    if (isCafe) {
       cafePotCount++;
     } else {
       lunchPotCount++;
@@ -1118,12 +1126,6 @@ export async function getCampusStats(): Promise<CampusStats> {
     const potDate = new Date(pot.createdAt || pot.deadline);
     const hour = (potDate.getUTCHours() + 9) % 24; // KST 기준
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-
-    // 식당 정보 확인
-    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
-    const customRest = customMap.get(pot.restaurantId);
-    const restName = standardRest?.name || customRest?.name || pot.restaurantId;
-    const rawCategory = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트" : "한식");
 
     // 카테고리 매핑
     let normCat = "기타";
