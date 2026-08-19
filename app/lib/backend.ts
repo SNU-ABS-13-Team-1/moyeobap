@@ -272,55 +272,74 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
         }
 
         if (!potErr) {
-          const { error: deleteErr } = await supabase
-            .from("pot_participants")
-            .delete()
-            .eq("pot_id", normalized.id);
-          if (!deleteErr) {
-            if (normalized.participants.length > 0) {
-              const participantRows = normalized.participants.map((p) => ({
+          if (normalized.participants.length === 0) {
+            const { error: deleteErr } = await supabase
+              .from("pot_participants")
+              .delete()
+              .eq("pot_id", normalized.id);
+            if (deleteErr) {
+              console.error("Supabase savePot participants delete error:", deleteErr);
+            } else {
+              return true;
+            }
+          } else {
+            const participantRows = normalized.participants.map((p) => ({
+              pot_id: normalized.id,
+              user_id: p.id,
+              user_name: p.name,
+              user_initial: p.initial,
+              is_paid: p.isPaid ?? false,
+              order_memo: p.orderMemo ?? null,
+              joined_at: new Date(p.joinedAt).toISOString(),
+            }));
+            let { error: partErr } = await supabase
+              .from("pot_participants")
+              .upsert(participantRows, { onConflict: "pot_id,user_id" });
+
+            if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
+              const fallbackRows = normalized.participants.map((p) => ({
                 pot_id: normalized.id,
                 user_id: p.id,
                 user_name: p.name,
                 user_initial: p.initial,
                 is_paid: p.isPaid ?? false,
-                order_memo: p.orderMemo ?? null,
                 joined_at: new Date(p.joinedAt).toISOString(),
               }));
-              let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
-              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
-                // 1단계 폴백: is_paid만 포함
-                const fallbackRows1 = normalized.participants.map((p) => ({
+              const fallbackRes = await supabase
+                .from("pot_participants")
+                .upsert(fallbackRows, { onConflict: "pot_id,user_id" });
+              partErr = fallbackRes.error;
+
+              if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
+                const fallbackRows2 = normalized.participants.map((p) => ({
                   pot_id: normalized.id,
                   user_id: p.id,
                   user_name: p.name,
                   user_initial: p.initial,
-                  is_paid: p.isPaid ?? false,
                   joined_at: new Date(p.joinedAt).toISOString(),
                 }));
-                const res1 = await supabase.from("pot_participants").insert(fallbackRows1);
-                partErr = res1.error;
-
-                // 2단계 폴백: 기본 컬럼만 포함
-                if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
-                  const fallbackRows2 = normalized.participants.map((p) => ({
-                    pot_id: normalized.id,
-                    user_id: p.id,
-                    user_name: p.name,
-                    user_initial: p.initial,
-                    joined_at: new Date(p.joinedAt).toISOString(),
-                  }));
-                  const res2 = await supabase.from("pot_participants").insert(fallbackRows2);
-                  partErr = res2.error;
-                }
+                const fallbackRes2 = await supabase
+                  .from("pot_participants")
+                  .upsert(fallbackRows2, { onConflict: "pot_id,user_id" });
+                partErr = fallbackRes2.error;
               }
-              if (!partErr) return true;
-              console.error("Supabase savePot participants error:", partErr);
-            } else {
-              return true;
             }
-          } else {
-            console.error("Supabase savePot participants delete error:", deleteErr);
+
+            if (!partErr) {
+              // 이번 팟에 포함되지 않은 기존 참여자(퇴장/취소)만 선별 삭제
+              const currentParticipantIds = normalized.participants.map((p) => `"${p.id}"`).join(",");
+              const { error: cleanupErr } = await supabase
+                .from("pot_participants")
+                .delete()
+                .eq("pot_id", normalized.id)
+                .not("user_id", "in", `(${currentParticipantIds})`);
+              if (cleanupErr) {
+                console.error("Supabase savePot stale participants delete error:", cleanupErr);
+              }
+              return true;
+            } else {
+              console.error("Supabase savePot participants upsert error:", partErr);
+            }
           }
         } else {
           console.error("Supabase savePot error:", potErr);
@@ -328,6 +347,12 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
       } catch (sbErr) {
         console.error("Supabase savePot exception:", sbErr);
       }
+
+      // Supabase가 정본 저장소인데 저장에 실패했다면 성공으로 위장하지 않습니다.
+      // 여기서 메모리에 담고 true를 돌려주면, 호출한 API는 200을 응답하고 화면에는
+      // "참여 중"으로 보이지만 다음 요청이 다른 서버리스 인스턴스로 가는 순간
+      // 그 상태가 사라집니다. 사용자가 실패를 알 수 있도록 false를 반환합니다.
+      return false;
     }
 
     memoryPots.set(normalized.id, normalized);
@@ -613,10 +638,18 @@ export async function listPots(): Promise<ServerPot[]> {
     pots.map(async (pot) => {
       const nextStatus = deriveStatus(pot, now);
       if (nextStatus !== pot.status) {
-        const changed = { ...pot, status: nextStatus };
-        await savePot(changed);
-        await logEvent(nextStatus === "closed" ? "pot_closed" : "pot_failed", changed);
-        return changed;
+        // 방어 로직: 마감 시간 도달(timeUp) 또는 정원 도달(capReached)로 인한 자연스러운 상태 변화일 때만 DB에 저장합니다.
+        // 마감 시간 전인데 순간적인 읽기 타이밍 이슈 등으로 참여자가 0명으로 잘못 읽힌 경우 failed로 자동 저장해 팟을 날리는 것을 방지합니다.
+        const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
+        const capReached =
+          pot.maxParticipants !== null && pot.participants.length >= pot.maxParticipants;
+
+        if (timeUp || capReached || nextStatus === "active") {
+          const changed = { ...pot, status: nextStatus };
+          await savePot(changed);
+          await logEvent(nextStatus === "closed" ? "pot_closed" : "pot_failed", changed);
+          return changed;
+        }
       }
       return pot;
     }),
