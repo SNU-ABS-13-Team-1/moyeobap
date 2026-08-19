@@ -68,7 +68,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     text = `💳 ${user.name}님 계좌번호: ${user.bankName} ${user.accountNumber}`;
     kind = "account";
   } else if (typeof body?.imageUrl === "string" && body.imageUrl.trim()) {
-    imageUrl = body.imageUrl.trim();
+    const rawImage = body.imageUrl.trim();
+    // 5MB 바이너리 기준 Base64 길이는 약 7MB (7 * 1024 * 1024)
+    if (rawImage.length > 7.5 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "이미지 크기가 너무 큽니다. 5MB 이하의 이미지만 전송할 수 있어요." },
+        { status: 400 },
+      );
+    }
+    if (!rawImage.startsWith("data:image/") && !/^https?:\/\//i.test(rawImage)) {
+      return NextResponse.json(
+        { error: "올바른 이미지 형식이 아닙니다." },
+        { status: 400 },
+      );
+    }
+    imageUrl = rawImage;
     text = "📷 사진";
     kind = "image";
   } else if (typeof body?.orderLink === "string" && body.orderLink.trim()) {
