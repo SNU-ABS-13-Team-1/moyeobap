@@ -7,6 +7,7 @@ import { BgmPlayer } from './BgmPlayer';
 
 const NAV_ITEMS = [
   { href: '/', label: '현황판' },
+  { href: '/trends', label: '식사 트렌드' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
 ] as const;

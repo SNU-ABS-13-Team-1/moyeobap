@@ -53,8 +53,9 @@ export interface ChatMessage {
   authorName: string;
   text: string;
   createdAt: string;
-  /** 'account'면 계좌번호 공유 메시지 — 채팅에서 살짝 다르게 표시합니다. */
-  kind?: 'text' | 'account';
+  /** 'account'면 계좌번호, 'order_link'면 주문 링크, 'image'면 사진 메시지입니다. */
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
 }
 
 export interface ChatMessageView {
@@ -62,7 +63,8 @@ export interface ChatMessageView {
   authorName: string;
   text: string;
   createdAt: string;
-  kind?: 'text' | 'account';
+  kind?: 'text' | 'account' | 'order_link' | 'image';
+  imageUrl?: string;
   isMine: boolean;
 }
 
@@ -87,6 +89,8 @@ export interface Pot {
   isParticipating: boolean;
   isManaging: boolean;
   status: PotStatus;
+  /** 팟 자체의 카테고리(점심/카페/기타). 미지정 시 매장 카테고리를 따릅니다. */
+  category?: 'lunch' | 'cafe' | 'other';
   /** 정원. 없으면 인원 제한 없이 마감 시간까지만 모집합니다. */
   maxParticipants: number | null;
   /** 외부 주문까지 실제로 완료한 시각. 모집 마감과는 별개의 상태입니다. */
@@ -140,3 +144,61 @@ export interface PotEvent {
  * (인원 미달로 실패한 팟은 서버가 목록에서 빼므로 여기에도 오지 않는다.)
  */
 export type PotFilter = 'all' | 'lunch' | 'cafe' | 'other' | 'closed';
+
+/** 시간대별 팟 개설 통계 */
+export interface PeakHourStat {
+  hour: number;
+  label: string;
+  count: number;
+}
+
+/** 음식 카테고리별 점유율 통계 */
+export interface CategoryStat {
+  category: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+/** 인기 음식점 랭킹 통계 */
+export interface TopRestaurantStat {
+  restaurantId: string;
+  name: string;
+  category: string;
+  potCount: number;
+  participantCount: number;
+  successRate: number;
+}
+
+/** 밥친구 랭킹 통계 */
+export interface DiningMateStat {
+  name: string;
+  initial: string;
+  count: number;
+}
+
+/** 전체 캠퍼스 식사 트렌드 통계 */
+export interface CampusStats {
+  totalPots: number;
+  totalCompletedPots: number;
+  totalParticipants: number;
+  totalSavedDeliveryFee: number;
+  avgMatchingMinutes: number;
+  fastestMatchingMinutes: number;
+  avgParticipantsPerPot: number;
+  lunchRatio: number;
+  cafeRatio: number;
+  peakHours: PeakHourStat[];
+  categoryDistribution: CategoryStat[];
+  topRestaurants: TopRestaurantStat[];
+}
+
+/** 로그인 사용자 개인화 리포트 */
+export interface MyStatsReport {
+  totalJoinedPots: number;
+  totalCompletedPots: number;
+  savedDeliveryFee: number;
+  topMates: DiningMateStat[];
+  favoriteCategory: string;
+  favoriteCategoryPercentage: number;
+}

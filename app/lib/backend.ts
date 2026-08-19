@@ -4,12 +4,18 @@ import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
 import { RESTAURANTS } from "../data/restaurants";
 import type {
+  CampusStats,
+  CategoryStat,
   ChatMessage,
   ChatMessagePreview,
+  DiningMateStat,
+  MyStatsReport,
+  PeakHourStat,
   PotEvent,
   PotEventType,
   Restaurant,
   SerializedPot,
+  TopRestaurantStat,
   User,
 } from "../types/moyeobap";
 
@@ -19,6 +25,7 @@ export type ServerPot = {
   deadline: string; // ISO timestamp
   participants: (User & { joinedAt: number; isPaid?: boolean; orderMemo?: string })[];
   status: "active" | "closed" | "failed";
+  category?: "lunch" | "cafe" | "other";
   maxParticipants: number | null;
   createdAt: string;
   creatorId: string;
@@ -62,6 +69,7 @@ function normalizePot(pot: StoredPot): ServerPot {
 
   return {
     ...pot,
+    category: pot.category,
     participants,
     creatorId: pot.creatorId ?? firstParticipantId ?? "",
     managerId: pot.managerId ?? firstParticipantId,
@@ -113,6 +121,7 @@ export function toPotView(
     isParticipating,
     isManaging: Boolean(currentUser && currentUser.id === pot.managerId),
     status: pot.status,
+    category: pot.category,
     maxParticipants: pot.maxParticipants,
     orderCompletedAt: pot.orderCompletedAt,
     pinnedMessage,
@@ -124,6 +133,7 @@ export function toPotView(
 /** 마감 시간이 지났거나 정원이 찼는데 아직 반영 안 된 상태를 지금 시각 기준으로 계산합니다. */
 export function deriveStatus(pot: ServerPot, now: Date = new Date()): ServerPot["status"] {
   if (pot.status !== "active") return pot.status;
+  if (pot.participants.length === 0) return "failed";
 
   const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
   const capReached =
@@ -262,13 +272,32 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
         }
 
         if (!potErr) {
-          const { error: deleteErr } = await supabase
-            .from("pot_participants")
-            .delete()
-            .eq("pot_id", normalized.id);
-          if (!deleteErr) {
-            if (normalized.participants.length > 0) {
-              const participantRows = normalized.participants.map((p) => ({
+          if (normalized.participants.length === 0) {
+            const { error: deleteErr } = await supabase
+              .from("pot_participants")
+              .delete()
+              .eq("pot_id", normalized.id);
+            if (deleteErr) {
+              console.error("Supabase savePot participants delete error:", deleteErr);
+            } else {
+              return true;
+            }
+          } else {
+            const participantRows = normalized.participants.map((p) => ({
+              pot_id: normalized.id,
+              user_id: p.id,
+              user_name: p.name,
+              user_initial: p.initial,
+              is_paid: p.isPaid ?? false,
+              order_memo: p.orderMemo ?? null,
+              joined_at: new Date(p.joinedAt).toISOString(),
+            }));
+            let { error: partErr } = await supabase
+              .from("pot_participants")
+              .upsert(participantRows, { onConflict: "pot_id,user_id" });
+
+            if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("order_memo") || partErr.message?.includes("is_paid"))) {
+              const fallbackRows = normalized.participants.map((p) => ({
                 pot_id: normalized.id,
                 user_id: p.id,
                 user_name: p.name,
@@ -276,25 +305,41 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
                 is_paid: p.isPaid ?? false,
                 joined_at: new Date(p.joinedAt).toISOString(),
               }));
-              let { error: partErr } = await supabase.from("pot_participants").insert(participantRows);
+              const fallbackRes = await supabase
+                .from("pot_participants")
+                .upsert(fallbackRows, { onConflict: "pot_id,user_id" });
+              partErr = fallbackRes.error;
+
               if (partErr && (partErr.code === "PGRST204" || partErr.message?.includes("is_paid"))) {
-                const fallbackRows = normalized.participants.map((p) => ({
+                const fallbackRows2 = normalized.participants.map((p) => ({
                   pot_id: normalized.id,
                   user_id: p.id,
                   user_name: p.name,
                   user_initial: p.initial,
                   joined_at: new Date(p.joinedAt).toISOString(),
                 }));
-                const fallbackRes = await supabase.from("pot_participants").insert(fallbackRows);
-                partErr = fallbackRes.error;
+                const fallbackRes2 = await supabase
+                  .from("pot_participants")
+                  .upsert(fallbackRows2, { onConflict: "pot_id,user_id" });
+                partErr = fallbackRes2.error;
               }
-              if (!partErr) return true;
-              console.error("Supabase savePot participants error:", partErr);
-            } else {
-              return true;
             }
-          } else {
-            console.error("Supabase savePot participants delete error:", deleteErr);
+
+            if (!partErr) {
+              // 이번 팟에 포함되지 않은 기존 참여자(퇴장/취소)만 선별 삭제
+              const currentParticipantIds = normalized.participants.map((p) => `"${p.id}"`).join(",");
+              const { error: cleanupErr } = await supabase
+                .from("pot_participants")
+                .delete()
+                .eq("pot_id", normalized.id)
+                .not("user_id", "in", `(${currentParticipantIds})`);
+              if (cleanupErr) {
+                console.error("Supabase savePot stale participants delete error:", cleanupErr);
+              }
+              return true;
+            } else {
+              console.error("Supabase savePot participants upsert error:", partErr);
+            }
           }
         } else {
           console.error("Supabase savePot error:", potErr);
@@ -302,6 +347,12 @@ export async function savePot(pot: ServerPot): Promise<boolean> {
       } catch (sbErr) {
         console.error("Supabase savePot exception:", sbErr);
       }
+
+      // Supabase가 정본 저장소인데 저장에 실패했다면 성공으로 위장하지 않습니다.
+      // 여기서 메모리에 담고 true를 돌려주면, 호출한 API는 200을 응답하고 화면에는
+      // "참여 중"으로 보이지만 다음 요청이 다른 서버리스 인스턴스로 가는 순간
+      // 그 상태가 사라집니다. 사용자가 실패를 알 수 있도록 false를 반환합니다.
+      return false;
     }
 
     memoryPots.set(normalized.id, normalized);
@@ -375,12 +426,21 @@ export async function deletePot(id: string): Promise<boolean> {
     memoryPots.delete(id);
     memoryPotIndex.delete(id);
     memoryMessages.delete(id);
+    memoryMessageReads.delete(id);
 
     const supabase = getSupabase();
     if (supabase) {
-      const { error } = await supabase.from("pots").delete().eq("id", id);
-      if (error) {
-        console.error("Supabase deletePot error:", error);
+      // 외래 키 제약 조건 및 RLS에 안전하도록 자식 테이블을 먼저 명시적으로 삭제합니다.
+      try {
+        await supabase.from("messages").delete().eq("pot_id", id);
+        await supabase.from("message_reads").delete().eq("pot_id", id);
+        await supabase.from("pot_participants").delete().eq("pot_id", id);
+        const { error } = await supabase.from("pots").delete().eq("id", id);
+        if (error) {
+          console.error("Supabase deletePot error:", error);
+        }
+      } catch (sbErr) {
+        console.error("Supabase deletePot exception:", sbErr);
       }
     }
 
@@ -397,9 +457,28 @@ export async function deletePot(id: string): Promise<boolean> {
   }
 }
 
+export async function updatePotCategory(
+  potId: string,
+  category: "lunch" | "cafe" | "other",
+): Promise<ServerPot | null> {
+  const pot = await getPot(potId);
+  if (!pot) return null;
+
+  pot.category = category;
+  const memoryPot = memoryPots.get(potId);
+  if (memoryPot) {
+    memoryPot.category = category;
+  }
+  const saved = await savePot(pot);
+  if (!saved) return null;
+  return pot;
+}
+
 export async function getPot(id: string): Promise<ServerPot | null> {
   const memoryPot = memoryPots.get(id);
-  const memoryPartMap = new Map(memoryPot?.participants.map((p) => [p.id, p.isPaid]));
+  const memoryPartMap = new Map(
+    memoryPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+  );
 
   const supabase = getSupabase();
   if (supabase) {
@@ -417,6 +496,7 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       return normalizePot({
@@ -424,20 +504,25 @@ export async function getPot(id: string): Promise<ServerPot | null> {
         restaurantId: potRow.restaurant_id,
         deadline: potRow.deadline,
         status: potRow.status as ServerPot["status"],
+        category: (potRow.category as ServerPot["category"]) ?? memoryPot?.category,
         maxParticipants: potRow.max_participants,
         createdAt: potRow.created_at,
         creatorId: potRow.creator_id ?? undefined,
         managerId: potRow.manager_id ?? undefined,
         orderCompletedAt: potRow.order_completed_at ?? null,
         orderCompletedBy: potRow.order_completed_by ?? null,
-        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-          id: p.user_id,
-          name: p.user_name,
-          initial: p.user_initial,
-          email: p.user_id,
-          isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memoryPartMap.get(p.user_id)),
-          joinedAt: new Date(p.joined_at).getTime(),
-        })),
+        participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+          const mem = memoryPartMap.get(p.user_id);
+          return {
+            id: p.user_id,
+            name: p.user_name,
+            initial: p.user_initial,
+            email: p.user_id,
+            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+            orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+            joinedAt: new Date(p.joined_at).getTime(),
+          };
+        }),
       });
     }
   }
@@ -472,31 +557,39 @@ export async function listPots(): Promise<ServerPot[]> {
         bank_account: string | null;
         joined_at: string;
         is_paid?: boolean;
+        order_memo?: string | null;
       };
 
       pots = rows.map((potRow) => {
         const memPot = memoryPots.get(potRow.id);
-        const memPartMap = new Map(memPot?.participants.map((p) => [p.id, p.isPaid]));
+        const memPartMap = new Map(
+          memPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+        );
 
         return normalizePot({
           id: potRow.id,
           restaurantId: potRow.restaurant_id,
           deadline: potRow.deadline,
           status: potRow.status as ServerPot["status"],
+          category: (potRow.category as ServerPot["category"]) ?? memPot?.category,
           maxParticipants: potRow.max_participants,
           createdAt: potRow.created_at,
           creatorId: potRow.creator_id ?? undefined,
           managerId: potRow.manager_id ?? undefined,
           orderCompletedAt: potRow.order_completed_at ?? null,
           orderCompletedBy: potRow.order_completed_by ?? null,
-          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-            id: p.user_id,
-            name: p.user_name,
-            initial: p.user_initial,
-            email: p.user_id,
-            isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(memPartMap.get(p.user_id)),
-            joinedAt: new Date(p.joined_at).getTime(),
-          })),
+          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
+            const mem = memPartMap.get(p.user_id);
+            return {
+              id: p.user_id,
+              name: p.user_name,
+              initial: p.user_initial,
+              email: p.user_id,
+              isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+              orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+              joinedAt: new Date(p.joined_at).getTime(),
+            };
+          }),
         });
       });
     } else {
@@ -541,18 +634,28 @@ export async function listPots(): Promise<ServerPot[]> {
     }
   }
 
-  return Promise.all(
+  const resolved = await Promise.all(
     pots.map(async (pot) => {
       const nextStatus = deriveStatus(pot, now);
       if (nextStatus !== pot.status) {
-        const changed = { ...pot, status: nextStatus };
-        await savePot(changed);
-        await logEvent(nextStatus === "closed" ? "pot_closed" : "pot_failed", changed);
-        return changed;
+        // 방어 로직: 마감 시간 도달(timeUp) 또는 정원 도달(capReached)로 인한 자연스러운 상태 변화일 때만 DB에 저장합니다.
+        // 마감 시간 전인데 순간적인 읽기 타이밍 이슈 등으로 참여자가 0명으로 잘못 읽힌 경우 failed로 자동 저장해 팟을 날리는 것을 방지합니다.
+        const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
+        const capReached =
+          pot.maxParticipants !== null && pot.participants.length >= pot.maxParticipants;
+
+        if (timeUp || capReached || nextStatus === "active") {
+          const changed = { ...pot, status: nextStatus };
+          await savePot(changed);
+          await logEvent(nextStatus === "closed" ? "pot_closed" : "pot_failed", changed);
+          return changed;
+        }
       }
       return pot;
     }),
   );
+
+  return resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
@@ -684,14 +787,34 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
   try {
     const supabase = getSupabase();
     if (supabase) {
-    const { error } = await supabase.from("messages").insert({
-      pot_id: message.potId,
-      author_id: message.authorId,
-      author_name: message.authorName,
-      text: message.text,
-      kind: message.kind ?? "text",
-      created_at: message.createdAt,
-    });
+      let { error } = await supabase.from("messages").insert({
+        pot_id: message.potId,
+        author_id: message.authorId,
+        author_name: message.authorName,
+        text: message.text,
+        kind: message.kind ?? "text",
+        created_at: message.createdAt,
+      });
+
+      // 만약 Supabase DB에 신규 kind 제약조건이 아직 반영되지 않았다면 text 마커로 fallback 저장
+      if (error && error.code === "23514") {
+        const fallbackText = message.kind === "order_link"
+          ? `[ORDER_LINK] ${message.text}`
+          : message.kind === "image"
+          ? `[IMAGE] ${message.imageUrl || message.text}`
+          : message.text;
+
+        const retry = await supabase.from("messages").insert({
+          pot_id: message.potId,
+          author_id: message.authorId,
+          author_name: message.authorName,
+          text: fallbackText,
+          kind: "text",
+          created_at: message.createdAt,
+        });
+        error = retry.error;
+      }
+
       if (error) {
         console.error("Supabase addMessage error:", error);
         return false;
@@ -727,15 +850,34 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
       .limit(MAX_MESSAGES_PER_POT);
 
     if (error || !data) return [];
-    return data.map((m) => ({
-      id: m.id,
-      potId: m.pot_id,
-      authorId: m.author_id,
-      authorName: m.author_name,
-      text: m.text,
-      kind: m.kind as ChatMessage["kind"],
-      createdAt: m.created_at,
-    }));
+    return data.map((m) => {
+      let kind = m.kind as ChatMessage["kind"];
+      let text = m.text;
+      let imageUrl: string | undefined;
+
+      // 마커로 저장된 order_link 복원
+      if (text.startsWith("[ORDER_LINK] ")) {
+        kind = "order_link";
+        text = text.slice("[ORDER_LINK] ".length);
+      } else if (text.startsWith("[IMAGE] ")) {
+        kind = "image";
+        imageUrl = text.slice("[IMAGE] ".length);
+        text = "📷 사진";
+      } else if (kind === "image") {
+        imageUrl = text;
+      }
+
+      return {
+        id: m.id,
+        potId: m.pot_id,
+        authorId: m.author_id,
+        authorName: m.author_name,
+        text,
+        kind,
+        imageUrl,
+        createdAt: m.created_at,
+      };
+    });
   }
 
   const client = getRedis();
@@ -752,9 +894,20 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
 }
 
 function toChatPreview(message: ChatMessage): ChatMessagePreview {
+  let text = message.text;
+  if (text.startsWith("[ORDER_LINK] ")) {
+    text = text.slice("[ORDER_LINK] ".length);
+  } else if (text.startsWith("[IMAGE] ")) {
+    text = "📷 사진";
+  }
+
   const normalizedText = message.kind === "account"
     ? `${message.authorName}님이 계좌를 공유했어요.`
-    : message.text.replace(/\s+/g, " ").trim().slice(0, 80);
+    : message.kind === "order_link" || message.text.startsWith("[ORDER_LINK] ")
+    ? `${message.authorName}님이 주문 링크를 공유했어요.`
+    : message.kind === "image" || message.text.startsWith("[IMAGE] ")
+    ? `${message.authorName}님이 사진을 보냈어요.`
+    : text.replace(/\s+/g, " ").trim().slice(0, 80);
 
   return {
     authorName: message.authorName,
@@ -890,4 +1043,252 @@ export async function markPotMessagesRead(
     return;
   }
   memoryMessageReads.set(key, latestMessage.createdAt);
+}
+
+/** 전체 캠퍼스 식사 트렌드 및 통계 집계 */
+export async function getCampusStats(): Promise<CampusStats> {
+  const pots = await listPots();
+  const customList = await listCustomRestaurants();
+  const customMap = new Map(customList.map((r) => [r.id, r]));
+
+  let totalParticipants = 0;
+  let totalCompletedPots = 0;
+  let lunchPotCount = 0;
+  let cafePotCount = 0;
+
+  // 1. 시간대별 팟 개설 분포 (0~23시)
+  const hourCounts = new Array(24).fill(0);
+
+  // 2. 카테고리별 분포 맵
+  const categoryCounts: Record<string, number> = {
+    "한식": 0,
+    "일식/돈까스": 0,
+    "중식": 0,
+    "양식/피자/버거": 0,
+    "분식/도시락": 0,
+    "카페/디저트": 0,
+    "기타": 0,
+  };
+
+  // 3. 식당별 통계 맵
+  const restaurantStatsMap = new Map<string, {
+    restaurantId: string;
+    name: string;
+    category: string;
+    potCount: number;
+    participantCount: number;
+    successCount: number;
+  }>();
+
+  let totalMatchingMinutesSum = 0;
+  let matchingPotCount = 0;
+  let fastestMatchingMinutes = 999;
+
+  for (const pot of pots) {
+    const pCount = pot.participants.length;
+    totalParticipants += pCount;
+
+    const isSuccess = pot.status === "closed" || Boolean(pot.orderCompletedAt) || pCount >= 2;
+    if (pot.status === "closed" || pot.orderCompletedAt) {
+      totalCompletedPots++;
+    }
+
+    // 식당 정보 확인
+    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
+    const customRest = customMap.get(pot.restaurantId);
+    const restName = standardRest?.name || customRest?.name || pot.restaurantId;
+    const rawCategory = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트" : "한식");
+
+    const isCafe = pot.category === "cafe" || standardRest?.category === "cafe" || standardRest?.subCategory?.includes("카페") || standardRest?.subCategory?.includes("디저트") || customRest?.category === "cafe" || customRest?.category?.includes("카페");
+
+    if (isCafe) {
+      cafePotCount++;
+    } else {
+      lunchPotCount++;
+    }
+
+    if (isSuccess) {
+      if (pot.createdAt && (pot.orderCompletedAt || pot.deadline)) {
+        const start = new Date(pot.createdAt).getTime();
+        const end = new Date(pot.orderCompletedAt || pot.deadline).getTime();
+        const diffMin = Math.max(1, Math.round((end - start) / (1000 * 60)));
+        if (diffMin <= 180) {
+          totalMatchingMinutesSum += diffMin;
+          matchingPotCount++;
+          if (diffMin < fastestMatchingMinutes) {
+            fastestMatchingMinutes = diffMin;
+          }
+        }
+      }
+    }
+
+    // 시간대 집계 (생성 시각 또는 마감 시각)
+    const potDate = new Date(pot.createdAt || pot.deadline);
+    const hour = (potDate.getUTCHours() + 9) % 24; // KST 기준
+    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+
+    // 카테고리 매핑
+    let normCat = "기타";
+    if (rawCategory.includes("한식") || rawCategory.includes("찌개") || rawCategory.includes("고기") || rawCategory.includes("덮밥")) normCat = "한식";
+    else if (rawCategory.includes("일식") || rawCategory.includes("돈까스") || rawCategory.includes("초밥")) normCat = "일식/돈까스";
+    else if (rawCategory.includes("중식") || rawCategory.includes("짜장") || rawCategory.includes("마라")) normCat = "중식";
+    else if (rawCategory.includes("양식") || rawCategory.includes("피자") || rawCategory.includes("버거") || rawCategory.includes("치킨")) normCat = "양식/피자/버거";
+    else if (rawCategory.includes("분식") || rawCategory.includes("떡볶이") || rawCategory.includes("도시락") || rawCategory.includes("김밥")) normCat = "분식/도시락";
+    else if (rawCategory.includes("카페") || rawCategory.includes("디저트") || rawCategory.includes("커피") || rawCategory.includes("음료") || pot.category === "cafe") normCat = "카페/디저트";
+    else if (rawCategory.includes("샐러드") || rawCategory.includes("샌드위치")) normCat = "샐러드/샌드위치";
+    else if (rawCategory === "lunch") normCat = "점심 식사";
+
+    categoryCounts[normCat] = (categoryCounts[normCat] || 0) + 1;
+
+    // 매장 통계 집계
+    const existing = restaurantStatsMap.get(pot.restaurantId) || {
+      restaurantId: pot.restaurantId,
+      name: restName,
+      category: rawCategory,
+      potCount: 0,
+      participantCount: 0,
+      successCount: 0,
+    };
+    existing.potCount++;
+    existing.participantCount += pCount;
+    if (isSuccess) existing.successCount++;
+    restaurantStatsMap.set(pot.restaurantId, existing);
+  }
+
+  // 피크 아워 포맷 (오전 9시 ~ 오후 9시 중심)
+  const peakHours: PeakHourStat[] = [];
+  for (let h = 9; h <= 21; h++) {
+    peakHours.push({
+      hour: h,
+      label: `${h}시`,
+      count: hourCounts[h] || 0,
+    });
+  }
+
+  // 카테고리 백분율 계산
+  const totalCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0) || 1;
+  const categoryDistribution: CategoryStat[] = Object.entries(categoryCounts)
+    .filter(([, count]) => count > 0)
+    .map(([category, count]) => ({
+      category,
+      label: category,
+      count,
+      percentage: Math.round((count / totalCatCount) * 100),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 인기 음식점 TOP 5
+  const topRestaurants: TopRestaurantStat[] = Array.from(restaurantStatsMap.values())
+    .map((item) => ({
+      restaurantId: item.restaurantId,
+      name: item.name,
+      category: item.category,
+      potCount: item.potCount,
+      participantCount: item.participantCount,
+      successRate: item.potCount > 0 ? Math.round((item.successCount / item.potCount) * 100) : 0,
+    }))
+    .sort((a, b) => b.potCount - a.potCount || b.participantCount - a.participantCount)
+    .slice(0, 5);
+
+  // 통계 계산
+  const totalSavedDeliveryFee = Math.max(0, totalParticipants - pots.length) * 3000;
+  const avgMatchingMinutes = matchingPotCount > 0 ? Math.round((totalMatchingMinutesSum / matchingPotCount) * 10) / 10 : 54.5;
+  const resolvedFastestMinutes = fastestMatchingMinutes === 999 ? 25 : fastestMatchingMinutes;
+  const avgParticipantsPerPot = pots.length > 0 ? Math.round((totalParticipants / pots.length) * 10) / 10 : 3.6;
+
+  const totalTypePots = lunchPotCount + cafePotCount || 1;
+  const lunchRatio = Math.round((lunchPotCount / totalTypePots) * 100);
+  const cafeRatio = 100 - lunchRatio;
+
+  return {
+    totalPots: pots.length,
+    totalCompletedPots,
+    totalParticipants,
+    totalSavedDeliveryFee,
+    avgMatchingMinutes,
+    fastestMatchingMinutes: resolvedFastestMinutes,
+    avgParticipantsPerPot,
+    lunchRatio,
+    cafeRatio,
+    peakHours,
+    categoryDistribution,
+    topRestaurants,
+  };
+}
+
+/** 특정 사용자의 개인화 식사 리포트 집계 */
+export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
+  const pots = await listPots();
+  const customList = await listCustomRestaurants();
+  const customMap = new Map(customList.map((r) => [r.id, r]));
+
+  const myPots = pots.filter((p) => p.participants.some((part) => part.id === userId));
+  const myTotalJoinedPots = myPots.length;
+  let totalCompletedPots = 0;
+
+  // 1. 함께 식사한 밥친구 빈도 맵
+  const mateFrequency = new Map<string, { name: string; initial: string; count: number }>();
+
+  // 2. 나의 주문 카테고리 선호도 맵
+  const myCategoryCounts: Record<string, number> = {};
+
+  for (const pot of myPots) {
+    if (pot.status === "closed" || pot.orderCompletedAt) {
+      totalCompletedPots++;
+    }
+
+    // 밥친구 집계
+    for (const part of pot.participants) {
+      if (part.id === userId) continue;
+      const mate = mateFrequency.get(part.name) || {
+        name: part.name,
+        initial: part.initial,
+        count: 0,
+      };
+      mate.count++;
+      mateFrequency.set(part.name, mate);
+    }
+
+    // 카테고리 집계
+    const standardRest = RESTAURANTS.find((r) => r.id === pot.restaurantId);
+    const customRest = customMap.get(pot.restaurantId);
+    let cat = standardRest?.subCategory || standardRest?.category || customRest?.category || (pot.category === "cafe" ? "카페/디저트 ☕" : "점심 식사 🍱");
+    if (cat === "lunch") cat = "점심 식사 🍱";
+    else if (cat === "cafe") cat = "카페/디저트 ☕";
+    else if (cat === "other") cat = "기타 📦";
+    else if (cat === "한식") cat = "든든한 한식파 🍚";
+    else if (cat === "일식" || cat.includes("돈까스") || cat.includes("초밥")) cat = "깔끔한 일식파 🍣";
+    else if (cat === "중식") cat = "화끈한 중식파 🥟";
+    else if (cat === "양식" || cat.includes("버거") || cat.includes("치킨")) cat = "양식/버거 매니아 🍔";
+    else if (cat === "분식" || cat.includes("떡볶이")) cat = "분식 러버 떡볶이파 🍢";
+    else if (cat === "샐러드" || cat.includes("샌드위치")) cat = "건강 샐러드파 🥗";
+    myCategoryCounts[cat] = (myCategoryCounts[cat] || 0) + 1;
+  }
+
+  // 밥친구 TOP 3
+  const topMates: DiningMateStat[] = Array.from(mateFrequency.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  // 최애 카테고리 1위
+  let favoriteCategory = "다양한 맛집 탐험가 🍴";
+  let favoriteCategoryPercentage = 100;
+
+  const sortedCats = Object.entries(myCategoryCounts).sort((a, b) => b[1] - a[1]);
+  if (sortedCats.length > 0 && myTotalJoinedPots > 0) {
+    favoriteCategory = sortedCats[0][0];
+    favoriteCategoryPercentage = Math.round((sortedCats[0][1] / myTotalJoinedPots) * 100);
+  }
+
+  // 내가 아낀 배달비 (참여 횟수 * 3,000원)
+  const savedDeliveryFee = myTotalJoinedPots * 3000;
+
+  return {
+    totalJoinedPots: myTotalJoinedPots,
+    totalCompletedPots,
+    savedDeliveryFee,
+    topMates,
+    favoriteCategory,
+    favoriteCategoryPercentage,
+  };
 }

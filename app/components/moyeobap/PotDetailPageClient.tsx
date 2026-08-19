@@ -195,6 +195,24 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     }
   }
 
+  async function handleCategoryUpdate(newCategory: 'lunch' | 'cafe' | 'other') {
+    setIsManagingDeadline(true);
+    try {
+      await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_category', category: newCategory }),
+      });
+      await Promise.all([mutate(), mutateCache('/api/pots')]);
+      const categoryLabel = newCategory === 'lunch' ? '점심' : newCategory === 'cafe' ? '카페' : '기타';
+      showToast(`주문 종류를 '${categoryLabel}'(으)로 변경했어요.`, 'success');
+    } catch (catError) {
+      showToast(getErrorMessage(catError, '카테고리를 변경하지 못했어요.'), 'error');
+    } finally {
+      setIsManagingDeadline(false);
+    }
+  }
+
   async function handleMaxParticipantsUpdate(newCap: number | null) {
     setIsManagingDeadline(true);
     try {
@@ -241,9 +259,9 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     setIsDeletingPot(true);
     try {
       await requestJson(`/api/pots/${potId}`, { method: 'DELETE' });
-      await mutateCache('/api/pots');
+      await mutateCache('/api/pots', undefined, { revalidate: true });
       showToast('팟을 삭제했어요.', 'success');
-      router.push('/');
+      router.replace('/');
     } catch (deleteError) {
       showToast(getErrorMessage(deleteError, '팟을 삭제하지 못했어요.'), 'error');
     } finally {
@@ -301,6 +319,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     action = <button className="create__submit-btn" onClick={handleJoin} type="button">참여하기</button>;
   }
 
+  const effectiveCategory = pot.category ?? restaurant.category;
+
   return (
     <main className="page-content pot-page">
       <div className="page-heading page-heading--compact">
@@ -318,8 +338,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <div className="detail__emoji">{restaurant.emoji}</div>
             <div>
               <div className="card__badges">
-                <span className={`card__category ${restaurant.category === 'lunch' ? 'card__category--lunch' : restaurant.category === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>
-                  {restaurant.category === 'lunch' ? '점심' : restaurant.category === 'other' ? '기타' : '카페'}
+                <span className={`card__category ${effectiveCategory === 'lunch' ? 'card__category--lunch' : effectiveCategory === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>
+                  {effectiveCategory === 'lunch' ? '점심' : effectiveCategory === 'other' ? '기타' : '카페'}
                 </span>
                 {pot.isManaging && <span className="detail__participant-badge">👑 내가 관리 중</span>}
               </div>
@@ -359,60 +379,83 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           {pot.isManaging && pot.status === 'active' && (
             <section className="detail__management" aria-labelledby="deadline-management-title">
               <div className="detail__management-heading">
-                <div>
-                  <h2 id="deadline-management-title">모집 마감 관리</h2>
-                  <p>현재 관리자만 변경할 수 있어요.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="detail__management-tag">👑 관리자 설정</span>
+                  <h2 id="deadline-management-title" style={{ fontSize: '0.92rem', fontWeight: 700, margin: 0 }}>모집 마감 및 설정</h2>
                 </div>
-                <span>👑 관리자</span>
               </div>
-              <label className="detail__deadline-field">
-                <span>원하는 마감 시간</span>
-                <input
-                  disabled={isManagingDeadline}
-                  max={maxDeadlineValue}
-                  min={minDeadlineValue}
-                  onChange={(event) => setDeadlineEdit({
-                    source: data.pot.deadline,
-                    value: event.target.value,
-                  })}
-                  type="datetime-local"
-                  value={deadlineDraft}
-                />
-                <small>현재부터 5분 뒤~24시간 사이로 설정할 수 있어요.</small>
-              </label>
 
-              <label className="detail__deadline-field" style={{ marginTop: '14px' }}>
-                <span>최대 인원수 제한</span>
-                <select
-                  disabled={isManagingDeadline}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const cap = val === 'none' ? null : Number(val);
-                    handleMaxParticipantsUpdate(cap);
-                  }}
-                  value={pot.maxParticipants === null ? 'none' : String(pot.maxParticipants)}
-                >
-                  <option value="none">제한 없음</option>
-                  <option value="2">2명</option>
-                  <option value="3">3명</option>
-                  <option value="4">4명</option>
-                  <option value="5">5명</option>
-                  <option value="6">6명</option>
-                  <option value="8">8명</option>
-                  <option value="10">10명</option>
-                  <option value="15">15명</option>
-                  <option value="20">20명</option>
-                </select>
-                <small>현재 {pot.participantCount}명 참여 중 ({pot.maxParticipants ? `최대 ${pot.maxParticipants}명` : '현재 제한 없음'})</small>
-              </label>
-              <div className="detail__management-actions">
-                <button
-                  disabled={isManagingDeadline || !canUpdateDeadline}
-                  onClick={handleDeadlineUpdate}
-                  type="button"
-                >
-                  {isManagingDeadline ? '처리 중...' : '마감 시간 변경'}
-                </button>
+              <div className="detail__management-grid">
+                <label className="detail__deadline-field">
+                  <span>마감 시간 변경</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      disabled={isManagingDeadline}
+                      max={maxDeadlineValue}
+                      min={minDeadlineValue}
+                      onChange={(event) => setDeadlineEdit({
+                        source: data.pot.deadline,
+                        value: event.target.value,
+                      })}
+                      type="datetime-local"
+                      value={deadlineDraft}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      disabled={isManagingDeadline || !canUpdateDeadline}
+                      onClick={handleDeadlineUpdate}
+                      type="button"
+                      className="detail__deadline-update-btn"
+                    >
+                      {isManagingDeadline ? '...' : '변경'}
+                    </button>
+                  </div>
+                </label>
+
+                <div className="detail__management-row">
+                  <label className="detail__deadline-field" style={{ flex: 1 }}>
+                    <span>주문 종류</span>
+                    <select
+                      disabled={isManagingDeadline}
+                      onChange={(e) => {
+                        const val = e.target.value as 'lunch' | 'cafe' | 'other';
+                        handleCategoryUpdate(val);
+                      }}
+                      value={effectiveCategory}
+                    >
+                      <option value="lunch">🍱 점심</option>
+                      <option value="cafe">☕ 카페</option>
+                      <option value="other">📦 기타</option>
+                    </select>
+                  </label>
+
+                  <label className="detail__deadline-field" style={{ flex: 1 }}>
+                    <span>최대 정원</span>
+                    <select
+                      disabled={isManagingDeadline}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cap = val === 'none' ? null : Number(val);
+                        handleMaxParticipantsUpdate(cap);
+                      }}
+                      value={pot.maxParticipants === null ? 'none' : String(pot.maxParticipants)}
+                    >
+                      <option value="none">제한 없음</option>
+                      <option value="2">2명</option>
+                      <option value="3">3명</option>
+                      <option value="4">4명</option>
+                      <option value="5">5명</option>
+                      <option value="6">6명</option>
+                      <option value="8">8명</option>
+                      <option value="10">10명</option>
+                      <option value="15">15명</option>
+                      <option value="20">20명</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="detail__management-footer">
                 <button
                   className="detail__close-now-btn"
                   disabled={isManagingDeadline}
@@ -427,7 +470,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                   onClick={handleDeletePot}
                   type="button"
                 >
-                  {isDeletingPot ? '삭제 중...' : '🗑️ 팟 삭제하기'}
+                  {isDeletingPot ? '삭제 중...' : '🗑️ 팟 삭제'}
                 </button>
               </div>
             </section>
@@ -464,75 +507,74 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
               </div>
             ) : pot.isParticipating && pot.participants ? (
               <>
-                {pot.participants.map((participant, index) => (
-                  <div className="detail__participant" key={`${participant.name}-${index}`}>
-                    <div className="detail__participant-avatar">{participant.initial}</div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span className="detail__participant-name">{participant.name}</span>
-                        {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
+                {pot.participants.map((participant, index) => {
+                  const isMe = currentUser?.name === participant.name;
+                  return (
+                    <div
+                      className={`detail__participant ${isMe ? 'detail__participant--me' : ''}`}
+                      key={`${participant.name}-${index}`}
+                    >
+                      <div className="detail__participant-avatar">{participant.initial}</div>
+                      <div className="detail__participant-info">
+                        <div className="detail__participant-name-row">
+                          <span className="detail__participant-name">{participant.name}</span>
+                          {isMe && <span className="detail__participant-me-badge">나</span>}
+                          {participant.isManager && <span className="detail__participant-badge">👑 관리자</span>}
+                        </div>
+                        {participant.orderMemo && (
+                          <div className="detail__participant-memo-tag">
+                            ✏️ {participant.orderMemo}
+                          </div>
+                        )}
                       </div>
-                      {participant.orderMemo && (
-                        <small style={{ color: 'var(--primary)', fontWeight: 600, marginTop: '2px' }}>
-                          ✏️ {participant.orderMemo}
-                        </small>
-                      )}
+
+                      <div className="detail__participant-actions">
+                        {isMe ? (
+                          <button
+                            type="button"
+                            className={`detail__paid-badge-btn ${participant.isPaid ? 'detail__paid-badge-btn--active' : ''}`}
+                            onClick={handleTogglePaid}
+                            disabled={isTogglingPaid}
+                            title="클릭하여 송금 상태 변경"
+                          >
+                            {participant.isPaid ? '✓ 송금 완료' : '💸 미송금 (클릭)'}
+                          </button>
+                        ) : participant.isPaid ? (
+                          <span className="detail__participant-paid-badge">✓ 송금 완료</span>
+                        ) : (
+                          <span className="detail__participant-unpaid-badge">미송금</span>
+                        )}
+                      </div>
                     </div>
-                    {participant.isPaid ? (
-                      <span className="detail__participant-paid-badge">✓ 송금 완료</span>
-                    ) : (
-                      <span className="detail__participant-unpaid-badge">미송금</span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
+
                 {myParticipant && (
-                  <div className="detail__paid-toggle-box" style={{ flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                  <form
+                    className="detail__my-memo-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSaveMemo(memoEdit ?? myParticipant.orderMemo ?? '');
+                    }}
+                  >
+                    <div className="detail__my-memo-input-wrap">
                       <input
                         type="text"
-                        placeholder="✏️ 주문 메모 (선택): 예) 제육 1개 / 양 많이"
+                        className="detail__my-memo-input"
+                        placeholder="내 주문 메모 입력 (예: 제육 1개, 맵기 덜맵게)"
                         value={memoEdit ?? myParticipant.orderMemo ?? ''}
                         onChange={(e) => setMemoEdit(e.target.value)}
                         maxLength={100}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid rgba(0,0,0,0.12)',
-                          fontSize: '0.85rem',
-                        }}
                       />
                       <button
-                        type="button"
-                        onClick={() => handleSaveMemo(memoEdit ?? myParticipant.orderMemo ?? '')}
+                        type="submit"
+                        className="detail__my-memo-submit"
                         disabled={isSavingMemo}
-                        style={{
-                          padding: '8px 14px',
-                          borderRadius: 'var(--radius-sm)',
-                          background: 'var(--primary)',
-                          color: '#fff',
-                          border: 'none',
-                          fontWeight: 600,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                        }}
                       >
-                        {isSavingMemo ? '저장 중...' : '메모 저장'}
+                        {isSavingMemo ? '저장...' : '메모 저장'}
                       </button>
                     </div>
-                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '-4px' }}>
-                      💡 배민 함께주문 이용 시에는 적지 않으셔도 괜찮아요.
-                    </small>
-                    <button
-                      type="button"
-                      className={`detail__paid-toggle-btn ${myParticipant.isPaid ? 'detail__paid-toggle-btn--active' : ''}`}
-                      onClick={handleTogglePaid}
-                      disabled={isTogglingPaid}
-                      style={{ alignSelf: 'flex-end', marginTop: '4px' }}
-                    >
-                      {myParticipant.isPaid ? '✓ 송금 완료 표시 취소' : '💸 내 송금 완료 표시하기'}
-                    </button>
-                  </div>
+                  </form>
                 )}
               </>
             ) : (

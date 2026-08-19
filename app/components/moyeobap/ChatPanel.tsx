@@ -41,10 +41,16 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
+  const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
+  const [orderLinkUrl, setOrderLinkUrl] = useState('');
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<number | null>(null);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
+  const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
 
   function getAccountText(message: ChatMessageView) {
     const marker = '계좌번호:';
@@ -172,8 +178,122 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     }
   }
 
+  async function handleShareOrderLink(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = orderLinkUrl.trim();
+    if (!trimmed || sending) return;
+
+    if (!/^https?:\/\//i.test(trimmed)) {
+      setSendError('올바른 웹 링크(http:// 또는 https://)를 입력해주세요.');
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+    setIsOrderLinkModalOpen(false);
+    setOrderLinkUrl('');
+
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+      kind: 'order_link',
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderLink: trimmed }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '주문 링크를 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSendError('5MB 이하의 이미지만 업로드할 수 있어요.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setImagePreview(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  async function handleSendImage() {
+    if (!imagePreview || sending) return;
+
+    setSending(true);
+    setSendError(null);
+    const dataUrl = imagePreview;
+    setImagePreview(null);
+
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-${Date.now()}`,
+      authorName: currentUser.name,
+      text: '📷 사진',
+      createdAt: new Date().toISOString(),
+      kind: 'image',
+      imageUrl: dataUrl,
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: dataUrl }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '사진을 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="chat-panel">
+      {pinnedOrderLink && (
+        <div className="chat-panel__pinned-order-link">
+          <div>
+            <span>🛒 주문 링크 · {pinnedOrderLink.authorName}</span>
+            <strong>{pinnedOrderLink.text}</strong>
+          </div>
+          <div className="chat-panel__pinned-actions">
+            <a
+              href={pinnedOrderLink.text}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="chat-panel__link-btn"
+            >
+              열기 ↗
+            </a>
+          </div>
+        </div>
+      )}
       {pinnedAccount && (
         <div className="chat-panel__pinned-account">
           <div>
@@ -201,36 +321,175 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
               <span className="chat-panel__author">{m.authorName}</span>
             )}
             <span
-              className={`chat-panel__bubble ${m.kind === 'account' ? 'chat-panel__bubble--account' : ''}`}
+              className={`chat-panel__bubble ${
+                m.kind === 'account'
+                  ? 'chat-panel__bubble--account'
+                  : m.kind === 'order_link'
+                  ? 'chat-panel__bubble--order-link'
+                  : m.kind === 'image'
+                  ? 'chat-panel__bubble--image'
+                  : ''
+              }`}
             >
-              {renderMessageText(m.text)}
+              {m.kind === 'order_link' ? (
+                <div className="chat-panel__order-link-content">
+                  <span className="chat-panel__order-link-badge">🛒 주문 링크</span>
+                  <a
+                    href={m.text}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="chat-panel__link"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {m.text} ↗
+                  </a>
+                </div>
+              ) : m.kind === 'image' && m.imageUrl ? (
+                <div className="chat-panel__image-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.imageUrl}
+                    alt="공유된 사진"
+                    className="chat-panel__image-thumb"
+                    onClick={() => setViewingImage(m.imageUrl ?? null)}
+                  />
+                </div>
+              ) : (
+                renderMessageText(m.text)
+              )}
             </span>
           </div>
         ))}
       </div>
-      {currentUser.bankName && currentUser.accountNumber && (
+
+      {imagePreview && (
+        <div className="chat-panel__preview-box">
+          <div className="chat-panel__preview-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="선택한 사진 미리보기" className="chat-panel__preview-img" />
+            <div className="chat-panel__preview-actions">
+              <button
+                type="button"
+                className="chat-panel__preview-send"
+                onClick={handleSendImage}
+                disabled={sending}
+              >
+                {sending ? '전송 중...' : '사진 전송'}
+              </button>
+              <button
+                type="button"
+                className="chat-panel__preview-cancel"
+                onClick={() => setImagePreview(null)}
+                disabled={sending}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingImage && (
+        <div className="chat-panel__image-modal" onClick={() => setViewingImage(null)}>
+          <div className="chat-panel__image-modal-content" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={viewingImage} alt="원본 사진" className="chat-panel__image-modal-img" />
+            <button
+              type="button"
+              className="chat-panel__image-modal-close"
+              onClick={() => setViewingImage(null)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isOrderLinkModalOpen && (
+        <form className="chat-panel__link-form" onSubmit={handleShareOrderLink}>
+          <div className="chat-panel__link-input-wrap">
+            <input
+              type="url"
+              className="chat-panel__input chat-panel__link-input"
+              placeholder="공유할 주문 링크 URL을 입력하세요 (https://...)"
+              value={orderLinkUrl}
+              onChange={(e) => setOrderLinkUrl(e.target.value)}
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="chat-panel__link-submit"
+              disabled={!orderLinkUrl.trim() || sending}
+            >
+              공유
+            </button>
+            <button
+              type="button"
+              className="chat-panel__link-cancel"
+              onClick={() => {
+                setIsOrderLinkModalOpen(false);
+                setOrderLinkUrl('');
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </form>
+      )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleImageSelect}
+      />
+
+      <div className="chat-panel__toolbar">
         <button
           type="button"
-          className="chat-panel__account-btn"
-          onClick={handleShareAccount}
+          className="chat-panel__tool-chip chat-panel__tool-chip--photo"
+          onClick={() => fileInputRef.current?.click()}
           disabled={sending}
+          title="사진 첨부하기"
         >
-          💳 계좌번호 전송
+          📷 사진
         </button>
-      )}
+        <button
+          type="button"
+          className={`chat-panel__tool-chip chat-panel__tool-chip--link ${isOrderLinkModalOpen ? 'chat-panel__tool-chip--active' : ''}`}
+          onClick={() => setIsOrderLinkModalOpen((prev) => !prev)}
+          disabled={sending}
+          title="배달앱 주문 링크 공유"
+        >
+          🔗 주문 링크
+        </button>
+        {currentUser.bankName && currentUser.accountNumber && (
+          <button
+            type="button"
+            className="chat-panel__tool-chip chat-panel__tool-chip--account"
+            onClick={handleShareAccount}
+            disabled={sending}
+            title="내 계좌번호 공유"
+          >
+            💳 계좌 전송
+          </button>
+        )}
+      </div>
+
       {sendError && <p className="chat-panel__error" role="alert">{sendError}</p>}
       <form className="chat-panel__form" onSubmit={handleSubmit}>
         <input
           aria-label="메시지"
           type="text"
           className="chat-panel__input"
-          placeholder="메시지 보내기"
+          placeholder="메시지 보내기..."
           value={text}
           onChange={e => setText(e.target.value)}
           maxLength={500}
         />
         <button type="submit" className="chat-panel__send" disabled={!text.trim() || sending}>
-          보내기
+          전송
         </button>
       </form>
     </div>

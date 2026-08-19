@@ -62,8 +62,13 @@ export async function GET(
   }
 
   const status = deriveStatus(pot);
+  const now = new Date();
+  const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
+  const capReached = pot.maxParticipants !== null && pot.participants.length >= pot.maxParticipants;
   const currentPot = status === pot.status ? pot : { ...pot, status };
-  if (currentPot !== pot) await savePot(currentPot);
+  if (currentPot !== pot && (timeUp || capReached || status === "active")) {
+    await savePot(currentPot);
+  }
 
   if (currentPot.status === "failed") {
     return NextResponse.json({ error: "종료된 팟이에요." }, { status: 410 });
@@ -134,6 +139,26 @@ export async function PATCH(
 
   if (pot.status !== "active") {
     return NextResponse.json({ error: "이미 마감된 팟은 변경할 수 없어요." }, { status: 409 });
+  }
+
+  if (body?.action === "update_category") {
+    const category = body.category;
+    if (category !== "lunch" && category !== "cafe" && category !== "other") {
+      return NextResponse.json(
+        { error: "올바른 카테고리(점심/카페/기타)를 선택해주세요." },
+        { status: 400 },
+      );
+    }
+
+    pot.category = category;
+    const saved = await savePot(pot);
+    if (!saved) {
+      return NextResponse.json(
+        { error: "카테고리 변경을 저장하지 못했어요. 잠시 뒤 다시 시도해주세요." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ pot: toPotView(pot, user) });
   }
 
   if (body?.action === "update_deadline") {

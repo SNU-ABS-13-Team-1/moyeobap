@@ -77,10 +77,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   background: rgba(248, 250, 252, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
+  gap: var(--space-md);
   padding: var(--space-md) 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
@@ -90,6 +90,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   align-items: center;
   gap: var(--space-sm);
   text-decoration: none;
+  justify-self: start;
 }
 
 .site-nav {
@@ -99,6 +100,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: 4px;
   border-radius: var(--radius-full);
   background: var(--bg-secondary);
+  justify-self: center;
 }
 
 .site-nav__link {
@@ -260,26 +262,101 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  justify-self: end;
 }
 
 .header__bgm-btn {
-  width: 38px;
-  height: 38px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--card-border);
-  background: #fff;
-  font-size: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  user-select: none;
 }
 
 .header__bgm-btn:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.header__bgm-btn--playing {
+  border-color: rgba(234, 88, 12, 0.35);
+  background: #fff7ed;
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.15);
+}
+
+.header__bgm-btn--playing:hover {
   border-color: var(--primary);
-  box-shadow: var(--shadow-md);
+  background: #ffedd5;
+}
+
+.header__bgm-waves {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 14px;
+}
+
+.header__bgm-bar {
+  width: 2.5px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 2px;
+  transition: height 0.2s ease, opacity 0.2s ease;
+  opacity: 0.5;
+}
+
+.header__bgm-btn--playing .header__bgm-bar {
+  opacity: 1;
+  animation: soundWave 1.2s ease-in-out infinite alternate;
+}
+
+.header__bgm-btn--playing .header__bgm-bar--1 {
+  animation-delay: 0.1s;
+  animation-duration: 0.8s;
+}
+
+.header__bgm-btn--playing .header__bgm-bar--2 {
+  animation-delay: 0.3s;
+  animation-duration: 1.1s;
+}
+
+.header__bgm-btn--playing .header__bgm-bar--3 {
+  animation-delay: 0.15s;
+  animation-duration: 0.95s;
+}
+
+.header__bgm-btn--playing .header__bgm-bar--4 {
+  animation-delay: 0.4s;
+  animation-duration: 0.75s;
+}
+
+@keyframes soundWave {
+  0% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+  100% {
+    height: 6px;
+  }
+}
+
+.header__bgm-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .dashboard-toolbar {
@@ -343,7 +420,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .page-heading h1 {
   margin-top: 4px;
   color: var(--text-primary);
-  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-size: 1.75rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
@@ -1235,12 +1313,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .detail__participant:last-child {
   border-bottom: none;
+}
+
+.detail__participant--me {
+  background: transparent;
 }
 
 .detail__participant-avatar {
@@ -1254,26 +1336,106 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.8rem;
   font-weight: 600;
   color: #fff;
+  flex-shrink: 0;
+}
+
+.detail__participant-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.detail__participant-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .detail__participant-name {
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--text-primary);
-  flex: 1;
+}
+
+.detail__participant-me-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
 }
 
 .detail__participant-badge {
-  font-size: 0.7rem;
-  padding: 4px 8px;
+  font-size: 0.68rem;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: rgba(255, 107, 53, 0.1);
+  background: rgba(255, 107, 53, 0.12);
   color: var(--primary);
+  font-weight: 700;
+}
+
+.detail__participant-memo-tag {
+  font-size: 0.78rem;
   font-weight: 600;
+  color: var(--primary);
+  background: #fff7ed;
+  border: 1px solid rgba(234, 88, 12, 0.2);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  max-width: fit-content;
+}
+
+.detail__participant-memo-empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.detail__participant-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.detail__paid-badge-btn {
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--text-muted);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.detail__paid-badge-btn:hover:not(:disabled) {
+  border-color: #059669;
+  color: #059669;
+  background: #ecfdf5;
+  transform: translateY(-1px);
+}
+
+.detail__paid-badge-btn--active {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #059669;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.15);
+}
+
+.detail__paid-badge-btn--active:hover:not(:disabled) {
+  background: #d1fae5;
 }
 
 .detail__participant-paid-badge {
-  font-size: 0.7rem;
-  padding: 4px 8px;
+  font-size: 0.72rem;
+  padding: 4px 9px;
   border-radius: var(--radius-full);
   background: #ecfdf5;
   color: #059669;
@@ -1282,46 +1444,64 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .detail__participant-unpaid-badge {
-  font-size: 0.7rem;
-  padding: 4px 8px;
+  font-size: 0.72rem;
+  padding: 4px 9px;
   border-radius: var(--radius-full);
   background: var(--bg-secondary);
   color: var(--text-muted);
   font-weight: 500;
 }
 
-.detail__paid-toggle-box {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.08);
+/* 내 주문 메모 입력 폼 */
+.detail__my-memo-form {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.detail__my-memo-input-wrap {
   display: flex;
-  justify-content: flex-end;
+  gap: 6px;
+  align-items: center;
 }
 
-.detail__paid-toggle-btn {
+.detail__my-memo-input {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   background: #fff;
-  color: #059669;
-  border: 1.5px solid #059669;
-  border-radius: var(--radius-full);
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
 }
 
-.detail__paid-toggle-btn:hover {
-  background: #ecfdf5;
+.detail__my-memo-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.12);
 }
 
-.detail__paid-toggle-btn--active {
-  background: #059669;
+.detail__my-memo-submit {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
   color: #fff;
-  border-color: #059669;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
 }
 
-.detail__paid-toggle-btn--active:hover {
-  background: #047857;
+.detail__my-memo-submit:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.detail__my-memo-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .detail__participant-hidden {
@@ -1339,107 +1519,132 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .detail__management {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: var(--space-lg);
-  padding: 16px;
+  padding: 14px 16px;
   border: 1px solid rgba(255, 107, 53, 0.2);
-  border-radius: var(--radius-md);
-  background: #fffaf7;
+  border-radius: var(--radius-lg);
+  background: #fffbf9;
 }
 
 .detail__management-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
 }
 
-.detail__management-heading h2 {
-  color: var(--text-primary);
-  font-size: 0.95rem;
-}
-
-.detail__management-heading p,
-.detail__deadline-field small {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.detail__management-heading > span {
-  flex: 0 0 auto;
-  padding: 4px 8px;
+.detail__management-tag {
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: rgba(255, 107, 53, 0.1);
+  background: rgba(255, 107, 53, 0.12);
   color: var(--primary);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
+}
+
+.detail__management-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.detail__management-row {
+  display: flex;
+  gap: 10px;
 }
 
 .detail__deadline-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
 
 .detail__deadline-field input,
 .detail__deadline-field select {
   width: 100%;
-  padding: 11px 12px;
+  padding: 7px 10px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text-primary);
   font: inherit;
+  font-size: 0.82rem;
 }
 
 .detail__deadline-field input:focus,
 .detail__deadline-field select:focus {
   border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.12);
 }
 
-.detail__management-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail__management-actions button {
-  padding: 10px 14px;
+.detail__deadline-update-btn {
+  padding: 0 14px;
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   background: var(--primary);
   color: #fff;
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s ease;
 }
 
-.detail__management-actions button:disabled {
+.detail__deadline-update-btn:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.detail__deadline-update-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.detail__management-actions .detail__close-now-btn {
-  border-color: rgba(239, 68, 68, 0.25);
+.detail__management-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 107, 53, 0.15);
+}
+
+.detail__close-now-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.detail__close-now-btn:hover:not(:disabled) {
+  background: #fff7ed;
+  border-color: var(--primary);
+}
+
+.detail__delete-pot-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-sm);
   background: #fff;
   color: #dc2626;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
 }
 
-.detail__management-actions .detail__delete-pot-btn {
-  border-color: rgba(220, 38, 38, 0.4);
+.detail__delete-pot-btn:hover:not(:disabled) {
   background: #fef2f2;
-  color: #dc2626;
-}
-
-.detail__management-actions .detail__delete-pot-btn:hover {
-  background: #fee2e2;
+  border-color: #dc2626;
 }
 
 /* ===== Create Modal ===== */
@@ -2506,6 +2711,66 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   margin-top: -4px;
 }
 
+.chat-panel__pinned-order-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px var(--space-md);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.22);
+  background: #eff6ff;
+}
+
+.chat-panel__pinned-order-link > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-panel__pinned-order-link span {
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat-panel__pinned-order-link strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-panel__pinned-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chat-panel__pinned-order-link button,
+.chat-panel__link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.chat-panel__link-btn:hover,
+.chat-panel__pinned-order-link button:hover {
+  background: #dbeafe;
+}
+
 .chat-panel__bubble--account {
   background: rgba(217, 119, 6, 0.1);
   border-color: rgba(217, 119, 6, 0.3);
@@ -2519,24 +2784,265 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: #fff;
 }
 
-.chat-panel__account-btn {
-  margin: 0 var(--space-sm);
-  margin-top: var(--space-sm);
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(217, 119, 6, 0.3);
-  background: rgba(217, 119, 6, 0.08);
-  color: var(--amber);
-  font-size: 0.82rem;
+.chat-panel__bubble--order-link {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: var(--text-primary);
+}
+
+.chat-panel__message--mine .chat-panel__bubble--order-link {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.chat-panel__order-link-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-panel__order-link-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat-panel__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--space-sm) 2px;
+}
+
+.chat-panel__tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  text-align: left;
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.chat-panel__account-btn:disabled {
+.chat-panel__tool-chip:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.16);
+  color: var(--text-primary);
+}
+
+.chat-panel__tool-chip--photo:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.chat-panel__tool-chip--link:hover:not(:disabled),
+.chat-panel__tool-chip--active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #2563eb;
+}
+
+.chat-panel__tool-chip--account:hover:not(:disabled) {
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.3);
+  color: var(--amber);
+}
+
+.chat-panel__tool-chip:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.chat-panel__bubble--image {
+  padding: 4px;
+  background: #f1f5f9;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  max-width: 200px;
+}
+
+.chat-panel__image-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.chat-panel__image-thumb {
+  width: 100%;
+  max-width: 180px;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.chat-panel__image-thumb:hover {
+  transform: scale(1.02);
+  filter: brightness(0.95);
+}
+
+/* 이미지 전송 전 미리보기 바 */
+.chat-panel__preview-box {
+  padding: 8px var(--space-sm);
+  background: #f8fafc;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.chat-panel__preview-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-panel__preview-img {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.chat-panel__preview-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-panel__preview-send {
+  background: #059669;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.chat-panel__preview-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-panel__preview-cancel {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* 이미지 크게 보기 모달 */
+.chat-panel__image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  padding: var(--space-md);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease;
+}
+
+.chat-panel__image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-panel__image-modal-img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.chat-panel__image-modal-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.chat-panel__quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-panel__link-form {
+  padding: 8px var(--space-sm);
+  background: #f8fafc;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.chat-panel__link-input-wrap {
+  display: flex;
+  gap: 6px;
+}
+
+.chat-panel__link-input {
+  flex: 1;
+  font-size: 0.82rem;
+  padding: 6px 12px;
+}
+
+.chat-panel__link-submit {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.chat-panel__link-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-panel__link-cancel {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .create__restaurant-group + .create__restaurant-group {
@@ -2696,3 +3202,602 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding-left: 1.1em;
   list-style: disc;
 }
+
+/* ==========================================================================
+   식사 트렌드 & 데이터 인사이트 대시보드 (/trends)
+   ========================================================================== */
+
+.trends-page {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-xl) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.trends-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.trends-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 107, 53, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.trends-header {
+  margin-bottom: 8px;
+}
+
+.trends-header__badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: #fff3ed;
+  color: #ea580c;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.trends-header__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.trends-header__desc {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+/* 섹션 공통 */
+.trends-section {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  padding: 24px 28px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.trends-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.trends-section__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.trends-section__subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.trends-section__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* 1. 인기 맛집 핫플레이스 TOP 5 랭킹 리스트 */
+.trends-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trends-rank-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fafafa;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.trends-rank-card:hover {
+  background: #fff;
+  border-color: rgba(255, 107, 53, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.trends-rank-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.trends-rank-badge--1 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffae00 100%);
+  color: #78350f;
+  box-shadow: 0 2px 6px rgba(255, 174, 0, 0.4);
+}
+
+.trends-rank-badge--2 {
+  background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+  color: #1e293b;
+}
+
+.trends-rank-badge--3 {
+  background: linear-gradient(135deg, #fed7aa 0%, #f97316 100%);
+  color: #7c2d12;
+}
+
+.trends-rank-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.trends-rank-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trends-rank-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trends-rank-category {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.trends-rank-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.trends-rank-rate {
+  color: #059669;
+  font-weight: 600;
+}
+
+.trends-rank-btn {
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.trends-rank-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 2. 차트 섹션 (2열 구조) */
+.trends-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.trends-chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 시간대별 막대 차트 */
+.trends-bar-chart {
+  margin-top: 10px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.trends-bar-chart__bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 140px;
+  gap: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.trends-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.trends-bar-track {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+
+.trends-bar-value {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ea580c;
+  margin-bottom: 2px;
+}
+
+.trends-bar-fill {
+  width: 70%;
+  max-width: 22px;
+  border-radius: 4px 4px 0 0;
+  background: #cbd5e1;
+  transition: height 0.4s ease, background 0.2s ease;
+}
+
+.trends-bar-fill:hover {
+  background: #94a3b8;
+}
+
+.trends-bar-fill--peak {
+  background: linear-gradient(180deg, #ff8c42 0%, #ea580c 100%);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+}
+
+.trends-bar-label {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.trends-bar-label--peak {
+  font-weight: 800;
+  color: #ea580c;
+}
+
+/* 카테고리별 입맛 점유율 가로 바 */
+.trends-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.trends-cat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trends-cat-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.trends-cat-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trends-cat-count {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.trends-cat-bar-bg {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.trends-cat-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.trends-cat-bar-fill--0 { background: #ea580c; }
+.trends-cat-bar-fill--1 { background: #3b82f6; }
+.trends-cat-bar-fill--2 { background: #10b981; }
+.trends-cat-bar-fill--3 { background: #8b5cf6; }
+.trends-cat-bar-fill--4 { background: #f59e0b; }
+
+/* 3. 팟 성사 속도 & 매칭 인사이트 (4개 지표 2x2 그리드) */
+.trends-speed-section {
+  background: linear-gradient(135deg, #ffffff 0%, #fffbf8 100%);
+  border: 1px solid rgba(255, 107, 53, 0.15);
+}
+
+.trends-stats-4grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.trends-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.trends-stat-item:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 107, 53, 0.25);
+}
+
+.trends-stat-item__icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.trends-stat-item__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trends-stat-item__label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.trends-stat-item__val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.trends-stat-item__sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 4. 나의 모여밥 리포트 카드 (트렌드 페이지 내) */
+.trends-my-report {
+  border: 1.5px solid rgba(16, 185, 129, 0.3);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 40%);
+}
+
+.trends-my-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.trends-my-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trends-my-card__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.trends-my-card__category {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.trends-my-card__desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.trends-mates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.trends-mate-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.trends-mate-rank {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #059669;
+  width: 24px;
+}
+
+.trends-mate-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.trends-mate-name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.trends-mate-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 마이페이지(/my) 요약 카드 */
+.my-report-summary {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);
+}
+
+.my-report-summary__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.my-report-summary__header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.my-report-summary__more {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #059669;
+  text-decoration: none;
+}
+
+.my-report-summary__more:hover {
+  text-decoration: underline;
+}
+
+.my-report-summary__grid {
+  display: grid;
+  gap: 12px;
+}
+
+.my-report-summary__item {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.my-report-summary__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.my-report-summary__val {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #059669;
+}
+
+.my-report-summary__sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.my-report-summary__mate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.my-report-summary__mate-tag {
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .trends-charts-row,
+  .trends-stats-4grid,
+  .trends-my-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않도록 가로 스크롤 처리 */
+  .trends-bar-chart__bars {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .trends-bar-col {
+    min-width: 26px;
+  }
+}
+

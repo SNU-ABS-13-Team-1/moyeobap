@@ -91,7 +91,8 @@ export default function HomePage() {
       .filter((pot) => {
         if (pot.status !== statusFilter) return false;
         if (categoryFilter === 'all') return true;
-        return restaurantsById.get(pot.restaurantId)?.category === categoryFilter;
+        const effectiveCategory = pot.category ?? restaurantsById.get(pot.restaurantId)?.category;
+        return effectiveCategory === categoryFilter;
       })
       .sort((a, b) => statusFilter === 'closed'
         ? b.deadline.getTime() - a.deadline.getTime()
