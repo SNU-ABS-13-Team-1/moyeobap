@@ -7,7 +7,7 @@
 ## 현재 구현
 
 - 배포된 사이트: [moyeobap.vercel.app](https://moyeobap.vercel.app/)
-- GitHub 저장소: [famegon/moyeobap](https://github.com/famegon/moyeobap)
+- GitHub 저장소: [SNU-ABS-13-Team-1/moyeobap](https://github.com/SNU-ABS-13-Team-1/moyeobap)
 - 제품 범위와 세부 결정: [모여밥 작업 지침서](AGENTS.md)
 
 음식점과 메뉴는 팀이 직접 조사한 실제 데이터 112곳입니다. 모집 정보는 접속한
@@ -251,7 +251,7 @@ npm run data:build               # data/*.csv → app/data/restaurants.ts
 
 ## 배포
 
-GitHub 저장소를 Vercel에 연결해 [moyeobap2.vercel.app](https://moyeobap.vercel.app/)
+GitHub 저장소를 Vercel에 연결해 [moyeobap.vercel.app](https://moyeobap.vercel.app/)
 으로 배포하고 있습니다.
 
 ## 프로젝트 구조

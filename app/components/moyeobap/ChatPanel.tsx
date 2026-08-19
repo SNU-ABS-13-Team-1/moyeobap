@@ -10,6 +10,7 @@ import {
   isChatEmojiPath,
   type ChatEmoji,
 } from '../../data/chat-emojis';
+import { useAuth } from './AuthProvider';
 
 interface ChatPanelProps {
   potId: string;
@@ -38,6 +39,7 @@ function renderMessageText(text: string) {
 }
 
 export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
+  const { openProfile } = useAuth();
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
     fetcher,
@@ -560,7 +562,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
         >
           🔗 주문 링크
         </button>
-        {currentUser.bankName && currentUser.accountNumber && (
+        {currentUser.bankName && currentUser.accountNumber ? (
           <button
             type="button"
             className="chat-panel__tool-chip chat-panel__tool-chip--account"
@@ -570,6 +572,16 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
             aria-label="내 계좌번호 공유"
           >
             💳 계좌 전송
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="chat-panel__tool-chip chat-panel__tool-chip--account"
+            onClick={openProfile}
+            disabled={sending}
+            title="정산용 계좌번호 등록"
+          >
+            💳 계좌 등록
           </button>
         )}
       </div>
