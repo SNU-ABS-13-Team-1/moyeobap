@@ -3236,6 +3236,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   animation: spin 0.8s linear infinite;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .trends-header {
   margin-bottom: 8px;
 }
