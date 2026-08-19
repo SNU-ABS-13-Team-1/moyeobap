@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { findExactRestaurant, findRestaurantSuggestions } from '../../lib/restaurant-matching';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
@@ -61,6 +61,9 @@ export function CreatePotForm({
     [initialRestaurantId, restaurants],
   );
 
+  const selectedItemRef = useRef<HTMLButtonElement | null>(null);
+  const timeSectionRef = useRef<HTMLDivElement | null>(null);
+
   const [mode, setMode] = useState<'list' | 'custom'>('list');
   const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>(
     initialRest?.category ?? 'lunch',
@@ -72,12 +75,20 @@ export function CreatePotForm({
   );
 
   useEffect(() => {
-    if (initialRestaurantId) {
+    if (initialRestaurantId && restaurants.length > 0) {
       setSelectedRestaurantId(initialRestaurantId);
       const rest = restaurants.find((r) => r.id === initialRestaurantId);
       if (rest) {
         setCategoryFilter(rest.category);
       }
+      const timer = setTimeout(() => {
+        if (selectedItemRef.current) {
+          selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (timeSectionRef.current) {
+          timeSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [initialRestaurantId, restaurants]);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
@@ -303,11 +314,13 @@ export function CreatePotForm({
                     <div className="create__restaurant-gallery">
                       {group.items.map(r => {
                         const activePotCount = activePotsByRestaurant.get(r.id)?.length ?? 0;
+                        const isSelected = selectedRestaurantId === r.id;
                         return (
                           <button
-                            aria-pressed={selectedRestaurantId === r.id}
+                            aria-pressed={isSelected}
                             key={r.id}
-                            className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
+                            ref={isSelected ? selectedItemRef : undefined}
+                            className={`create__restaurant-item ${isSelected ? 'create__restaurant-item--selected' : ''}`}
                             onClick={() => setSelectedRestaurantId(r.id)}
                             type="button"
                           >
@@ -447,7 +460,7 @@ export function CreatePotForm({
 
           {(mode === 'custom' || selectedRestaurantId) && (
             <>
-              <div className="create__time-section">
+              <div className="create__time-section" ref={timeSectionRef}>
                 <label className="create__time-label">마감 시간</label>
                 <div className="create__time-options">
                   {DEADLINE_OPTIONS.map(mins => (
