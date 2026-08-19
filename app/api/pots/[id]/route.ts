@@ -62,8 +62,13 @@ export async function GET(
   }
 
   const status = deriveStatus(pot);
+  const now = new Date();
+  const timeUp = now.getTime() >= new Date(pot.deadline).getTime();
+  const capReached = pot.maxParticipants !== null && pot.participants.length >= pot.maxParticipants;
   const currentPot = status === pot.status ? pot : { ...pot, status };
-  if (currentPot !== pot) await savePot(currentPot);
+  if (currentPot !== pot && (timeUp || capReached || status === "active")) {
+    await savePot(currentPot);
+  }
 
   if (currentPot.status === "failed") {
     return NextResponse.json({ error: "종료된 팟이에요." }, { status: 410 });
