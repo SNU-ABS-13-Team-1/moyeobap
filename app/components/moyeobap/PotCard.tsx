@@ -76,7 +76,9 @@ export function PotCard({
           <div className={`card__chat-preview ${pot.unreadMessageCount > 0 ? 'card__chat-preview--unread' : ''}`}>
             <span>
               {pot.latestMessage
-                ? `${pot.latestMessage.authorName}: ${pot.latestMessage.text}`
+                ? pot.latestMessage.text.startsWith(`${pot.latestMessage.authorName}님이 `)
+                  ? pot.latestMessage.text
+                  : `${pot.latestMessage.authorName}: ${pot.latestMessage.text}`
                 : '아직 새 메시지가 없어요.'}
             </span>
             {pot.latestMessage && (

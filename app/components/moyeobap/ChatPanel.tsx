@@ -4,6 +4,12 @@ import type { ChatMessageView, User } from '../../types/moyeobap';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
+import {
+  CHAT_EMOJIS,
+  getChatEmojiBySrc,
+  isChatEmojiPath,
+  type ChatEmoji,
+} from '../../data/chat-emojis';
 
 interface ChatPanelProps {
   potId: string;
@@ -42,6 +48,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const [sendError, setSendError] = useState<string | null>(null);
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [orderLinkUrl, setOrderLinkUrl] = useState('');
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -250,7 +257,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     const optimisticMsg: ChatMessageView = {
       id: `temp-${Date.now()}`,
       authorName: currentUser.name,
-      text: '📷 사진',
+      text: dataUrl,
       createdAt: new Date().toISOString(),
       kind: 'image',
       imageUrl: dataUrl,
@@ -268,6 +275,40 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
       await mutate();
     } catch (error) {
       setSendError(getErrorMessage(error, '사진을 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleSendEmoji(emoji: ChatEmoji) {
+    if (sending) return;
+
+    setSending(true);
+    setSendError(null);
+    setIsEmojiPickerOpen(false);
+
+    const optimisticMsg: ChatMessageView = {
+      id: `temp-emoji-${emoji.id}`,
+      authorName: currentUser.name,
+      text: emoji.src,
+      createdAt: new Date().toISOString(),
+      kind: 'image',
+      imageUrl: emoji.src,
+      isMine: true,
+    };
+
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    try {
+      await requestJson(`/api/pots/${potId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emojiId: emoji.id }),
+      });
+      await mutate();
+    } catch (error) {
+      setSendError(getErrorMessage(error, '이모티콘을 보내지 못했어요.'));
       await mutate();
     } finally {
       setSending(false);
@@ -326,6 +367,8 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
                   ? 'chat-panel__bubble--account'
                   : m.kind === 'order_link'
                   ? 'chat-panel__bubble--order-link'
+                  : m.kind === 'image' && isChatEmojiPath(m.imageUrl)
+                  ? 'chat-panel__bubble--emoji'
                   : m.kind === 'image'
                   ? 'chat-panel__bubble--image'
                   : ''
@@ -345,13 +388,23 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
                   </a>
                 </div>
               ) : m.kind === 'image' && m.imageUrl ? (
-                <div className="chat-panel__image-wrap">
+                <div className={`chat-panel__image-wrap ${
+                  isChatEmojiPath(m.imageUrl) ? 'chat-panel__image-wrap--emoji' : ''
+                }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={m.imageUrl}
-                    alt="공유된 사진"
-                    className="chat-panel__image-thumb"
-                    onClick={() => setViewingImage(m.imageUrl ?? null)}
+                    alt={getChatEmojiBySrc(m.imageUrl)?.label ?? '공유된 사진'}
+                    className={
+                      isChatEmojiPath(m.imageUrl)
+                        ? 'chat-panel__emoji-message-image'
+                        : 'chat-panel__image-thumb'
+                    }
+                    onClick={
+                      isChatEmojiPath(m.imageUrl)
+                        ? undefined
+                        : () => setViewingImage(m.imageUrl ?? null)
+                    }
                   />
                 </div>
               ) : (
@@ -437,6 +490,29 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
         </form>
       )}
 
+      {isEmojiPickerOpen && (
+        <div
+          className="chat-panel__emoji-picker"
+          id="chat-emoji-picker"
+          aria-label="모여밥 이모티콘 선택"
+        >
+          {CHAT_EMOJIS.map((emoji) => (
+            <button
+              type="button"
+              className="chat-panel__emoji-option"
+              key={emoji.id}
+              onClick={() => handleSendEmoji(emoji)}
+              disabled={sending}
+              title={`${emoji.label} 보내기`}
+              aria-label={`${emoji.label} 보내기`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={emoji.src} alt={emoji.label} />
+            </button>
+          ))}
+        </div>
+      )}
+
       <input
         type="file"
         ref={fileInputRef}
@@ -452,15 +528,35 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
           title="사진 첨부하기"
+          aria-label="사진 첨부하기"
         >
           📷 사진
         </button>
         <button
           type="button"
+          className={`chat-panel__tool-chip chat-panel__tool-chip--emoji ${isEmojiPickerOpen ? 'chat-panel__tool-chip--active' : ''}`}
+          onClick={() => {
+            setIsEmojiPickerOpen((prev) => !prev);
+            setIsOrderLinkModalOpen(false);
+          }}
+          disabled={sending}
+          title="모여밥 이모티콘 선택"
+          aria-label="모여밥 이모티콘 선택"
+          aria-expanded={isEmojiPickerOpen}
+          aria-controls="chat-emoji-picker"
+        >
+          🍚 이모티콘
+        </button>
+        <button
+          type="button"
           className={`chat-panel__tool-chip chat-panel__tool-chip--link ${isOrderLinkModalOpen ? 'chat-panel__tool-chip--active' : ''}`}
-          onClick={() => setIsOrderLinkModalOpen((prev) => !prev)}
+          onClick={() => {
+            setIsOrderLinkModalOpen((prev) => !prev);
+            setIsEmojiPickerOpen(false);
+          }}
           disabled={sending}
           title="배달앱 주문 링크 공유"
+          aria-label="배달앱 주문 링크 공유"
         >
           🔗 주문 링크
         </button>
@@ -471,6 +567,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
             onClick={handleShareAccount}
             disabled={sending}
             title="내 계좌번호 공유"
+            aria-label="내 계좌번호 공유"
           >
             💳 계좌 전송
           </button>
