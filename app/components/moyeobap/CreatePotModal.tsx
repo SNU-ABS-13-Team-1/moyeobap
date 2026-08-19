@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findExactRestaurant, findRestaurantSuggestions } from '../../lib/restaurant-matching';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
 interface CreatePotFormProps {
   restaurants: Restaurant[];
   pots: SerializedPot[];
+  initialRestaurantId?: string | null;
   onCreateCustomRestaurant: (input: {
     name: string;
     category: 'lunch' | 'cafe' | 'other';
@@ -51,14 +52,34 @@ function formatRemainingTime(deadline: string) {
 export function CreatePotForm({
   restaurants,
   pots,
+  initialRestaurantId,
   onCreateCustomRestaurant,
   onSubmit,
 }: CreatePotFormProps) {
+  const initialRest = useMemo(
+    () => (initialRestaurantId ? restaurants.find((r) => r.id === initialRestaurantId) : undefined),
+    [initialRestaurantId, restaurants],
+  );
+
   const [mode, setMode] = useState<'list' | 'custom'>('list');
-  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>('lunch');
+  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>(
+    initialRest?.category ?? 'lunch',
+  );
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(
+    initialRestaurantId ?? null,
+  );
+
+  useEffect(() => {
+    if (initialRestaurantId) {
+      setSelectedRestaurantId(initialRestaurantId);
+      const rest = restaurants.find((r) => r.id === initialRestaurantId);
+      if (rest) {
+        setCategoryFilter(rest.category);
+      }
+    }
+  }, [initialRestaurantId, restaurants]);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
   const [customMinutes, setCustomMinutes] = useState('90');
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);

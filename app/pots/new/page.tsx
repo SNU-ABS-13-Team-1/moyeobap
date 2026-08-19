@@ -1,7 +1,8 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
@@ -9,8 +10,10 @@ import { fetcher } from '../../lib/fetcher';
 import { useAuth } from '../../components/moyeobap/AuthProvider';
 import { CreatePotForm } from '../../components/moyeobap/CreatePotModal';
 
-export default function NewPotPage() {
+function NewPotContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialRestaurantId = searchParams.get('restaurantId');
   const { currentUser, isAuthLoading, openAuth } = useAuth();
   const { data: restaurantsData, error: restaurantsError, mutate: mutateRestaurants } = useSWR<{ restaurants: Restaurant[] }>(
     '/api/restaurants',
@@ -90,6 +93,7 @@ export default function NewPotPage() {
         <div className="page-state">매장 목록을 불러오는 중이에요...</div>
       ) : (
         <CreatePotForm
+          initialRestaurantId={initialRestaurantId}
           onCreateCustomRestaurant={handleCreateCustomRestaurant}
           onSubmit={handleCreateSubmit}
           pots={potsData.pots}
@@ -97,5 +101,13 @@ export default function NewPotPage() {
         />
       )}
     </main>
+  );
+}
+
+export default function NewPotPage() {
+  return (
+    <Suspense fallback={<main className="page-content create-page"><div className="page-state">페이지를 불러오는 중이에요...</div></main>}>
+      <NewPotContent />
+    </Suspense>
   );
 }
