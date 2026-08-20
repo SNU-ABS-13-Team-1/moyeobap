@@ -4,7 +4,7 @@ export interface ChatEmoji {
   src: `/emojis/${string}.png`;
 }
 
-export const CHAT_EMOJIS: readonly ChatEmoji[] = [
+const CHAT_EMOJIS_V2: readonly ChatEmoji[] = [
   { id: 'hello', label: '안녕하세요!', src: '/emojis/hello.png' },
   { id: 'thank-you', label: '감사합니다!', src: '/emojis/thank-you.png' },
   { id: 'yes', label: '넵!', src: '/emojis/yes.png' },
@@ -37,8 +37,11 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-const KNOWN_CHAT_EMOJIS: readonly ChatEmoji[] = [
-  ...CHAT_EMOJIS,
+// 피커 노출 순서 = 2차 개편분(15종) 먼저, 기존 12종이 뒤에 이어집니다.
+// 전송 화이트리스트(getChatEmojiById)와 렌더용 조회(getChatEmojiBySrc)가
+// 같은 목록을 보도록 하나로 유지합니다.
+export const CHAT_EMOJIS: readonly ChatEmoji[] = [
+  ...CHAT_EMOJIS_V2,
   ...LEGACY_CHAT_EMOJIS,
 ];
 
@@ -49,7 +52,7 @@ export function getChatEmojiById(id: unknown): ChatEmoji | undefined {
 
 export function getChatEmojiBySrc(src: unknown): ChatEmoji | undefined {
   if (typeof src !== 'string') return undefined;
-  return KNOWN_CHAT_EMOJIS.find((emoji) => emoji.src === src);
+  return CHAT_EMOJIS.find((emoji) => emoji.src === src);
 }
 
 export function isChatEmojiPath(src: unknown): src is `/emojis/${string}` {
