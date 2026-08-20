@@ -4,6 +4,7 @@ import "./globals.css";
 import "./prototype.css";
 import { AuthProvider } from "./components/moyeobap/AuthProvider";
 import { Header } from "./components/moyeobap/Header";
+import { isFeatureEnabled } from "./lib/featureFlags";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -45,18 +46,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const gamesEnabled = await isFeatureEnabled("games_hub");
+
   return (
     <html data-scroll-behavior="smooth" lang="ko">
       <body>
         <AuthProvider>
           <div className="moyeobap-body">
             <div className="app">
-              <Header />
+              <Header gamesEnabled={gamesEnabled} />
               {children}
             </div>
           </div>
