@@ -2105,6 +2105,23 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
   .dashboard-filters {
     flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .header__nav {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .header__tab {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .header__tab-count {
+    font-size: 0.7rem;
+    padding: 1px 5px;
   }
 
   .site-nav {
@@ -2194,73 +2211,73 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .pot-page__info {
-    padding: 12px 14px;
+    padding: 14px 16px;
   }
 
   .pot-page__hero {
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 12px;
   }
 
   .pot-page__hero .detail__emoji {
-    width: 46px;
-    height: 46px;
-    font-size: 1.75rem;
+    width: 50px;
+    height: 50px;
+    font-size: 1.9rem;
     border-radius: var(--radius-md);
   }
 
   .pot-page__hero h1 {
-    font-size: 1.22rem;
+    font-size: 1.28rem;
     margin: 3px 0 1px;
     line-height: 1.25;
   }
 
   .pot-page__hero p {
-    font-size: 0.74rem;
+    font-size: 0.76rem;
   }
 
   .detail__timer-section {
-    padding: 9px 12px;
-    margin-bottom: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
     border-radius: var(--radius-md);
   }
 
   .detail__timer {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
   }
 
   .detail__timer-label {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     margin-top: 2px;
   }
 
   .detail__info-grid {
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   .detail__info-item {
-    padding: 7px 10px;
+    padding: 8px 10px;
     border-radius: var(--radius-sm);
   }
 
   .detail__info-label {
-    font-size: 0.66rem;
+    font-size: 0.68rem;
     margin-bottom: 2px;
   }
 
   .detail__info-value {
-    font-size: 0.82rem;
+    font-size: 0.84rem;
   }
 
   .detail__section-title {
-    font-size: 0.74rem;
-    margin-bottom: 5px;
+    font-size: 0.76rem;
+    margin-bottom: 6px;
   }
 
   .detail__menu-section,
   .detail__participants-section {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   .detail__menu-list {
@@ -2268,8 +2285,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .detail__menu-item {
-    padding: 6px 10px;
-    font-size: 0.78rem;
+    padding: 7px 10px;
+    font-size: 0.8rem;
     border-radius: var(--radius-sm);
   }
 
@@ -2277,14 +2294,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     padding: 3px;
     border-radius: var(--radius-full);
     background: var(--bg-secondary);
   }
 
   .pot-page__mobile-tabs button {
-    padding: 7px 10px;
+    padding: 8px 10px;
     border: none;
     border-radius: var(--radius-full);
     background: transparent;
@@ -2336,7 +2353,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 6px;
-    padding: 7px 10px;
+    padding: 7px 8px;
   }
 
   .detail__participant-avatar {
@@ -2346,7 +2363,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .detail__participant-name {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
   }
 
   .detail__participant-info {
@@ -2366,7 +2383,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .detail__paid-badge-btn {
-    padding: 4px 10px;
+    padding: 4px 9px;
     font-size: 0.7rem;
   }
 
@@ -2391,6 +2408,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     width: 100%;
     padding: 7px;
     font-size: 0.78rem;
+  }
+
+  .pot-page__action {
+    padding-top: 8px;
+  }
+
+  .pot-page__action button,
+  .pot-page__action a {
+    padding: 10px;
+    font-size: 0.9rem;
   }
 
   .pot-page__action {

@@ -81,7 +81,7 @@ export function TrendsPageClient() {
                     className="trends-rank-btn"
                     href={`/pots/new?restaurantId=${rest.restaurantId}`}
                   >
-                    이 식당으로 팟 열기
+                    팟 열기
                   </Link>
                 </div>
               );
@@ -222,7 +222,7 @@ export function TrendsPageClient() {
             <div className="trends-stat-item__icon">🍩</div>
             <div className="trends-stat-item__content">
               <span className="trends-stat-item__label">식사 vs 디저트 팟 비율</span>
-              <strong className="trends-stat-item__val" style={{ fontSize: "1.2rem" }}>
+              <strong className="trends-stat-item__val">
                 점심 {stats.lunchRatio}% : 카페 {stats.cafeRatio}%
               </strong>
               <span className="trends-stat-item__sub">
