@@ -57,6 +57,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const scrolledPotIdRef = useRef<string | null>(null);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
   const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
@@ -100,9 +101,33 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     };
   }, [potId, mutate]);
 
+  // 메시지 로드 및 추가 시 최하단 스크롤 (초기 진입 시 즉시 하단 포커싱, 이후 새 메시지는 부드러운 스크롤)
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages.length]);
+    if (!listRef.current || messages.length === 0) return;
+
+    if (scrolledPotIdRef.current !== potId) {
+      // 1. 초기 렌더링 즉시 최하단 이동 및 부드럽게 표시
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.style.opacity = '1';
+      scrolledPotIdRef.current = potId;
+
+      // 2. 이미지/이모티콘 렌더링 높이 보정용 이중 타이머
+      const timer1 = window.setTimeout(() => {
+        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+      }, 50);
+      const timer2 = window.setTimeout(() => {
+        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+      }, 150);
+
+      return () => {
+        window.clearTimeout(timer1);
+        window.clearTimeout(timer2);
+      };
+    }
+
+    // 이후 새 메시지가 올 때 부드러운 스크롤
+    listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages.length, potId]);
 
   useEffect(() => () => {
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
@@ -348,11 +373,20 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           </button>
         </div>
       )}
-      <div className="chat-panel__list" ref={listRef}>
+      <div
+        className="chat-panel__list"
+        ref={listRef}
+        style={{
+          transition: 'opacity 0.12s ease',
+        }}
+      >
         {loadError && (
           <p className="chat-panel__error" role="alert">대화를 불러오지 못했어요.</p>
         )}
-        {!loadError && messages.length === 0 && (
+        {!loadError && !data && (
+          <div className="chat-panel__empty" style={{ opacity: 0.6 }}>대화를 불러오는 중...</div>
+        )}
+        {!loadError && data && messages.length === 0 && (
           <p className="chat-panel__empty">아직 대화가 없어요. 첫 메시지를 남겨보세요!</p>
         )}
         {messages.map(m => (
