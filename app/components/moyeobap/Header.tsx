@@ -8,13 +8,14 @@ import { BgmPlayer } from './BgmPlayer';
 interface NavItem {
   href: string;
   label: string;
+  mobileLabel?: string;
   badge?: string;
   icon?: string;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: '현황판' },
-  { href: '/trends', label: '식사 트렌드', badge: 'HOT' },
+  { href: '/trends', label: '식사 트렌드', mobileLabel: '트렌드', badge: 'HOT' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
 ] as const;
@@ -43,7 +44,8 @@ export function Header() {
               key={item.href}
             >
               {item.icon && <span className="site-nav__icon">{item.icon}</span>}
-              <span>{item.label}</span>
+              <span className={item.mobileLabel ? 'site-nav__label-full' : ''}>{item.label}</span>
+              {item.mobileLabel && <span className="site-nav__label-mobile">{item.mobileLabel}</span>}
               {item.badge && <span className="site-nav__badge">{item.badge}</span>}
             </Link>
           );

@@ -147,6 +147,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   box-shadow: 0 1px 4px rgba(255, 75, 75, 0.35);
 }
 
+.site-nav__label-mobile {
+  display: none;
+}
+
 .header__logo-emoji {
   font-size: 1.5rem;
 }
@@ -1433,10 +1437,13 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--primary);
   background: #fff7ed;
   border: 1px solid rgba(234, 88, 12, 0.2);
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
   display: inline-block;
-  max-width: fit-content;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 
 .detail__participant-memo-empty {
@@ -2081,14 +2088,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .app {
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md) var(--space-xl);
   }
 
   .header {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: var(--space-md);
-    padding: var(--space-md) 0;
+    padding: var(--space-sm) 0;
   }
 
   .header__auth {
@@ -2096,30 +2103,81 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     grid-row: 1;
   }
 
+  .dashboard-toolbar {
+    align-items: center;
+    flex-direction: column;
+    margin-top: 16px;
+    margin-bottom: 0;
+  }
+
   .dashboard-filters {
     flex-direction: column;
+    gap: 10px;
+    margin-bottom: 0;
+  }
+
+  .header__nav {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .header__tab {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .header__tab-count {
+    font-size: 0.7rem;
+    padding: 1px 5px;
   }
 
   .site-nav {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
-    justify-content: center;
+    max-width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    padding: 3px;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .site-nav__link {
-    flex: 1;
-    padding-inline: 10px;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 4px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     text-align: center;
+    border-radius: var(--radius-full);
   }
 
-  .dashboard-toolbar {
-    align-items: center;
-    flex-direction: column;
+  .site-nav__badge {
+    font-size: 0.56rem;
+    padding: 1px 4px;
+    line-height: 1.1;
+    flex-shrink: 0;
   }
 
   .grid {
     grid-template-columns: 1fr;
+    margin-top: 14px;
+    gap: 12px;
+  }
+
+  .empty {
+    margin-top: 16px;
+    padding: 32px 16px;
+  }
+
+  .dashboard-date-section {
+    margin-top: 14px;
   }
 
   .fab {
@@ -2135,34 +2193,135 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     max-height: 90vh;
   }
 
+  .app {
+    padding: var(--space-md);
+  }
+
+  .page-content {
+    padding: 16px 0 24px;
+  }
+
   .page-heading {
     align-items: flex-start;
     flex-direction: column;
+    margin-bottom: 18px;
+    gap: 6px;
   }
 
-  .create-page__form,
+  .page-heading h1 {
+    font-size: 1.45rem;
+    margin-top: 2px;
+  }
+
+  .page-heading p:not(.page-heading__eyebrow) {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .create-page__form {
+    padding: var(--space-md);
+  }
+
   .pot-page__info {
-    padding: var(--space-lg);
+    padding: 14px 16px;
+  }
+
+  .pot-page__hero {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .pot-page__hero .detail__emoji {
+    width: 50px;
+    height: 50px;
+    font-size: 1.9rem;
+    border-radius: var(--radius-md);
+  }
+
+  .pot-page__hero h1 {
+    font-size: 1.28rem;
+    margin: 3px 0 1px;
+    line-height: 1.25;
+  }
+
+  .pot-page__hero p {
+    font-size: 0.76rem;
+  }
+
+  .detail__timer-section {
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border-radius: var(--radius-md);
+  }
+
+  .detail__timer {
+    font-size: 1.5rem;
+  }
+
+  .detail__timer-label {
+    font-size: 0.72rem;
+    margin-top: 2px;
+  }
+
+  .detail__info-grid {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .detail__info-item {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+  }
+
+  .detail__info-label {
+    font-size: 0.68rem;
+    margin-bottom: 2px;
+  }
+
+  .detail__info-value {
+    font-size: 0.84rem;
+  }
+
+  .detail__section-title {
+    font-size: 0.76rem;
+    margin-bottom: 6px;
+  }
+
+  .detail__menu-section,
+  .detail__participants-section {
+    margin-bottom: 12px;
+  }
+
+  .detail__menu-list {
+    gap: 4px;
+  }
+
+  .detail__menu-item {
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
   }
 
   .pot-page__mobile-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
-    margin-bottom: var(--space-md);
-    padding: 4px;
+    margin-bottom: 12px;
+    padding: 3px;
     border-radius: var(--radius-full);
     background: var(--bg-secondary);
   }
 
   .pot-page__mobile-tabs button {
-    padding: 10px;
+    padding: 8px 10px;
     border: none;
     border-radius: var(--radius-full);
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
     font-weight: 600;
+    font-size: 0.82rem;
   }
 
   .pot-page__mobile-tabs button[aria-selected='true'] {
@@ -2186,7 +2345,145 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
   .pot-page__chat {
     position: static;
-    min-height: 580px;
+    min-height: auto;
+    width: 100%;
+  }
+
+  .pot-page__chat .chat-panel {
+    min-height: auto;
+    height: auto;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-md);
+  }
+
+  .pot-page__chat .chat-panel__list {
+    min-height: 280px;
+    max-height: 400px;
+    height: calc(100dvh - 360px);
+  }
+
+  .detail__participant {
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .detail__participant-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .detail__participant-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .detail__participant-me-badge {
+    font-size: 0.62rem;
+    padding: 1px 4px;
+  }
+
+  .detail__participant-badge {
+    font-size: 0.62rem;
+    padding: 1px 4px;
+  }
+
+  .detail__participant-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .detail__participant-name-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .detail__participant-memo-tag {
+    font-size: 0.7rem;
+    padding: 1px 5px;
+    margin-top: 1px;
+    word-break: break-word;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  .detail__participant-actions {
+    flex-shrink: 0;
+    width: auto;
+    display: flex;
+    align-items: center;
+    margin-top: 0;
+  }
+
+  .detail__paid-badge-btn {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .detail__participant-paid-badge {
+    padding: 3px 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .detail__participant-unpaid-badge {
+    padding: 3px 6px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .detail__my-memo-form {
+    margin-top: 6px;
+    padding-top: 4px;
+  }
+
+  .detail__my-memo-input-wrap {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    width: 100%;
+  }
+
+  .detail__my-memo-input {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
+  .detail__my-memo-submit {
+    width: 100%;
+    padding: 7px;
+    font-size: 0.78rem;
+  }
+
+  .pot-page__action {
+    padding-top: 8px;
+  }
+
+  .pot-page__action button,
+  .pot-page__action a {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .pot-page__action {
+    padding-top: 8px;
+  }
+
+  .pot-page__action button,
+  .pot-page__action a {
+    padding: 10px;
+    font-size: 0.9rem;
   }
 
   .page-heading__shortcut {
@@ -2195,14 +2492,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 480px) {
+  .site-nav__label-full {
+    display: none;
+  }
+
+  .site-nav__label-mobile {
+    display: inline;
+  }
+
   .header__nav {
     flex-wrap: wrap;
     justify-content: center;
-  }
-
-  .card__header {
-    flex-direction: column;
-    gap: var(--space-sm);
   }
 
   .detail__info-grid {
@@ -2716,19 +3016,24 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .chat-panel__form {
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: var(--space-sm);
+  padding: 8px var(--space-sm);
   background: #fff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-panel__input {
   flex: 1;
+  min-width: 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-full);
   padding: 8px 14px;
   font-size: 0.88rem;
   font-family: inherit;
   color: var(--text-primary);
+  box-sizing: border-box;
 }
 
 .chat-panel__input:focus {
@@ -2737,6 +3042,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .chat-panel__send {
+  flex-shrink: 0;
   background: var(--primary);
   color: #fff;
   border: none;
@@ -2746,6 +3052,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  white-space: nowrap;
+  min-width: 52px;
 }
 
 .chat-panel__send:disabled {
@@ -3294,12 +3602,158 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 640px) {
+  .create-page__form .create__restaurant-list {
+    max-height: 280px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .create__restaurant-gallery {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .create__restaurant-item {
+    min-height: 72px;
+    padding: 9px 8px;
+    gap: 6px;
+    align-items: flex-start;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .create__restaurant-emoji {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-top: 1px;
+  }
+
+  .create__restaurant-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .create__restaurant-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.25;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .create__restaurant-meta {
+    font-size: 0.64rem;
+    color: var(--text-muted);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    display: block;
+  }
+
+  .create__restaurant-live {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    margin-top: 2px;
+    display: inline-block;
+    max-width: fit-content;
+    white-space: nowrap;
   }
 
   .create__category-tab {
-    padding: 12px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .create__category-tab small {
+    height: 20px;
+    min-width: 22px;
+    font-size: 0.7rem;
+  }
+
+  .create__category-tabs {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .create__mode-tabs {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .create__mode-tab {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
+
+  .create__subcategory-tabs {
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .create__subcategory-tab {
+    padding: 4px 10px;
+    font-size: 0.74rem;
+  }
+
+  .create__search {
+    padding: 8px 12px 8px 36px;
+    font-size: 0.84rem;
+  }
+
+  .create__search-icon {
+    left: 11px;
+    font-size: 0.8rem;
+  }
+
+  .create__time-section {
+    margin-top: 14px;
+  }
+
+  .create__time-label {
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+  }
+
+  .create__time-options {
+    gap: 6px;
+  }
+
+  .create__time-option {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .create__number-field {
+    padding: 10px;
+    margin-top: 8px;
+    gap: 6px;
+    font-size: 0.78rem;
+  }
+
+  .create__number-input {
+    padding: 6px 10px;
+    width: 100px;
+    font-size: 0.82rem;
+  }
+
+  .create__submit-btn {
+    padding: 11px;
+    font-size: 0.92rem;
+    margin-top: 14px;
   }
 }
 
@@ -3347,6 +3801,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .trends-page {
   max-width: 900px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: var(--space-xl) 0 0;
   display: flex;
@@ -3381,6 +3837,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .trends-header {
   margin-bottom: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-header__badge {
@@ -3415,6 +3873,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(0, 0, 0, 0.07);
   padding: 24px 28px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .trends-section__header {
@@ -3422,6 +3884,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-section__title {
@@ -3443,6 +3908,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-radius: var(--radius-full);
   background: #ecfdf5;
   color: #059669;
+  flex-shrink: 0;
 }
 
 /* 1. 인기 맛집 핫플레이스 TOP 5 랭킹 리스트 */
@@ -3450,6 +3916,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-rank-card {
@@ -3461,6 +3929,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(0, 0, 0, 0.06);
   background: #fafafa;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .trends-rank-card:hover {
@@ -3575,13 +4046,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 /* 2. 차트 섹션 (2열 구조) */
 .trends-charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-chart-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 /* 시간대별 막대 차트 */
@@ -3591,6 +4066,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-bar-chart__bars {
@@ -3601,6 +4078,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: 4px;
   padding-bottom: 4px;
   border-bottom: 1px solid #e2e8f0;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-bar-col {
@@ -3931,19 +4410,228 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 768px) {
-  .trends-charts-row,
-  .trends-stats-4grid,
-  .trends-my-grid {
-    grid-template-columns: 1fr;
+  .trends-page {
+    padding: 16px 0 24px;
+    gap: 16px;
   }
 
-  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않도록 가로 스크롤 처리 */
+  .trends-charts-row,
+  .trends-my-grid {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않고 카드 내부에서 부드럽게 가로 스크롤되도록 처리 */
   .trends-bar-chart__bars {
+    display: flex;
     overflow-x: auto;
     justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 6px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .trends-bar-col {
-    min-width: 26px;
+    flex: 0 0 auto;
+    min-width: 24px;
+    padding-inline: 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-nav {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .site-nav__link {
+    padding: 6px 4px;
+    font-size: 0.8rem;
+  }
+
+  .site-nav__badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+    margin-left: 2px;
+  }
+
+  .trends-header {
+    padding: 0;
+    margin-bottom: 0;
+  }
+
+  .trends-header__badge {
+    font-size: 0.66rem;
+    padding: 2px 7px;
+    margin-bottom: 4px;
+  }
+
+  .trends-header__title {
+    font-size: 1.3rem;
+    line-height: 1.3;
+    word-break: keep-all;
+    margin: 2px 0 4px;
+  }
+
+  .trends-header__desc {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    word-break: keep-all;
+  }
+
+  .trends-section {
+    padding: 16px 14px;
+    margin-bottom: var(--space-md);
+    border-radius: var(--radius-md);
+  }
+
+  .trends-section__header {
+    margin-bottom: 14px;
+  }
+
+  .trends-section__title {
+    font-size: 1.02rem;
+  }
+
+  .trends-section__subtitle {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .trends-section__badge {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+  }
+
+  /* 4대 지표 모바일 2x2 그리드 */
+  .trends-stats-4grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .trends-stat-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 9px 11px;
+    border-radius: var(--radius-sm);
+  }
+
+  .trends-stat-item__icon {
+    font-size: 1.15rem;
+  }
+
+  .trends-stat-item__content {
+    gap: 1px;
+    width: 100%;
+  }
+
+  .trends-stat-item__label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    word-break: keep-all;
+    line-height: 1.2;
+  }
+
+  .trends-stat-item__val {
+    font-size: 0.88rem;
+    font-weight: 800;
+    word-break: keep-all;
+    line-height: 1.2;
+  }
+
+  .trends-stat-item__sub {
+    display: none;
+  }
+
+  .trends-bar-chart {
+    height: 155px;
+    margin-top: 6px;
+  }
+
+  .trends-cat-name {
+    font-size: 0.82rem;
+  }
+
+  .trends-cat-count {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 600px) {
+  /* TOP 5 랭킹 카드 모바일: 가로 1열 슬림 랭킹 바 */
+  .trends-ranking-list {
+    gap: 6px;
+  }
+
+  .trends-rank-card {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .trends-rank-badge {
+    width: 22px;
+    height: 22px;
+    font-size: 0.76rem;
+    flex-shrink: 0;
+  }
+
+  .trends-rank-info {
+    min-width: 0;
+    flex: 1;
+    gap: 1px;
+  }
+
+  .trends-rank-name-row {
+    gap: 5px;
+  }
+
+  .trends-rank-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .trends-rank-category {
+    font-size: 0.62rem;
+    padding: 1px 4px;
+  }
+
+  .trends-rank-stats-row {
+    font-size: 0.66rem;
+    gap: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .trends-rank-btn {
+    flex-shrink: 0;
+    width: auto;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    margin-top: 0;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .trends-stats-4grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trends-stat-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .trends-header__title {
+    font-size: 1.2rem;
   }
 }

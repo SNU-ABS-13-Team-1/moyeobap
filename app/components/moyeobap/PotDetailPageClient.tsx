@@ -722,7 +722,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             <Link href="/my">내 채팅방 보기 →</Link>
           </div>
           {pot.isParticipating && currentUser ? (
-            <ChatPanel currentUser={currentUser} potId={pot.id} />
+            <ChatPanel currentUser={currentUser} potId={pot.id} isActive={mobileTab === 'chat'} />
           ) : (
             <div className="pot-page__chat-locked">
               <span>💬</span>
