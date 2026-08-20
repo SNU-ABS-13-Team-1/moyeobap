@@ -147,6 +147,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   box-shadow: 0 1px 4px rgba(255, 75, 75, 0.35);
 }
 
+.site-nav__label-mobile {
+  display: none;
+}
+
 .header__logo-emoji {
   font-size: 1.5rem;
 }
@@ -2263,6 +2267,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 480px) {
+  .site-nav__label-full {
+    display: none;
+  }
+
+  .site-nav__label-mobile {
+    display: inline;
+  }
+
   .header__nav {
     flex-wrap: wrap;
     justify-content: center;

@@ -15,6 +15,7 @@ import { useAuth } from './AuthProvider';
 interface ChatPanelProps {
   potId: string;
   currentUser: User;
+  isActive?: boolean;
 }
 
 function renderMessageText(text: string) {
@@ -38,7 +39,7 @@ function renderMessageText(text: string) {
   });
 }
 
-export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
+export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProps) {
   const { openProfile } = useAuth();
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
@@ -58,6 +59,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<number | null>(null);
   const scrolledPotIdRef = useRef<string | null>(null);
+  const wasActiveRef = useRef(false);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
   const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
@@ -101,33 +103,40 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
     };
   }, [potId, mutate]);
 
-  // 메시지 로드 및 추가 시 최하단 스크롤 (초기 진입 시 즉시 하단 포커싱, 이후 새 메시지는 부드러운 스크롤)
+  // 메시지 로드 및 추가 시 최하단 스크롤 (초기 진입 및 모바일 탭 전환 시 즉시 하단 포커싱, 이후 새 메시지는 부드러운 스크롤)
   useEffect(() => {
     if (!listRef.current || messages.length === 0) return;
 
-    if (scrolledPotIdRef.current !== potId) {
-      // 1. 초기 렌더링 즉시 최하단 이동 및 부드럽게 표시
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-      listRef.current.style.opacity = '1';
-      scrolledPotIdRef.current = potId;
+    const isBecomingActive = isActive && !wasActiveRef.current;
+    const isNewPot = scrolledPotIdRef.current !== potId;
 
-      // 2. 이미지/이모티콘 렌더링 높이 보정용 이중 타이머
-      const timer1 = window.setTimeout(() => {
-        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-      }, 50);
-      const timer2 = window.setTimeout(() => {
-        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-      }, 150);
+    if (isNewPot || isBecomingActive) {
+      if (isActive) {
+        listRef.current.scrollTop = listRef.current.scrollHeight;
+        listRef.current.style.opacity = '1';
+        scrolledPotIdRef.current = potId;
+        wasActiveRef.current = true;
 
-      return () => {
-        window.clearTimeout(timer1);
-        window.clearTimeout(timer2);
-      };
+        // 이미지/이모티콘 렌더링 높이 보정용 이중 타이머
+        const timer1 = window.setTimeout(() => {
+          if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+        }, 50);
+        const timer2 = window.setTimeout(() => {
+          if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+        }, 180);
+
+        return () => {
+          window.clearTimeout(timer1);
+          window.clearTimeout(timer2);
+        };
+      }
+    } else if (isActive) {
+      // 이후 새 메시지가 올 때 부드러운 스크롤
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     }
 
-    // 이후 새 메시지가 올 때 부드러운 스크롤
-    listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages.length, potId]);
+    wasActiveRef.current = !!isActive;
+  }, [messages.length, potId, isActive]);
 
   useEffect(() => () => {
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
