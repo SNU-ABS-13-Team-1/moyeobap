@@ -3374,8 +3374,20 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
+.trends-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .trends-header {
   margin-bottom: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-header__badge {
@@ -3410,6 +3422,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(0, 0, 0, 0.07);
   padding: 24px 28px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .trends-section__header {
@@ -3417,6 +3433,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-section__title {
@@ -3438,6 +3457,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-radius: var(--radius-full);
   background: #ecfdf5;
   color: #059669;
+  flex-shrink: 0;
 }
 
 /* 1. 인기 맛집 핫플레이스 TOP 5 랭킹 리스트 */
@@ -3445,6 +3465,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-rank-card {
@@ -3456,6 +3478,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(0, 0, 0, 0.06);
   background: #fafafa;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .trends-rank-card:hover {
@@ -3570,13 +3595,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 /* 2. 차트 섹션 (2열 구조) */
 .trends-charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-chart-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 /* 시간대별 막대 차트 */
@@ -3586,6 +3615,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-bar-chart__bars {
@@ -3596,6 +3627,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: 4px;
   padding-bottom: 4px;
   border-bottom: 1px solid #e2e8f0;
+  width: 100%;
+  min-width: 0;
 }
 
 .trends-bar-col {
@@ -3928,20 +3961,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 @media (max-width: 768px) {
   .trends-charts-row,
   .trends-my-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
   }
 
-  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않도록 가로 스크롤 처리 */
+  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않고 카드 내부에서 부드럽게 가로 스크롤되도록 처리 */
   .trends-bar-chart__bars {
+    display: flex;
     overflow-x: auto;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .trends-bar-col {
-    min-width: 26px;
+    flex: 0 0 auto;
+    min-width: 24px;
+    padding-inline: 2px;
   }
 }
 
