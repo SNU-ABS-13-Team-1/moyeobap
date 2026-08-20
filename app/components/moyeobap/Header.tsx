@@ -14,7 +14,7 @@ interface NavItem {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: '현황판' },
-  { href: '/trends', label: '식사 트렌드', icon: '🔥', badge: 'HOT' },
+  { href: '/trends', label: '식사 트렌드', badge: 'HOT' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
 ] as const;
