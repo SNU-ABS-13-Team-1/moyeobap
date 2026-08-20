@@ -2163,25 +2163,29 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     max-height: 90vh;
   }
 
+  .app {
+    padding: var(--space-md);
+  }
+
   .page-content {
-    padding: var(--space-sm) 0 var(--space-lg);
+    padding: 16px 0 24px;
   }
 
   .page-heading {
     align-items: flex-start;
     flex-direction: column;
-    margin-bottom: var(--space-md);
-    gap: var(--space-xs);
+    margin-bottom: 18px;
+    gap: 6px;
   }
 
   .page-heading h1 {
-    font-size: 1.42rem;
+    font-size: 1.45rem;
     margin-top: 2px;
   }
 
   .page-heading p:not(.page-heading__eyebrow) {
-    margin-top: 3px;
-    font-size: 0.84rem;
+    margin-top: 4px;
+    font-size: 0.85rem;
     line-height: 1.45;
   }
 
@@ -4064,6 +4068,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 768px) {
+  .trends-page {
+    padding: 16px 0 24px;
+    gap: 16px;
+  }
+
   .trends-charts-row,
   .trends-my-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -4107,8 +4116,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .trends-header {
-    padding: 6px 4px 2px;
-    margin-bottom: 12px;
+    padding: 0;
+    margin-bottom: 0;
   }
 
   .trends-header__badge {
@@ -4118,14 +4127,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .trends-header__title {
-    font-size: 1.28rem;
+    font-size: 1.3rem;
     line-height: 1.3;
     word-break: keep-all;
-    margin: 4px 0 3px;
+    margin: 2px 0 4px;
   }
 
   .trends-header__desc {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     line-height: 1.4;
     word-break: keep-all;
   }
