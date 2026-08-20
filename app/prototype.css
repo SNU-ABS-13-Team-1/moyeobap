@@ -4806,3 +4806,491 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .snake__leaderboard-score {
   font-weight: 700;
 }
+.omok-lobby {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.omok-lobby__toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+}
+
+.omok-lobby__name-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.omok-lobby__name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.omok-lobby__create-btn {
+  padding: 12px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.omok-lobby__create-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.omok-lobby__create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.omok-lobby__ranking-link {
+  display: inline-block;
+  margin-bottom: var(--space-md);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.omok-lobby__ranking-link:hover {
+  text-decoration: underline;
+}
+
+.omok-lobby__error {
+  color: #e11d48;
+  font-size: 0.9rem;
+  margin-bottom: var(--space-md);
+  text-align: center;
+}
+
+.omok-lobby__empty {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: var(--space-md) 0;
+}
+
+.omok-lobby__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.omok-lobby__table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--card-border);
+}
+
+.omok-lobby__row td {
+  padding: 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.omok-lobby__row-name {
+  font-weight: 600;
+}
+
+.omok-lobby__status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.omok-lobby__status-badge--waiting {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.omok-lobby__status-badge--playing {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.omok-lobby__status-badge--finished {
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-secondary);
+}
+
+.omok-lobby__join-btn {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.omok-lobby__join-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.omok-lobby__join-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Omok room ===== */
+.omok-room-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+  align-items: start;
+  gap: var(--space-lg);
+}
+
+.omok-room-page__chat {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  min-height: 480px;
+  overflow: hidden;
+  display: flex;
+  position: sticky;
+  top: 92px;
+}
+
+.omok-room-page__chat .omok-chat {
+  flex: 1;
+  min-height: 480px;
+}
+
+@media (max-width: 900px) {
+  .omok-room-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .omok-room-page__chat {
+    position: static;
+    min-height: 420px;
+  }
+}
+
+.omok-room {
+  max-width: fit-content;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.omok-room__state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl, 40px);
+}
+
+.omok-room__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.omok-room__name {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.omok-room__spectators {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.omok-room__players {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.omok-room__player {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+}
+
+.omok-room__player--active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #fff7ed;
+}
+
+.omok-room__vs {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.omok-room__status {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  font-weight: 600;
+}
+
+.omok-room__disconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: var(--space-md);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.omok-room__disconnect-banner button {
+  padding: 6px 14px;
+  background: #e0483f;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.omok-room__disconnect-banner button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.omok-room__canvas {
+  border-radius: var(--radius-sm);
+  border: 2px solid #a97c30;
+  box-shadow: var(--shadow-md);
+  cursor: default;
+  max-width: 100%;
+  height: auto;
+}
+
+.omok-room__canvas--active {
+  cursor: pointer;
+}
+
+.omok-room__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--space-md);
+}
+
+.omok-room__leave-btn {
+  padding: 12px 24px;
+  background: #fff;
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.omok-room__leave-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.omok-room__leave-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.omok-room__restart-btn {
+  padding: 12px 24px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.omok-room__restart-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.omok-room__restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Omok chat ===== */
+.omok-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 480px;
+}
+
+.omok-chat__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.omok-chat__empty,
+.omok-chat__error {
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 0.85rem;
+  padding: var(--space-md) 0;
+}
+
+.omok-chat__error {
+  color: #e11d48;
+}
+
+.omok-chat__message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.omok-chat__message--mine {
+  align-items: flex-end;
+}
+
+.omok-chat__meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.omok-chat__bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.omok-chat__message--mine .omok-chat__bubble {
+  background: var(--primary);
+  color: #fff;
+}
+
+.omok-chat__form {
+  display: flex;
+  gap: 8px;
+  padding: var(--space-md);
+  border-top: 1px solid var(--card-border);
+}
+
+.omok-chat__input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.omok-chat__input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.omok-chat__send {
+  padding: 10px 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.omok-chat__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.omok-chat__spectator-note {
+  padding: var(--space-md);
+  border-top: 1px solid var(--card-border);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* ===== Omok ranking ===== */
+.omok-ranking__table {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.omok-ranking__table th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--card-border);
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.omok-ranking__table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.omok-ranking__name {
+  font-weight: 600;
+}
+
+.omok-ranking__error,
+.omok-ranking__empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl, 40px) 0;
+}
+

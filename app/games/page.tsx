@@ -7,6 +7,12 @@ const GAMES = [
     title: '스네이크',
     desc: '방향키로 조작해서 먹이를 먹고 길어지세요.',
   },
+  {
+    href: '/games/omok',
+    emoji: '⚫',
+    title: '오목 (실시간 대전)',
+    desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
+  },
 ] as const;
 
 export default function GamesPage() {

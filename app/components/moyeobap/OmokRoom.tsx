@@ -1,0 +1,417 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
+import { fetcher } from '../../lib/fetcher';
+import { requestJson } from '../../lib/api-client';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { useAuth } from './AuthProvider';
+import { OmokChat } from './OmokChat';
+
+type Stone = 'black' | 'white' | null;
+type OmokRoomData = {
+  id: string;
+  roomName: string;
+  status: 'waiting' | 'playing' | 'finished';
+  blackId: string;
+  blackName: string;
+  whiteId: string | null;
+  whiteName: string | null;
+  board: Stone[][];
+  turn: 'black' | 'white';
+  winner: 'black' | 'white' | 'draw' | null;
+  moveCount: number;
+  lastRow: number | null;
+  lastCol: number | null;
+};
+
+const CELL_SIZE = 26;
+const PADDING = 24;
+const STAR_POINTS = [3, 9, 15];
+const DISCONNECT_CLAIM_DELAY_MS = 60_000;
+
+export function OmokRoom({ roomId }: { roomId: string }) {
+  const router = useRouter();
+  const { currentUser } = useAuth();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
+    `/api/games/omok/rooms/${roomId}`,
+    fetcher,
+    { refreshInterval: 2000 },
+  );
+  const room = data?.room;
+
+  // 방 상태(보드/턴/승패) 실시간 구독 — 참여자에게는 즉시 반영되고,
+  // 관전자는 위 2초 polling으로 따라잡습니다.
+  useEffect(() => {
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`omok-room-${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'omok_rooms', filter: `id=eq.${roomId}` },
+        () => mutate(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId, mutate]);
+
+  const myColor = currentUser?.id === room?.blackId ? 'black' : currentUser?.id === room?.whiteId ? 'white' : null;
+  const isMyTurn = Boolean(room) && myColor !== null && room!.status === 'playing' && room!.turn === myColor;
+
+  // Presence: 접속 중인 사람 목록(참여자 온라인 여부 + 관전자 수)을
+  // 추적합니다. 방 자체를 의존성에 두면 2초 polling마다 채널이
+  // 재구독되므로, 사람이 바뀔 때만 갱신되는 blackId/whiteId만 의존성으로
+  // 둡니다.
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [spectatorCount, setSpectatorCount] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser || !room) return undefined;
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch {
+      return undefined;
+    }
+
+    const role = currentUser.id === room.blackId ? 'black' : currentUser.id === room.whiteId ? 'white' : 'spectator';
+    const channel = supabase.channel(`omok-presence-${roomId}`, {
+      config: { presence: { key: currentUser.id } },
+    });
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<{ userId: string; role: string }>();
+      const ids = new Set<string>();
+      let spectators = 0;
+      Object.values(state).forEach((metas) => {
+        metas.forEach((meta) => {
+          ids.add(meta.userId);
+          if (meta.role === 'spectator') spectators += 1;
+        });
+      });
+      setOnlineUserIds(ids);
+      setSpectatorCount(spectators);
+    });
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ userId: currentUser.id, name: currentUser.name, role });
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // room 전체가 아닌 blackId/whiteId가 바뀔 때만 재구독하도록 의도적으로 좁힌 의존성입니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, currentUser, room?.blackId, room?.whiteId]);
+
+  const opponentId = myColor === 'black' ? room?.whiteId : myColor === 'white' ? room?.blackId : null;
+  const opponentName = myColor === 'black' ? room?.whiteName : myColor === 'white' ? room?.blackName : null;
+  const opponentOnline = !opponentId || onlineUserIds.has(opponentId);
+  const showDisconnectBanner = Boolean(
+    room && room.status === 'playing' && myColor !== null && opponentId && !opponentOnline,
+  );
+
+  const [claimAvailable, setClaimAvailable] = useState(false);
+  useEffect(() => {
+    // 배너가 사라지면(상대 재접속 등) 몰수승 버튼도 즉시 함께 숨겨야 합니다.
+    if (!showDisconnectBanner) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setClaimAvailable(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setClaimAvailable(true), DISCONNECT_CLAIM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [showDisconnectBanner]);
+
+  // 캔버스에 격자판 + 돌을 그립니다. 방금 놓인 돌은 살짝 확대되며
+  // 나타나는 간단한 애니메이션과 강조 테두리를 추가로 그립니다.
+  const lastAnimatedMoveRef = useRef<string | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || !room) return undefined;
+
+    const size = room.board.length;
+    const dim = PADDING * 2 + (size - 1) * CELL_SIZE;
+    canvas.width = dim;
+    canvas.height = dim;
+
+    function draw(lastMoveScale: number) {
+      if (!ctx || !room) return;
+      ctx.fillStyle = '#dcb35c';
+      ctx.fillRect(0, 0, dim, dim);
+
+      ctx.strokeStyle = 'rgba(92, 67, 37, 0.8)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < size; i += 1) {
+        const pos = PADDING + i * CELL_SIZE;
+        ctx.beginPath();
+        ctx.moveTo(PADDING, pos);
+        ctx.lineTo(dim - PADDING, pos);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pos, PADDING);
+        ctx.lineTo(pos, dim - PADDING);
+        ctx.stroke();
+      }
+
+      if (size === 19) {
+        ctx.fillStyle = 'rgba(92, 67, 37, 0.9)';
+        STAR_POINTS.forEach((r) => {
+          STAR_POINTS.forEach((c) => {
+            ctx.beginPath();
+            ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 3, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        });
+      }
+
+      room.board.forEach((rowCells, row) => {
+        rowCells.forEach((cell, col) => {
+          if (!cell) return;
+          const isLast = room.lastRow === row && room.lastCol === col;
+          const scale = isLast ? lastMoveScale : 1;
+          const x = PADDING + col * CELL_SIZE;
+          const y = PADDING + row * CELL_SIZE;
+          const radius = (CELL_SIZE / 2 - 2) * scale;
+
+          const gradient = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, Math.max(radius, 1));
+          if (cell === 'black') {
+            gradient.addColorStop(0, '#5a5a5a');
+            gradient.addColorStop(1, '#0a0a0a');
+          } else {
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(1, '#c9c9c9');
+          }
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          if (isLast) {
+            ctx.beginPath();
+            ctx.arc(x, y, CELL_SIZE / 2 - 2 + 3, 0, Math.PI * 2);
+            ctx.strokeStyle = '#e0483f';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        });
+      });
+    }
+
+    if (room.moveCount === 0) lastAnimatedMoveRef.current = null;
+    const moveKey = room.lastRow !== null && room.lastCol !== null ? `${room.lastRow},${room.lastCol}` : null;
+
+    let rafId: number | null = null;
+    if (moveKey && moveKey !== lastAnimatedMoveRef.current) {
+      lastAnimatedMoveRef.current = moveKey;
+      const start = performance.now();
+      const duration = 180;
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - start) / duration);
+        draw(0.3 + 0.7 * progress);
+        if (progress < 1) rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    } else {
+      draw(1);
+    }
+
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [room]);
+
+  async function handleLeaveRoom() {
+    setLeaving(true);
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/leave`, { method: 'POST' });
+    } catch {
+      // 무시하고 로비로 이동합니다.
+    }
+    router.push('/games/omok');
+  }
+
+  async function handleRestart() {
+    setRestarting(true);
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/restart`, { method: 'POST' });
+      mutate();
+    } catch {
+      // 무시. 다음 polling/realtime 갱신에서 최신 상태로 맞춰집니다.
+    } finally {
+      setRestarting(false);
+    }
+  }
+
+  async function handleClaimWin() {
+    setClaiming(true);
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/claim-win`, { method: 'POST' });
+      mutate();
+    } catch {
+      // 무시
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  async function handleMove(row: number, col: number) {
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row, col }),
+      });
+      mutate();
+    } catch {
+      // 상대 차례이거나 이미 놓인 자리, 또는 동시 착수로 인한 재시도 케이스라
+      // 별도 알림 없이 무시하고, 다음 polling/realtime 갱신에서 최신 상태로
+      // 자연스럽게 맞춰집니다.
+      mutate();
+    }
+  }
+
+  function handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (!room || !isMyTurn) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+
+    const col = Math.round((x - PADDING) / CELL_SIZE);
+    const row = Math.round((y - PADDING) / CELL_SIZE);
+    const size = room.board.length;
+    if (row < 0 || row >= size || col < 0 || col >= size) return;
+
+    const nearestX = PADDING + col * CELL_SIZE;
+    const nearestY = PADDING + row * CELL_SIZE;
+    if (Math.hypot(x - nearestX, y - nearestY) > CELL_SIZE / 2) return;
+    if (room.board[row][col] !== null) return;
+
+    handleMove(row, col);
+  }
+
+  if (error) {
+    return <div className="omok-room__state">방을 불러오지 못했어요.</div>;
+  }
+  if (!room) {
+    return <div className="omok-room__state">불러오는 중...</div>;
+  }
+
+  let statusText: string;
+  if (room.status === 'waiting') {
+    statusText = '상대를 기다리는 중이에요. 로비에 방이 보이니 곧 들어올 거예요.';
+  } else if (room.status === 'finished') {
+    if (room.winner === 'draw') {
+      statusText = '무승부예요.';
+    } else if (myColor) {
+      statusText = room.winner === myColor ? '🎉 승리했어요!' : '아쉽게 패배했어요.';
+    } else {
+      statusText = `${room.winner === 'black' ? room.blackName : room.whiteName}님 승리`;
+    }
+  } else if (myColor) {
+    statusText = isMyTurn ? '🟢 현재 내 턴입니다.' : '🔴 상대방의 턴입니다.';
+  } else {
+    statusText = `${room.turn === 'black' ? room.blackName : room.whiteName}님 차례예요`;
+  }
+
+  const canRestart = room.status === 'finished' && myColor !== null;
+
+  return (
+    <div className="omok-room-page__layout">
+      <div className="omok-room-page__main">
+        <div className="omok-room">
+          <div className="omok-room__header">
+            <h2 className="omok-room__name">{room.roomName}</h2>
+            {spectatorCount > 0 && (
+              <span className="omok-room__spectators">👀 관전 {spectatorCount}명</span>
+            )}
+          </div>
+
+          <div className="omok-room__players">
+            <span
+              className={`omok-room__player omok-room__player--black ${room.turn === 'black' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
+            >
+              ⚫ {room.blackName}
+            </span>
+            <span className="omok-room__vs">vs</span>
+            <span
+              className={`omok-room__player omok-room__player--white ${room.turn === 'white' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
+            >
+              ⚪ {room.whiteName ?? '(대기 중)'}
+            </span>
+          </div>
+
+          <p className="omok-room__status">{statusText}</p>
+
+          {showDisconnectBanner && (
+            <div className="omok-room__disconnect-banner">
+              <span>⚠️ {opponentName}님의 연결이 끊어졌습니다. 재접속을 기다리는 중이에요.</span>
+              {claimAvailable && (
+                <button disabled={claiming} onClick={handleClaimWin} type="button">
+                  {claiming ? '처리 중...' : '몰수승 처리'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <canvas
+            className={`omok-room__canvas ${isMyTurn ? 'omok-room__canvas--active' : ''}`}
+            onClick={handleCanvasClick}
+            ref={canvasRef}
+          />
+
+          <div className="omok-room__actions">
+            <button
+              className="omok-room__leave-btn"
+              disabled={leaving}
+              onClick={handleLeaveRoom}
+              type="button"
+            >
+              {leaving ? '나가는 중...' : '게임 나가기'}
+            </button>
+            {canRestart && (
+              <button
+                className="omok-room__restart-btn"
+                disabled={restarting}
+                onClick={handleRestart}
+                type="button"
+              >
+                {restarting ? '시작하는 중...' : '게임 재시작'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="omok-room-page__chat">
+        <OmokChat canPost={myColor !== null} roomId={roomId} />
+      </div>
+    </div>
+  );
+}
