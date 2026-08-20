@@ -103,15 +103,19 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     };
   }, [potId, mutate]);
 
-  // 메시지 로드 및 추가 시 최하단 스크롤 (초기 진입 및 모바일 탭 전환 시 즉시 하단 포커싱, 이후 새 메시지는 부드러운 스크롤)
+  // 메시지 로드 및 추가 시 최하단 스크롤 (PC 진입 및 모바일 탭 전환 시 즉시 하단 포커싱, 이후 새 메시지는 부드러운 스크롤)
   useEffect(() => {
     if (!listRef.current || messages.length === 0) return;
 
-    const isBecomingActive = isActive && !wasActiveRef.current;
+    // 모바일에서는 isActive(채팅 탭 활성화 여부)를 따르고, PC(화면폭 > 768px)에서는 항상 활성 상태로 간주
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth > 768;
+    const effectiveActive = isDesktop || Boolean(isActive);
+
+    const isBecomingActive = effectiveActive && !wasActiveRef.current;
     const isNewPot = scrolledPotIdRef.current !== potId;
 
     if (isNewPot || isBecomingActive) {
-      if (isActive) {
+      if (effectiveActive) {
         listRef.current.scrollTop = listRef.current.scrollHeight;
         listRef.current.style.opacity = '1';
         scrolledPotIdRef.current = potId;
@@ -130,12 +134,12 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
           window.clearTimeout(timer2);
         };
       }
-    } else if (isActive) {
+    } else if (effectiveActive) {
       // 이후 새 메시지가 올 때 부드러운 스크롤
       listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
     }
 
-    wasActiveRef.current = !!isActive;
+    wasActiveRef.current = effectiveActive;
   }, [messages.length, potId, isActive]);
 
   useEffect(() => () => {
