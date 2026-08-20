@@ -3410,33 +3410,63 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .create__restaurant-item {
-    min-height: 76px;
-    padding: 10px 8px;
-    gap: 8px;
+    min-height: 72px;
+    padding: 9px 8px;
+    gap: 6px;
     align-items: flex-start;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .create__restaurant-emoji {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     flex-shrink: 0;
+    line-height: 1;
+    margin-top: 1px;
+  }
+
+  .create__restaurant-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
   }
 
   .create__restaurant-name {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.25;
-    word-break: keep-all;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
   .create__restaurant-meta {
-    font-size: 0.66rem;
+    font-size: 0.64rem;
     color: var(--text-muted);
-    line-height: 1.25;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    display: block;
   }
 
   .create__restaurant-live {
-    font-size: 0.62rem;
-    padding: 2px 5px;
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    margin-top: 2px;
+    display: inline-block;
+    max-width: fit-content;
+    white-space: nowrap;
   }
 
   .create__category-tab {
