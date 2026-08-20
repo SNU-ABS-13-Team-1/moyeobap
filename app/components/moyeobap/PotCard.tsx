@@ -8,6 +8,7 @@ interface PotCardProps {
   isAuthenticated: boolean;
   now: number;
   onJoinClick: (potId: string) => void;
+  onLeaveClick?: (potId: string) => void;
   onOpenAuth: (potId: string) => void;
   showChatSummary?: boolean;
 }
@@ -18,6 +19,7 @@ export function PotCard({
   isAuthenticated,
   now,
   onJoinClick,
+  onLeaveClick,
   onOpenAuth,
   showChatSummary = false,
 }: PotCardProps) {
@@ -112,12 +114,43 @@ export function PotCard({
         </div>
 
         {isParticipating ? (
-          <Link
-            className="card__join-btn card__join-btn--joined"
-            href={`/pots/${encodeURIComponent(pot.id)}`}
-          >
-            {isClosed ? '채팅 보기' : '참여 중'}
-          </Link>
+          isClosed ? (
+            <Link
+              className="card__join-btn card__join-btn--joined"
+              href={`/pots/${encodeURIComponent(pot.id)}`}
+            >
+              채팅 보기
+            </Link>
+          ) : onLeaveClick ? (
+            <div className="card__action-group">
+              <Link
+                className="card__join-btn card__join-btn--joined"
+                href={`/pots/${encodeURIComponent(pot.id)}`}
+                title="팟 상세 및 채팅방으로 이동"
+              >
+                채팅방
+              </Link>
+              <button
+                className="card__join-btn card__join-btn--leave"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onLeaveClick(pot.id);
+                }}
+                title="팟 참여 취소"
+              >
+                참여 취소
+              </button>
+            </div>
+          ) : (
+            <Link
+              className="card__join-btn card__join-btn--joined"
+              href={`/pots/${encodeURIComponent(pot.id)}`}
+            >
+              참여 중
+            </Link>
+          )
         ) : isClosed ? (
           <Link
             className="card__join-btn card__join-btn--closed"
