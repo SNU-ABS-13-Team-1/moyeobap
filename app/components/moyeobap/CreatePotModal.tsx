@@ -73,11 +73,6 @@ export function CreatePotForm({
 
   useEffect(() => {
     if (initialRestaurantId) {
-      setSelectedRestaurantId(initialRestaurantId);
-      const rest = restaurants.find((r) => r.id === initialRestaurantId);
-      if (rest) {
-        setCategoryFilter(rest.category);
-      }
       const timer = window.setTimeout(() => {
         const el = document.getElementById(`restaurant-item-${initialRestaurantId}`);
         if (el) {
@@ -86,7 +81,7 @@ export function CreatePotForm({
       }, 150);
       return () => window.clearTimeout(timer);
     }
-  }, [initialRestaurantId, restaurants]);
+  }, [initialRestaurantId]);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
   const [customMinutes, setCustomMinutes] = useState('90');
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);

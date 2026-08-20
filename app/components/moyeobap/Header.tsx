@@ -5,9 +5,16 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { BgmPlayer } from './BgmPlayer';
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  badge?: string;
+  icon?: string;
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
   { href: '/', label: '현황판' },
-  { href: '/trends', label: '식사 트렌드' },
+  { href: '/trends', label: '식사 트렌드', icon: '🔥', badge: 'HOT' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
 ] as const;
@@ -35,7 +42,9 @@ export function Header() {
               href={item.href}
               key={item.href}
             >
-              {item.label}
+              {item.icon && <span className="site-nav__icon">{item.icon}</span>}
+              <span>{item.label}</span>
+              {item.badge && <span className="site-nav__badge">{item.badge}</span>}
             </Link>
           );
         })}
