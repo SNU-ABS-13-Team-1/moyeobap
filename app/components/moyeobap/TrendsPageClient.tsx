@@ -180,70 +180,7 @@ export function TrendsPageClient() {
         </section>
       </div>
 
-      {/* 3. 팟 성사 속도 & 매칭 인사이트 (4개 지표 2x2 그리드) */}
-      <section className="trends-section trends-speed-section">
-        <div className="trends-section__header">
-          <div>
-            <h2 className="trends-section__title">⚡ 팟 성사 속도 & 진행 인사이트</h2>
-            <p className="trends-section__subtitle">팀원들이 모이고 주문하기까지의 실제 매칭 데이터예요.</p>
-          </div>
-          <span className="trends-section__badge">실시간 분석</span>
-        </div>
 
-        <div className="trends-stats-4grid">
-          {/* 카드 1: 평균 성사 시간 */}
-          <div className="trends-stat-item">
-            <div className="trends-stat-item__icon">⏱️</div>
-            <div className="trends-stat-item__content">
-              <span className="trends-stat-item__label">평균 팟 성사 시간</span>
-              <strong className="trends-stat-item__val">{stats.avgMatchingMinutes}분</strong>
-              <span className="trends-stat-item__sub">팟 개설 후 마감까지 걸린 평균 시간</span>
-            </div>
-          </div>
-
-          {/* 카드 2: 역대 최단 매칭 기록 */}
-          <div className="trends-stat-item">
-            <div className="trends-stat-item__icon">🚀</div>
-            <div className="trends-stat-item__content">
-              <span className="trends-stat-item__label">역대 최단 매칭 기록</span>
-              <strong className="trends-stat-item__val" style={{ color: "#ea580c" }}>
-                {stats.fastestMatchingMinutes}분 만에 마감
-              </strong>
-              <span className="trends-stat-item__sub">가장 빠르게 인원이 마감된 기록</span>
-            </div>
-          </div>
-
-          {/* 카드 3: 팟당 평균 참여 인원 */}
-          <div className="trends-stat-item">
-            <div className="trends-stat-item__icon">👥</div>
-            <div className="trends-stat-item__content">
-              <span className="trends-stat-item__label">팟당 평균 참여 인원</span>
-              <strong className="trends-stat-item__val" style={{ color: "#059669" }}>
-                평균 {stats.avgParticipantsPerPot}명
-              </strong>
-              <span className="trends-stat-item__sub">한 팟에 함께 참여한 평균 동석 인원</span>
-            </div>
-          </div>
-
-          {/* 카드 4: 식사 vs 디저트 팟 비율 */}
-          <div className="trends-stat-item">
-            <div className="trends-stat-item__icon">🍩</div>
-            <div className="trends-stat-item__content">
-              <span className="trends-stat-item__label">식사 vs 디저트 팟 비율</span>
-              <strong className="trends-stat-item__val">
-                점심 {stats.lunchRatio}% : 카페 {stats.cafeRatio}%
-              </strong>
-              <span className="trends-stat-item__sub">
-                {stats.cafeRatio === 0
-                  ? "식사 팟 중심으로 개설되었어요"
-                  : stats.lunchRatio >= stats.cafeRatio
-                  ? `점심 식사 팟이 약 ${(stats.lunchRatio / stats.cafeRatio).toFixed(1)}배 더 자주 열려요`
-                  : `카페 디저트 팟이 약 ${(stats.cafeRatio / stats.lunchRatio).toFixed(1)}배 더 자주 열려요`}
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* 4. 로그인 사용자 개인 통계 (로그인 시 노출) */}
       {myStats && (
