@@ -19,6 +19,12 @@ const GAMES = [
     title: '퐁 (실시간 대전)',
     desc: 'W/S 또는 방향키로 패들을 움직여 실시간으로 대전해보세요.',
   },
+  {
+    href: '/games/flappy',
+    emoji: '🐤',
+    title: '플래피 버드',
+    desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
+  },
 ] as const;
 
 export default function GamesPage() {
