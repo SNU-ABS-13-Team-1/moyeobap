@@ -14,6 +14,7 @@ import { useToastNotice } from '../../hooks/useToastNotice';
 import { useAuth } from './AuthProvider';
 import { ChatPanel } from './ChatPanel';
 import { ToastNotice } from './ToastNotice';
+import { StoreReportModal } from './StoreReportModal';
 
 interface PotDetailResponse {
   pot: SerializedPot;
@@ -46,6 +47,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   const [isDeletingPot, setIsDeletingPot] = useState(false);
   const [memoEdit, setMemoEdit] = useState<string | null>(null);
   const [isSavingMemo, setIsSavingMemo] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const now = useClock();
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
@@ -622,6 +624,15 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                 </div>
               ))}
             </div>
+            <div className="detail__report-row">
+              <button
+                type="button"
+                className="detail__report-btn"
+                onClick={() => setIsReportModalOpen(true)}
+              >
+                잘못된 정보가 있나요? 수정 제보하기 💬
+              </button>
+            </div>
           </div>
 
           <div className="detail__participants-section">
@@ -738,6 +749,12 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         </aside>
       </div>
       <ToastNotice toast={toast} />
+      <StoreReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        restaurantName={restaurant.name}
+        onSuccess={(msg) => showToast(msg, 'success')}
+      />
     </main>
   );
 }
