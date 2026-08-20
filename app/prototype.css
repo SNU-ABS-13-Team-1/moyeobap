@@ -2200,11 +2200,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     justify-content: center;
   }
 
-  .card__header {
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
   .detail__info-grid {
     grid-template-columns: 1fr;
   }
@@ -3932,7 +3927,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 @media (max-width: 768px) {
   .trends-charts-row,
-  .trends-stats-4grid,
   .trends-my-grid {
     grid-template-columns: 1fr;
   }
@@ -3941,9 +3935,185 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .trends-bar-chart__bars {
     overflow-x: auto;
     justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 4px;
   }
 
   .trends-bar-col {
     min-width: 26px;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-nav {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .site-nav__link {
+    padding: 6px 4px;
+    font-size: 0.8rem;
+  }
+
+  .site-nav__badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+    margin-left: 2px;
+  }
+
+  .trends-header {
+    padding: var(--space-lg) var(--space-sm);
+    margin-bottom: var(--space-md);
+  }
+
+  .trends-header__badge {
+    font-size: 0.68rem;
+    padding: 3px 8px;
+  }
+
+  .trends-header__title {
+    font-size: 1.32rem;
+    line-height: 1.32;
+    word-break: keep-all;
+    margin: 8px 0 6px;
+  }
+
+  .trends-header__desc {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    word-break: keep-all;
+  }
+
+  .trends-section {
+    padding: 16px 14px;
+    margin-bottom: var(--space-md);
+    border-radius: var(--radius-md);
+  }
+
+  .trends-section__header {
+    margin-bottom: 14px;
+  }
+
+  .trends-section__title {
+    font-size: 1.02rem;
+  }
+
+  .trends-section__subtitle {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .trends-section__badge {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+  }
+
+  /* 4대 지표 모바일 2x2 그리드 */
+  .trends-stats-4grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .trends-stat-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+
+  .trends-stat-item__icon {
+    font-size: 1.4rem;
+  }
+
+  .trends-stat-item__content {
+    gap: 2px;
+    width: 100%;
+  }
+
+  .trends-stat-item__label {
+    font-size: 0.72rem;
+    word-break: keep-all;
+    line-height: 1.3;
+  }
+
+  .trends-stat-item__val {
+    font-size: 1.05rem;
+    word-break: keep-all;
+    line-height: 1.25;
+  }
+
+  .trends-stat-item__sub {
+    font-size: 0.66rem;
+    line-height: 1.35;
+    word-break: keep-all;
+  }
+
+  .trends-bar-chart {
+    height: 155px;
+    margin-top: 6px;
+  }
+
+  .trends-cat-name {
+    font-size: 0.82rem;
+  }
+
+  .trends-cat-count {
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 600px) {
+  /* TOP 5 랭킹 카드 모바일 줄바꿈 및 터치 친화적 전체 너비 버튼 */
+  .trends-rank-card {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 12px 14px;
+  }
+
+  .trends-rank-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+  }
+
+  .trends-rank-info {
+    min-width: 0;
+    flex: 1 1 calc(100% - 44px);
+  }
+
+  .trends-rank-name {
+    font-size: 0.92rem;
+  }
+
+  .trends-rank-stats-row {
+    font-size: 0.72rem;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+  }
+
+  .trends-rank-btn {
+    width: 100%;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 380px) {
+  .trends-stats-4grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trends-stat-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .trends-header__title {
+    font-size: 1.2rem;
   }
 }
