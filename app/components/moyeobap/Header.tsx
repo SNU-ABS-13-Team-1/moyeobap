@@ -18,11 +18,13 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/trends', label: '식사 트렌드', mobileLabel: '트렌드', badge: 'HOT' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
+  { href: '/games', label: '미니게임' },
 ] as const;
 
-export function Header() {
+export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
   const pathname = usePathname();
   const { currentUser, openAuth, openProfile } = useAuth();
+  const navItems = gamesEnabled ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.href !== '/games');
 
   return (
     <header className="header">
@@ -32,7 +34,7 @@ export function Header() {
       </Link>
 
       <nav aria-label="주요 메뉴" className="site-nav">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = item.href === '/'
             ? pathname === '/'
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
