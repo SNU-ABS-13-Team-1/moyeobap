@@ -2106,7 +2106,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .dashboard-toolbar {
     align-items: center;
     flex-direction: column;
-    margin-top: 8px;
+    margin-top: 16px;
+    margin-bottom: 0;
   }
 
   .dashboard-filters {
