@@ -13,6 +13,12 @@ const GAMES = [
     title: '오목 (실시간 대전)',
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
   },
+  {
+    href: '/games/pong',
+    emoji: '🏓',
+    title: '퐁 (실시간 대전)',
+    desc: 'W/S 또는 방향키로 패들을 움직여 실시간으로 대전해보세요.',
+  },
 ] as const;
 
 export default function GamesPage() {

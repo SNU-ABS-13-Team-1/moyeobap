@@ -5294,3 +5294,564 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: var(--space-xl, 40px) 0;
 }
 
+/* ===== Pong lobby ===== */
+.pong-lobby {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.pong-lobby__toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+}
+
+.pong-lobby__name-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.pong-lobby__name-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.pong-lobby__create-btn {
+  padding: 12px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.pong-lobby__create-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.pong-lobby__create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pong-lobby__ranking-link {
+  display: inline-block;
+  margin-bottom: var(--space-md);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.pong-lobby__ranking-link:hover {
+  text-decoration: underline;
+}
+
+.pong-lobby__error {
+  color: #e11d48;
+  font-size: 0.9rem;
+  margin-bottom: var(--space-md);
+  text-align: center;
+}
+
+.pong-lobby__empty {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: var(--space-md) 0;
+}
+
+.pong-lobby__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pong-lobby__table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--card-border);
+}
+
+.pong-lobby__row td {
+  padding: 10px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.pong-lobby__row-name {
+  font-weight: 600;
+}
+
+.pong-lobby__status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pong-lobby__status-badge--waiting {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.pong-lobby__status-badge--playing {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.pong-lobby__status-badge--finished {
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-secondary);
+}
+
+.pong-lobby__join-btn {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.pong-lobby__join-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.pong-lobby__join-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Pong room ===== */
+.pong-room-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+  align-items: start;
+  gap: var(--space-lg);
+}
+
+.pong-room-page__chat {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  min-height: 480px;
+  overflow: hidden;
+  display: flex;
+  position: sticky;
+  top: 92px;
+}
+
+.pong-room-page__chat .pong-chat {
+  flex: 1;
+  min-height: 480px;
+}
+
+@media (max-width: 900px) {
+  .pong-room-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pong-room-page__chat {
+    position: static;
+    min-height: 420px;
+  }
+}
+
+.pong-room {
+  max-width: fit-content;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #e5e7eb;
+}
+
+.pong-room__state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl, 40px);
+}
+
+.pong-room__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.pong-room__name {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.pong-room__spectators {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.pong-room__scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #d1d5db;
+}
+
+.pong-room__player-label--me {
+  color: #4ade80;
+}
+
+.pong-room__score {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pong-room__status {
+  color: #9ca3af;
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+
+.pong-room__disconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: var(--space-sm);
+  background: #422006;
+  border: 1px solid #92400e;
+  border-radius: var(--radius-md);
+  color: #fde68a;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.pong-room__disconnect-banner button {
+  padding: 6px 14px;
+  background: #e0483f;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.pong-room__disconnect-banner button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pong-room__canvas-wrap {
+  position: relative;
+  line-height: 0;
+}
+
+.pong-room__canvas {
+  border-radius: var(--radius-sm);
+  border: 2px solid #374151;
+  max-width: 100%;
+  height: auto;
+  background: #0a0a0a;
+}
+
+.pong-room__countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius-sm);
+}
+
+.pong-room__result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: var(--radius-sm);
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.pong-room__result-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pong-room__result-score {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #d1d5db;
+  font-variant-numeric: tabular-nums;
+}
+
+.pong-room__result-rating {
+  margin: 0;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.pong-room__result-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: var(--space-sm);
+}
+
+.pong-room__result-actions button {
+  padding: 10px 22px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pong-room__result-actions button:first-child {
+  background: #4ade80;
+  color: #052e16;
+}
+
+.pong-room__result-actions button:last-child {
+  background: #374151;
+  color: #fff;
+}
+
+.pong-room__result-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pong-room__hint {
+  margin-top: var(--space-sm);
+  color: #6b7280;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.pong-room__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--space-md);
+}
+
+.pong-room__leave-btn {
+  padding: 12px 24px;
+  background: transparent;
+  color: #d1d5db;
+  border: 1px solid #374151;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pong-room__leave-btn:hover:not(:disabled) {
+  border-color: #6b7280;
+  color: #fff;
+}
+
+.pong-room__leave-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Pong chat ===== */
+.pong-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 480px;
+}
+
+.pong-chat__header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--card-border);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.pong-chat__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pong-chat__empty,
+.pong-chat__error {
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 0.85rem;
+  padding: var(--space-md) 0;
+}
+
+.pong-chat__error {
+  color: #e11d48;
+}
+
+.pong-chat__message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pong-chat__message--mine {
+  align-items: flex-end;
+}
+
+.pong-chat__meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.pong-chat__bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.pong-chat__message--mine .pong-chat__bubble {
+  background: var(--primary);
+  color: #fff;
+}
+
+.pong-chat__form {
+  display: flex;
+  gap: 8px;
+  padding: var(--space-md);
+  border-top: 1px solid var(--card-border);
+}
+
+.pong-chat__input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.pong-chat__input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.pong-chat__send {
+  padding: 10px 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pong-chat__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pong-chat__spectator-note {
+  padding: var(--space-md);
+  border-top: 1px solid var(--card-border);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* ===== Pong ranking ===== */
+.pong-ranking__table {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.pong-ranking__table th {
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--card-border);
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.pong-ranking__table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.pong-ranking__name {
+  font-weight: 600;
+}
+
+.pong-ranking__error,
+.pong-ranking__empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl, 40px) 0;
+}
+
