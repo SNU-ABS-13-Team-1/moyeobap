@@ -49,8 +49,8 @@ export function TrendsPageClient() {
       <section className="trends-section">
         <div className="trends-section__header">
           <div>
-            <h2 className="trends-section__title">🏆 캠퍼스 인기 맛집 TOP 5</h2>
-            <p className="trends-section__subtitle">가장 팟이 자주 열리고 인기가 많은 식당들이에요.</p>
+            <h2 className="trends-section__title">🏆 캠퍼스 인기 팟 TOP 5</h2>
+            <p className="trends-section__subtitle">가장 팟이 자주 열리고 참여가 활발한 인기 팟들이에요.</p>
           </div>
           <span className="trends-section__badge">실시간 랭킹</span>
         </div>
@@ -59,6 +59,16 @@ export function TrendsPageClient() {
           {stats.topRestaurants.length > 0 ? (
             stats.topRestaurants.map((rest, index) => {
               const rank = index + 1;
+              const cat = (rest.category || "").toLowerCase();
+              const categoryLabel =
+                cat === "lunch" || cat === "restaurant"
+                  ? "점심 식사"
+                  : cat === "cafe"
+                  ? "카페/디저트"
+                  : cat === "other"
+                  ? "기타"
+                  : rest.category || "기타";
+
               return (
                 <div className="trends-rank-card" key={rest.restaurantId}>
                   <div className={`trends-rank-badge trends-rank-badge--${rank}`}>
@@ -67,14 +77,12 @@ export function TrendsPageClient() {
                   <div className="trends-rank-info">
                     <div className="trends-rank-name-row">
                       <strong className="trends-rank-name">{rest.name}</strong>
-                      <span className="trends-rank-category">{rest.category}</span>
+                      <span className="trends-rank-category">{categoryLabel}</span>
                     </div>
                     <div className="trends-rank-stats-row">
                       <span>총 {rest.potCount}회 모집</span>
                       <span>•</span>
                       <span>누적 참여 {rest.participantCount}명</span>
-                      <span>•</span>
-                      <span className="trends-rank-rate">성공률 {rest.successRate}%</span>
                     </div>
                   </div>
                   <Link

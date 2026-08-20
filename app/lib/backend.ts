@@ -1170,10 +1170,15 @@ export async function getCampusStats(): Promise<CampusStats> {
     categoryCounts[catInfo.campusCategory] = (categoryCounts[catInfo.campusCategory] || 0) + 1;
 
     // 매장 통계 집계
+    let displayCategory = standardRest?.subCategory || customRest?.subCategory || catInfo.campusCategory;
+    if (displayCategory === "lunch" || displayCategory === "restaurant") displayCategory = "점심 식사";
+    else if (displayCategory === "cafe") displayCategory = "카페/디저트";
+    else if (displayCategory === "other") displayCategory = "기타";
+
     const existing = restaurantStatsMap.get(pot.restaurantId) || {
       restaurantId: pot.restaurantId,
       name: restName,
-      category: standardRest?.subCategory || standardRest?.category || customRest?.category || catInfo.campusCategory,
+      category: displayCategory,
       potCount: 0,
       participantCount: 0,
       successCount: 0,
@@ -1184,9 +1189,9 @@ export async function getCampusStats(): Promise<CampusStats> {
     restaurantStatsMap.set(pot.restaurantId, existing);
   }
 
-  // 피크 아워 포맷 (오전 9시 ~ 오후 9시 중심)
+  // 피크 아워 포맷 (오전 9시 ~ 오후 6시/18시 중심)
   const peakHours: PeakHourStat[] = [];
-  for (let h = 9; h <= 21; h++) {
+  for (let h = 9; h <= 18; h++) {
     peakHours.push({
       hour: h,
       label: `${h}시`,
@@ -1194,10 +1199,12 @@ export async function getCampusStats(): Promise<CampusStats> {
     });
   }
 
-  // 카테고리 백분율 계산
-  const totalCatCount = Object.values(categoryCounts).reduce((a, b) => a + b, 0) || 1;
-  const categoryDistribution: CategoryStat[] = Object.entries(categoryCounts)
-    .filter(([, count]) => count > 0)
+  // 카테고리 백분율 계산 (순수 음식/디저트 카테고리만 입맛 점유율에 100% 반영)
+  const validFoodCategories = Object.entries(categoryCounts).filter(
+    ([cat, count]) => count > 0 && cat !== "기타 일반식" && cat !== "기타"
+  );
+  const totalCatCount = validFoodCategories.reduce((sum, [, count]) => sum + count, 0) || 1;
+  const categoryDistribution: CategoryStat[] = validFoodCategories
     .map(([category, count]) => ({
       category,
       label: category,
@@ -1291,7 +1298,39 @@ export function resolveFoodCategory(params: {
     };
   }
 
-  // 2. 표준 subCategory 기반 판별
+  // 2. 샐러드 / 샌드위치 / 포케 우선 판별 (샐러디, 서브웨이 등)
+  if (
+    sub.includes("샐러드") ||
+    sub.includes("샌드위치") ||
+    sub.includes("포케") ||
+    name.includes("샐러드") ||
+    name.includes("샐러디") ||
+    name.includes("샌드위치") ||
+    name.includes("서브웨이") ||
+    name.includes("써브웨이") ||
+    name.includes("포케")
+  ) {
+    return {
+      campusCategory: "샐러드/포케",
+      personalStyle: "신선한 샐러드·포케파 🥗",
+    };
+  }
+
+  // 3. 아시안 (쌀국수, 베트남, 태국 등)
+  if (
+    sub.includes("아시안") ||
+    name.includes("쌀국수") ||
+    name.includes("베트남") ||
+    name.includes("태국") ||
+    name.includes("팟타이")
+  ) {
+    return {
+      campusCategory: "아시안",
+      personalStyle: "이국적인 아시안 푸드파 🍜",
+    };
+  }
+
+  // 3. 표준 subCategory 기반 판별
   if (sub.includes("한식") || sub.includes("찜·탕") || sub.includes("고기") || sub.includes("족발·보쌈")) {
     return {
       campusCategory: "한식",
@@ -1320,12 +1359,6 @@ export function resolveFoodCategory(params: {
     return {
       campusCategory: "분식/도시락",
       personalStyle: "분식 러버 떡볶이파 🍢",
-    };
-  }
-  if (sub.includes("아시안") || sub.includes("샐러드") || sub.includes("샌드위치") || sub.includes("포케")) {
-    return {
-      campusCategory: "샐러드/아시안",
-      personalStyle: "건강 샐러드·아시안파 🥗",
     };
   }
 
@@ -1406,7 +1439,32 @@ export function resolveFoodCategory(params: {
     };
   }
 
-  // (4) 양식 / 피자 / 버거 / 치킨 키워드
+  // (4) 분식 / 도시락 / 간편식 키워드
+  if (
+    name.includes("분식") ||
+    name.includes("떡볶이") ||
+    name.includes("김밥") ||
+    name.includes("라볶이") ||
+    name.includes("튀김") ||
+    name.includes("어묵") ||
+    name.includes("도시락") ||
+    name.includes("한솥") ||
+    name.includes("본도시락") ||
+    name.includes("엽기떡볶이") ||
+    name.includes("신전") ||
+    name.includes("배떡") ||
+    name.includes("밥버거") ||
+    name.includes("봉구스") ||
+    name.includes("이삭") ||
+    name.includes("토스트")
+  ) {
+    return {
+      campusCategory: "분식/도시락",
+      personalStyle: "분식 러버 떡볶이파 🍢",
+    };
+  }
+
+  // (5) 양식 / 피자 / 버거 / 치킨 키워드
   if (
     name.includes("양식") ||
     name.includes("파스타") ||
@@ -1434,43 +1492,32 @@ export function resolveFoodCategory(params: {
     };
   }
 
-  // (5) 분식 / 도시락 키워드
-  if (
-    name.includes("분식") ||
-    name.includes("떡볶이") ||
-    name.includes("김밥") ||
-    name.includes("라볶이") ||
-    name.includes("튀김") ||
-    name.includes("어묵") ||
-    name.includes("도시락") ||
-    name.includes("한솥") ||
-    name.includes("본도시락") ||
-    name.includes("엽기떡볶이") ||
-    name.includes("신전") ||
-    name.includes("배떡")
-  ) {
-    return {
-      campusCategory: "분식/도시락",
-      personalStyle: "분식 러버 떡볶이파 🍢",
-    };
-  }
-
-  // (6) 샐러드 / 샌드위치 / 아시안 키워드
+  // (6) 샐러드 / 샌드위치 / 포케 키워드
   if (
     name.includes("샐러드") ||
     name.includes("샌드위치") ||
     name.includes("포케") ||
     name.includes("서브웨이") ||
     name.includes("샐러디") ||
-    name.includes("써브웨이") ||
+    name.includes("써브웨이")
+  ) {
+    return {
+      campusCategory: "샐러드/포케",
+      personalStyle: "신선한 샐러드·포케파 🥗",
+    };
+  }
+
+  // (7) 아시안 키워드
+  if (
     name.includes("쌀국수") ||
     name.includes("베트남") ||
     name.includes("태국") ||
-    name.includes("팟타이")
+    name.includes("팟타이") ||
+    name.includes("분짜")
   ) {
     return {
-      campusCategory: "샐러드/아시안",
-      personalStyle: "건강 샐러드·아시안파 🥗",
+      campusCategory: "아시안",
+      personalStyle: "이국적인 아시안 푸드파 🍜",
     };
   }
 
