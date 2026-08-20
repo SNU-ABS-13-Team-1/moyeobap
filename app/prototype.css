@@ -4213,63 +4213,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .trends-cat-bar-fill--3 { background: #8b5cf6; }
 .trends-cat-bar-fill--4 { background: #f59e0b; }
 
-/* 3. 팟 성사 속도 & 매칭 인사이트 (4개 지표 2x2 그리드) */
-.trends-speed-section {
-  background: linear-gradient(135deg, #ffffff 0%, #fffbf8 100%);
-  border: 1px solid rgba(255, 107, 53, 0.15);
-}
-
-.trends-stats-4grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-.trends-stat-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: var(--radius-md);
-  transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.trends-stat-item:hover {
-  transform: translateX(4px);
-  border-color: rgba(255, 107, 53, 0.25);
-}
-
-.trends-stat-item__icon {
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.trends-stat-item__content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.trends-stat-item__label {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.trends-stat-item__val {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-}
-
-.trends-stat-item__sub {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
 /* 4. 나의 모여밥 리포트 카드 (트렌드 페이지 내) */
 .trends-my-report {
   border: 1.5px solid rgba(16, 185, 129, 0.3);
@@ -4531,47 +4474,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     padding: 2px 7px;
   }
 
-  /* 4대 지표 모바일 2x2 그리드 */
-  .trends-stats-4grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .trends-stat-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-    padding: 9px 11px;
-    border-radius: var(--radius-sm);
-  }
-
-  .trends-stat-item__icon {
-    font-size: 1.15rem;
-  }
-
-  .trends-stat-item__content {
-    gap: 1px;
-    width: 100%;
-  }
-
-  .trends-stat-item__label {
-    font-size: 0.68rem;
-    color: var(--text-muted);
-    word-break: keep-all;
-    line-height: 1.2;
-  }
-
-  .trends-stat-item__val {
-    font-size: 0.88rem;
-    font-weight: 800;
-    word-break: keep-all;
-    line-height: 1.2;
-  }
-
-  .trends-stat-item__sub {
-    display: none;
-  }
-
   .trends-bar-chart {
     height: 155px;
     margin-top: 6px;
@@ -4646,17 +4548,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 380px) {
-  .trends-stats-4grid {
-    grid-template-columns: 1fr;
-  }
-
-  .trends-stat-item {
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-  }
-
   .trends-header__title {
     font-size: 1.2rem;
   }
