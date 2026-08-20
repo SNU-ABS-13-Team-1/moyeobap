@@ -3801,6 +3801,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .trends-page {
   max-width: 900px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: var(--space-xl) 0 0;
   display: flex;
@@ -3831,16 +3833,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   to {
     transform: rotate(360deg);
   }
-}
-
-.trends-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 .trends-header {
