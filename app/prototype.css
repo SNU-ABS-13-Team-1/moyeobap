@@ -3398,6 +3398,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 @media (max-width: 640px) {
+  .create-page__form .create__restaurant-list {
+    max-height: 250px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .create__restaurant-gallery {
     grid-template-columns: 1fr;
   }

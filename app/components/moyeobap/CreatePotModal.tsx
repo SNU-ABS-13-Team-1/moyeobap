@@ -162,6 +162,18 @@ export function CreatePotForm({
     || (Number.isInteger(selectedCap) && selectedCap >= 2 && selectedCap <= 50);
   const canSubmit = hasValidRestaurant && hasValidDeadline && hasValidCap;
 
+  function handleSelectRestaurant(restaurantId: string) {
+    setSelectedRestaurantId(restaurantId);
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setTimeout(() => {
+        const deadlineEl = document.getElementById('create-deadline-section');
+        if (deadlineEl) {
+          deadlineEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 80);
+    }
+  }
+
   function handleCategoryChange(category: 'lunch' | 'cafe' | 'other') {
     setCategoryFilter(category);
     setSubCategoryFilter('all');
@@ -311,7 +323,7 @@ export function CreatePotForm({
                             aria-pressed={selectedRestaurantId === r.id}
                             key={r.id}
                             className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}
-                            onClick={() => setSelectedRestaurantId(r.id)}
+                            onClick={() => handleSelectRestaurant(r.id)}
                             type="button"
                           >
                             <span className="create__restaurant-emoji">{r.emoji}</span>
@@ -450,7 +462,7 @@ export function CreatePotForm({
 
           {(mode === 'custom' || selectedRestaurantId) && (
             <>
-              <div className="create__time-section">
+              <div className="create__time-section" id="create-deadline-section">
                 <label className="create__time-label">마감 시간</label>
                 <div className="create__time-options">
                   {DEADLINE_OPTIONS.map(mins => (
