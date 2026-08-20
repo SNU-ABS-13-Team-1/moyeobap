@@ -2103,10 +2103,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     grid-row: 1;
   }
 
+  .dashboard-toolbar {
+    align-items: center;
+    flex-direction: column;
+    margin-top: 8px;
+  }
+
   .dashboard-filters {
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 0;
   }
 
   .header__nav {
@@ -2158,13 +2164,19 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     flex-shrink: 0;
   }
 
-  .dashboard-toolbar {
-    align-items: center;
-    flex-direction: column;
-  }
-
   .grid {
     grid-template-columns: 1fr;
+    margin-top: 14px;
+    gap: 12px;
+  }
+
+  .empty {
+    margin-top: 16px;
+    padding: 32px 16px;
+  }
+
+  .dashboard-date-section {
+    margin-top: 14px;
   }
 
   .fab {
