@@ -3833,16 +3833,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
-.trends-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
 .trends-header {
   margin-bottom: 8px;
   width: 100%;
