@@ -1063,6 +1063,32 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border: 1px solid rgba(22, 163, 74, 0.2);
 }
 
+.card__action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card__action-group .card__join-btn--joined {
+  padding: 6px 13px;
+  font-size: 0.8rem;
+}
+
+.card__join-btn--leave {
+  background: #fff;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.card__join-btn--leave:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
 .card__join-btn--closed {
   background: var(--bg-secondary);
   color: var(--text-muted);

@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import type { Pot, Restaurant, SerializedPot } from '../types/moyeobap';
 import { fetcher } from '../lib/fetcher';
+import { getErrorMessage, requestJson } from '../lib/api-client';
 import { useClock } from '../hooks/useClock';
+import { useToastNotice } from '../hooks/useToastNotice';
 import { useAuth } from '../components/moyeobap/AuthProvider';
 import { PotCard } from '../components/moyeobap/PotCard';
+import { ToastNotice } from '../components/moyeobap/ToastNotice';
 import { groupPotsByDate } from '../lib/moyeobap-utils';
 
 function toPot(pot: SerializedPot): Pot {
@@ -18,7 +21,8 @@ export default function MyPotsPage() {
   const router = useRouter();
   const { currentUser, isAuthLoading, openAuth } = useAuth();
   const now = useClock();
-  const { data: potsData, error: potsError } = useSWR<{ pots: SerializedPot[] }>(
+  const { toast, showToast } = useToastNotice();
+  const { data: potsData, error: potsError, mutate: mutatePots } = useSWR<{ pots: SerializedPot[] }>(
     currentUser ? '/api/pots' : null,
     fetcher,
     { refreshInterval: 4000 },
@@ -46,6 +50,47 @@ export default function MyPotsPage() {
   const activePots = myPots.filter((pot) => pot.status === 'active');
   const closedPots = myPots.filter((pot) => pot.status === 'closed');
 
+  async function handleLeavePot(potId: string) {
+    const targetPot = myPots.find((p) => p.id === potId);
+    const restName = targetPot ? restaurantsById.get(targetPot.restaurantId)?.name : '';
+    
+    let confirmMessage = `${restName ? `'${restName}' ` : ''}팟 참여를 취소할까요?`;
+    if (targetPot?.isManaging) {
+      if (targetPot.participantCount > 1) {
+        confirmMessage += '\n(관리자 권한은 다음 참여자에게 자동으로 이전돼요.)';
+      } else {
+        confirmMessage += '\n(마지막 참여자여서 팟이 함께 종료돼요.)';
+      }
+    }
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    // 낙관적 UI: 내 참여 목록에서 즉시 제거
+    mutatePots((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pots: prev.pots.map((p) =>
+          p.id === potId
+            ? { ...p, isParticipating: false, participantCount: Math.max(0, p.participantCount - 1) }
+            : p,
+        ),
+      };
+    }, false);
+
+    showToast('팟 참여를 취소했어요.', 'warning');
+
+    try {
+      await requestJson(`/api/pots/${potId}/leave`, { method: 'POST' });
+      await mutatePots();
+    } catch (leaveError) {
+      await mutatePots();
+      showToast(getErrorMessage(leaveError, '참여 취소에 실패했어요.'), 'error');
+    }
+  }
+
   if (isAuthLoading) {
     return <main className="page-content"><div className="page-state">로그인 상태를 확인하는 중이에요...</div></main>;
   }
@@ -67,6 +112,7 @@ export default function MyPotsPage() {
 
   return (
     <main className="page-content my-page">
+      <ToastNotice toast={toast} />
       <div className="page-heading">
         <div>
           <p className="page-heading__eyebrow">내 채팅방</p>
@@ -105,6 +151,7 @@ export default function MyPotsPage() {
                       key={pot.id}
                       now={now}
                       onJoinClick={(id) => router.push(`/pots/${encodeURIComponent(id)}`)}
+                      onLeaveClick={handleLeavePot}
                       onOpenAuth={() => undefined}
                       pot={pot}
                       restaurant={restaurant}
