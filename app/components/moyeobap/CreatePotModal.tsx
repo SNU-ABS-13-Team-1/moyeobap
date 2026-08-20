@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { findExactRestaurant, findRestaurantSuggestions } from '../../lib/restaurant-matching';
 import type { Restaurant, SerializedPot } from '../../types/moyeobap';
 
 interface CreatePotFormProps {
   restaurants: Restaurant[];
   pots: SerializedPot[];
+  initialRestaurantId?: string | null;
   onCreateCustomRestaurant: (input: {
     name: string;
     category: 'lunch' | 'cafe' | 'other';
@@ -51,14 +52,36 @@ function formatRemainingTime(deadline: string) {
 export function CreatePotForm({
   restaurants,
   pots,
+  initialRestaurantId,
   onCreateCustomRestaurant,
   onSubmit,
 }: CreatePotFormProps) {
+  const initialRest = useMemo(
+    () => (initialRestaurantId ? restaurants.find((r) => r.id === initialRestaurantId) : undefined),
+    [initialRestaurantId, restaurants],
+  );
+
   const [mode, setMode] = useState<'list' | 'custom'>('list');
-  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>('lunch');
+  const [categoryFilter, setCategoryFilter] = useState<'lunch' | 'cafe' | 'other'>(
+    initialRest?.category ?? 'lunch',
+  );
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(
+    initialRestaurantId ?? null,
+  );
+
+  useEffect(() => {
+    if (initialRestaurantId) {
+      const timer = window.setTimeout(() => {
+        const el = document.getElementById(`restaurant-item-${initialRestaurantId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+      return () => window.clearTimeout(timer);
+    }
+  }, [initialRestaurantId]);
   const [deadlineChoice, setDeadlineChoice] = useState<number | 'custom'>(30);
   const [customMinutes, setCustomMinutes] = useState('90');
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
@@ -284,6 +307,7 @@ export function CreatePotForm({
                         const activePotCount = activePotsByRestaurant.get(r.id)?.length ?? 0;
                         return (
                           <button
+                            id={`restaurant-item-${r.id}`}
                             aria-pressed={selectedRestaurantId === r.id}
                             key={r.id}
                             className={`create__restaurant-item ${selectedRestaurantId === r.id ? 'create__restaurant-item--selected' : ''}`}

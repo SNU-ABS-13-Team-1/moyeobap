@@ -8,6 +8,7 @@ import type { Pot, Restaurant, SerializedPot } from '../../types/moyeobap';
 import { estimateNeededParticipants, formatTime, getTimeRemaining } from '../../lib/moyeobap-utils';
 import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { useClock } from '../../hooks/useClock';
 import { useToastNotice } from '../../hooks/useToastNotice';
 import { useAuth } from './AuthProvider';
@@ -51,6 +52,50 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     fetcher,
     { refreshInterval: 4000 },
   );
+
+  // Supabase Realtime 구독 (참여자 변경, 송금 상태, 팟 상태 실시간 동기화)
+  useEffect(() => {
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`pot-detail-${potId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pot_participants',
+          filter: `pot_id=eq.${potId}`,
+        },
+        () => {
+          mutate();
+          mutateCache('/api/pots');
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pots',
+          filter: `id=eq.${potId}`,
+        },
+        () => {
+          mutate();
+          mutateCache('/api/pots');
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [potId, mutate, mutateCache]);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -102,6 +147,31 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
 
   async function handleTogglePaid() {
     if (isTogglingPaid) return;
+
+    const currentIsPaid = Boolean(myParticipant?.isPaid);
+    const nextIsPaid = !currentIsPaid;
+
+    // 1. 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
+    mutate((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pot: {
+          ...prev.pot,
+          participants: prev.pot.participants
+            ? prev.pot.participants.map((p) =>
+                p.name === currentUser?.name ? { ...p, isPaid: nextIsPaid } : p,
+              )
+            : null,
+        },
+      };
+    }, false);
+
+    showToast(
+      nextIsPaid ? '송금 완료 상태로 표시했어요.' : '송금 완료 표시를 해제했어요.',
+      'success',
+    );
+
     setIsTogglingPaid(true);
     try {
       const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/paid`, {
@@ -111,12 +181,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         mutate((prev) => (prev ? { ...prev, pot: response.pot } : prev), false),
         mutateCache('/api/pots'),
       ]);
-      const updatedMine = response.pot.participants?.find((p) => p.name === currentUser?.name);
-      showToast(
-        updatedMine?.isPaid ? '송금 완료 상태로 표시했어요.' : '송금 완료 표시를 해제했어요.',
-        'success',
-      );
     } catch (toggleErr) {
+      await mutate();
       showToast(getErrorMessage(toggleErr, '송금 상태를 변경하지 못했어요.'), 'error');
     } finally {
       setIsTogglingPaid(false);
@@ -124,17 +190,37 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   }
 
   async function handleSaveMemo(memoText: string) {
+    const trimmedMemo = memoText.trim().slice(0, 100);
+    setMemoEdit(null);
+
+    // 1. 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
+    mutate((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pot: {
+          ...prev.pot,
+          participants: prev.pot.participants
+            ? prev.pot.participants.map((p) =>
+                p.name === currentUser?.name ? { ...p, orderMemo: trimmedMemo || undefined } : p,
+              )
+            : null,
+        },
+      };
+    }, false);
+
+    showToast('주문 메모를 저장했어요.', 'success');
+
     setIsSavingMemo(true);
     try {
       const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/memo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memo: memoText }),
+        body: JSON.stringify({ memo: trimmedMemo }),
       });
       await mutate((prev) => (prev ? { ...prev, pot: response.pot } : prev), false);
-      setMemoEdit(null);
-      showToast('주문 메모를 저장했어요.', 'success');
     } catch (err) {
+      await mutate();
       showToast(getErrorMessage(err, '주문 메모를 저장하지 못했어요.'), 'error');
     } finally {
       setIsSavingMemo(false);
@@ -146,16 +232,57 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
       openAuth(`/pots/${encodeURIComponent(potId)}`);
       return;
     }
+
+    // 1. 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
+    mutate((prev) => {
+      if (!prev) return prev;
+      const newParticipant = {
+        name: currentUser.name,
+        initial: currentUser.initial,
+        isManager: false,
+        isPaid: false,
+      };
+      return {
+        ...prev,
+        pot: {
+          ...prev.pot,
+          isParticipating: true,
+          participantCount: prev.pot.participantCount + 1,
+          participants: prev.pot.participants ? [...prev.pot.participants, newParticipant] : [newParticipant],
+        },
+      };
+    }, false);
+
+    showToast(`${restaurant.name} 팟에 참여했어요.`, 'success');
+
     try {
       await requestJson(`/api/pots/${potId}/join`, { method: 'POST' });
       await Promise.all([mutate(), mutateCache('/api/pots')]);
-      showToast(`${restaurant.name} 팟에 참여했어요.`, 'success');
     } catch (joinError) {
+      await mutate();
       showToast(getErrorMessage(joinError, '참여하지 못했어요.'), 'error');
     }
   }
 
   async function handleLeave() {
+    // 1. 낙관적 UI 업데이트
+    mutate((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pot: {
+          ...prev.pot,
+          isParticipating: false,
+          participantCount: Math.max(0, prev.pot.participantCount - 1),
+          participants: prev.pot.participants
+            ? prev.pot.participants.filter((p) => p.name !== currentUser?.name)
+            : null,
+        },
+      };
+    }, false);
+
+    showToast('팟 참여를 취소했어요.', 'warning');
+
     try {
       const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/leave`, {
         method: 'POST',
@@ -166,8 +293,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         return;
       }
       await mutate();
-      showToast('팟 참여를 취소했어요.', 'warning');
     } catch (leaveError) {
+      await mutate();
       showToast(getErrorMessage(leaveError, '참여 취소에 실패했어요.'), 'error');
     }
   }
