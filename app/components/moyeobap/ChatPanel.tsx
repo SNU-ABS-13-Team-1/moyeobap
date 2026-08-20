@@ -57,7 +57,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const copyTimerRef = useRef<number | null>(null);
-  const isInitialScrollDone = useRef(false);
+  const scrolledPotIdRef = useRef<string | null>(null);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
   const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
@@ -69,11 +69,6 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
       ? message.text.slice(markerIndex + marker.length).trim()
       : message.text.replace(/^💳\s*/, '').trim();
   }
-
-  // 팟 변경 시 초기 스크롤 플래그 리셋
-  useEffect(() => {
-    isInitialScrollDone.current = false;
-  }, [potId]);
 
   // Supabase Realtime 구독 설정 (새 메시지가 수신되면 Polling 대기 없이 즉시 화면 업데이트)
   useEffect(() => {
@@ -110,9 +105,11 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
   useEffect(() => {
     if (!listRef.current || messages.length === 0) return;
 
-    if (!isInitialScrollDone.current) {
-      // 1. 초기 렌더링 즉시 최하단 이동
+    if (scrolledPotIdRef.current !== potId) {
+      // 1. 초기 렌더링 즉시 최하단 이동 및 부드럽게 표시
       listRef.current.scrollTop = listRef.current.scrollHeight;
+      listRef.current.style.opacity = '1';
+      scrolledPotIdRef.current = potId;
 
       // 2. 이미지/이모티콘 렌더링 높이 보정용 이중 타이머
       const timer1 = window.setTimeout(() => {
@@ -120,9 +117,8 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
       }, 50);
       const timer2 = window.setTimeout(() => {
         if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-      }, 200);
+      }, 150);
 
-      isInitialScrollDone.current = true;
       return () => {
         window.clearTimeout(timer1);
         window.clearTimeout(timer2);
@@ -131,7 +127,7 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
 
     // 이후 새 메시지가 올 때 부드러운 스크롤
     listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages.length]);
+  }, [messages.length, potId]);
 
   useEffect(() => () => {
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current);
@@ -377,11 +373,20 @@ export function ChatPanel({ potId, currentUser }: ChatPanelProps) {
           </button>
         </div>
       )}
-      <div className="chat-panel__list" ref={listRef}>
+      <div
+        className="chat-panel__list"
+        ref={listRef}
+        style={{
+          transition: 'opacity 0.12s ease',
+        }}
+      >
         {loadError && (
           <p className="chat-panel__error" role="alert">대화를 불러오지 못했어요.</p>
         )}
-        {!loadError && messages.length === 0 && (
+        {!loadError && !data && (
+          <div className="chat-panel__empty" style={{ opacity: 0.6 }}>대화를 불러오는 중...</div>
+        )}
+        {!loadError && data && messages.length === 0 && (
           <p className="chat-panel__empty">아직 대화가 없어요. 첫 메시지를 남겨보세요!</p>
         )}
         {messages.map(m => (
