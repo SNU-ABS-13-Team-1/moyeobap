@@ -3399,17 +3399,48 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 @media (max-width: 640px) {
   .create-page__form .create__restaurant-list {
-    max-height: 250px;
+    max-height: 280px;
     scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
   }
 
   .create__restaurant-gallery {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .create__restaurant-item {
+    min-height: 76px;
+    padding: 10px 8px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .create__restaurant-emoji {
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+
+  .create__restaurant-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+
+  .create__restaurant-meta {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  .create__restaurant-live {
+    font-size: 0.62rem;
+    padding: 2px 5px;
   }
 
   .create__category-tab {
-    padding: 12px;
+    padding: 10px;
   }
 }
 
