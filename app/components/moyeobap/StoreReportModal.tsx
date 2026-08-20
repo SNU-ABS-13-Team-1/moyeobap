@@ -4,6 +4,9 @@ import { type FormEvent, useState } from 'react';
 import { Modal } from './Modal';
 import { useAuth } from './AuthProvider';
 
+// /api/feedback가 content를 1000자로 잘라내므로, 접두사까지 포함해 이 길이를 넘지 않아야 합니다.
+const FEEDBACK_MAX_LENGTH = 1000;
+
 interface StoreReportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,8 +25,15 @@ export function StoreReportModal({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const trimmedContent = content.trim();
+  const reportPrefix = `[매장 정보 수정 제보: ${restaurantName}] `;
+  const maxContentLength = Math.max(0, FEEDBACK_MAX_LENGTH - reportPrefix.length);
 
   if (!isOpen) return null;
+
+  function handleClose() {
+    setError(null);
+    onClose();
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -42,7 +52,7 @@ export function StoreReportModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: `[매장 정보 수정 제보: ${restaurantName}] ${trimmedContent}`,
+          content: `${reportPrefix}${trimmedContent}`,
           pagePath: `${window.location.pathname}${window.location.search}`,
         }),
       });
@@ -65,7 +75,7 @@ export function StoreReportModal({
   }
 
   return (
-    <Modal onClose={onClose} title="매장 정보 수정 제보">
+    <Modal onClose={handleClose} title="매장 정보 수정 제보">
       <form className="feedback__form" onSubmit={handleSubmit}>
         <div>
           <strong>{restaurantName}의 달라진 정보를 알려주세요.</strong>
@@ -75,7 +85,7 @@ export function StoreReportModal({
           <span>제보 내용</span>
           <textarea
             autoFocus
-            maxLength={1000}
+            maxLength={maxContentLength}
             onChange={(event) => {
               setContent(event.target.value);
               if (error) setError(null);
@@ -86,7 +96,9 @@ export function StoreReportModal({
             disabled={submitting}
           />
         </label>
-        <div className="feedback__count">{content.length} / 1,000 (최소 5자)</div>
+        <div className="feedback__count">
+          {content.length} / {maxContentLength.toLocaleString()} (최소 5자)
+        </div>
         {error && <p className="auth__error" role="alert">{error}</p>}
         <button
           className="create__submit-btn"
