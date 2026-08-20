@@ -53,7 +53,17 @@ export default function MyPotsPage() {
   async function handleLeavePot(potId: string) {
     const targetPot = myPots.find((p) => p.id === potId);
     const restName = targetPot ? restaurantsById.get(targetPot.restaurantId)?.name : '';
-    if (!window.confirm(`${restName ? `'${restName}' ` : ''}팟 참여를 취소할까요?`)) {
+    
+    let confirmMessage = `${restName ? `'${restName}' ` : ''}팟 참여를 취소할까요?`;
+    if (targetPot?.isManaging) {
+      if (targetPot.participantCount > 1) {
+        confirmMessage += '\n(관리자 권한은 다음 참여자에게 자동으로 이전돼요.)';
+      } else {
+        confirmMessage += '\n(마지막 참여자여서 팟이 함께 종료돼요.)';
+      }
+    }
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
