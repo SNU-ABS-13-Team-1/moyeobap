@@ -4621,10 +4621,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .snake__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .snake__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
@@ -5009,11 +5009,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-room__canvas-wrap {
   position: relative;
-  line-height: 0;
   max-width: 100%;
 }
 
 .omok-room__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #a97c30;
   box-shadow: var(--shadow-md);
@@ -5604,10 +5604,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .pong-room__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .pong-room__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #374151;
   max-width: 100%;
@@ -5905,10 +5905,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .flappy__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .flappy__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #1f2937;
   box-shadow: var(--shadow-md);
