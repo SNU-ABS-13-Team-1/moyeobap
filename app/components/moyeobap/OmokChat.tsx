@@ -7,12 +7,23 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 
+type OmokChatAuthorRole = 'black' | 'white' | 'spectator';
+
 type OmokChatMessage = {
   id: string;
   authorId: string;
   authorName: string;
+  authorRole: OmokChatAuthorRole | null;
   text: string;
   createdAt: string;
+};
+
+// 메시지를 쓴 시점의 역할입니다. 이 기능 이전에 쌓인 메시지는 역할이 없어서
+// (null) 아무 표시도 붙이지 않습니다.
+const ROLE_LABEL: Record<OmokChatAuthorRole, string> = {
+  black: '흑',
+  white: '백',
+  spectator: '관전',
 };
 
 function formatTime(iso: string): string {
@@ -20,7 +31,9 @@ function formatTime(iso: string): string {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean }) {
+// myRole은 낙관적으로 먼저 그리는 내 메시지에 붙일 역할입니다. 서버가
+// 저장하는 값과 같아서, 다음 갱신 때 배지가 바뀌어 보이지 않습니다.
+export function OmokChat({ roomId, myRole }: { roomId: string; myRole: OmokChatAuthorRole }) {
   const { currentUser } = useAuth();
   const { data, error, mutate } = useSWR<{ messages: OmokChatMessage[] }>(
     `/api/games/omok/rooms/${roomId}/chat`,
@@ -71,6 +84,7 @@ export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean
       id: `temp-${Date.now()}`,
       authorId: currentUser.id,
       authorName: currentUser.name,
+      authorRole: myRole,
       text: trimmed,
       createdAt: new Date().toISOString(),
     };
@@ -106,6 +120,11 @@ export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean
           >
             <span className="omok-chat__meta">
               [{formatTime(m.createdAt)}] {m.authorName}
+              {m.authorRole && (
+                <span className={`omok-chat__role omok-chat__role--${m.authorRole}`}>
+                  {ROLE_LABEL[m.authorRole]}
+                </span>
+              )}
             </span>
             <span className="omok-chat__bubble">{m.text}</span>
           </div>
@@ -114,24 +133,20 @@ export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean
 
       {sendError && <p className="omok-chat__error">{sendError}</p>}
 
-      {canPost ? (
-        <form className="omok-chat__form" onSubmit={handleSubmit}>
-          <input
-            aria-label="메시지"
-            className="omok-chat__input"
-            maxLength={500}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="메시지 보내기..."
-            type="text"
-            value={text}
-          />
-          <button className="omok-chat__send" disabled={!text.trim() || sending} type="submit">
-            전송
-          </button>
-        </form>
-      ) : (
-        <p className="omok-chat__spectator-note">참여자만 채팅할 수 있어요.</p>
-      )}
+      <form className="omok-chat__form" onSubmit={handleSubmit}>
+        <input
+          aria-label="메시지"
+          className="omok-chat__input"
+          maxLength={500}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="메시지 보내기..."
+          type="text"
+          value={text}
+        />
+        <button className="omok-chat__send" disabled={!text.trim() || sending} type="submit">
+          전송
+        </button>
+      </form>
     </div>
   );
 }

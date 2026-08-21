@@ -7,6 +7,7 @@ import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { isForbiddenMove } from '../../lib/omokForbidden';
+import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
 import { OmokChat } from './OmokChat';
 
@@ -25,6 +26,8 @@ type OmokRoomData = {
   moveCount: number;
   lastRow: number | null;
   lastCol: number | null;
+  turnStartedAt: string | null;
+  rematchBy: string | null;
 };
 
 const CELL_SIZE = 26;
@@ -38,8 +41,11 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
-  const [restarting, setRestarting] = useState(false);
+  const [rematchPending, setRematchPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  // 남은 시간 표시를 위해 현재 시각을 짧은 간격으로 갱신합니다. 보드를 다시
+  // 그리는 effect는 room에만 의존하므로 이 렌더가 캔버스를 건드리지 않습니다.
+  const [now, setNow] = useState(() => Date.now());
   const [moveError, setMoveError] = useState<string | null>(null);
   const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
@@ -149,6 +155,40 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     const timer = window.setTimeout(() => setMoveError(null), 3000);
     return () => window.clearTimeout(timer);
   }, [moveError]);
+
+  // 대국 중에만 시계를 돌립니다. 종료/대기 중에는 타이머를 걸지 않습니다.
+  const roomStatus = room?.status;
+  useEffect(() => {
+    if (roomStatus !== 'playing') return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [roomStatus]);
+
+  // 제한 시간이 지나면 서버에 알립니다. 판정은 서버가 turn_started_at으로
+  // 다시 하므로 이 호출은 "확인해달라"는 신호일 뿐이고, 양쪽 클라이언트가
+  // 같이 호출해도 승부는 한 번만 확정됩니다. 한 차례당 한 번만 보내되,
+  // 실패하면(시계 오차로 서버가 아직 이르다고 볼 때) 잠시 뒤 다시 시도합니다.
+  const reportedTurnRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!room || room.status !== 'playing' || myColor === null) return undefined;
+    const turnKey = room.turnStartedAt;
+    if (!turnKey || !isTurnExpired(turnKey, now)) return undefined;
+    if (reportedTurnRef.current === turnKey) return undefined;
+
+    reportedTurnRef.current = turnKey;
+    let retryTimer: number | undefined;
+    requestJson(`/api/games/omok/rooms/${roomId}/timeout`, { method: 'POST' })
+      .then(() => mutate())
+      .catch(() => {
+        retryTimer = window.setTimeout(() => {
+          if (reportedTurnRef.current === turnKey) reportedTurnRef.current = null;
+        }, 1000);
+      });
+
+    return () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
+  }, [room, now, myColor, roomId, mutate]);
 
   // 캔버스에 격자판 + 돌을 그립니다. 방금 놓인 돌은 살짝 확대되며
   // 나타나는 간단한 애니메이션과 강조 테두리를 추가로 그립니다.
@@ -292,15 +332,20 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     router.push('/games/omok');
   }
 
-  async function handleRestart() {
-    setRestarting(true);
+  async function handleRematch(action: 'request' | 'accept' | 'decline') {
+    setRematchPending(true);
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/restart`, { method: 'POST' });
+      await requestJson(`/api/games/omok/rooms/${roomId}/rematch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
       mutate();
-    } catch {
-      // 무시. 다음 polling/realtime 갱신에서 최신 상태로 맞춰집니다.
+    } catch (err) {
+      setMoveError(getErrorMessage(err, '재대국 요청을 처리하지 못했어요.'));
+      mutate();
     } finally {
-      setRestarting(false);
+      setRematchPending(false);
     }
   }
 
@@ -418,7 +463,17 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     statusText = `${room.turn === 'black' ? room.blackName : room.whiteName}님 차례예요`;
   }
 
-  const canRestart = room.status === 'finished' && myColor !== null;
+  // 남은 시간은 내 차례든 상대 차례든 똑같이 보여줍니다. 상대가 얼마나
+  // 남았는지 보이지 않으면 갑자기 시간패로 끝난 것처럼 느껴집니다.
+  const showClock = room.status === 'playing' && Boolean(room.turnStartedAt);
+  const remainingSec = Math.ceil(remainingTurnMs(room.turnStartedAt, now) / 1000);
+  const clockUrgent = remainingSec <= 10;
+
+  const isParticipant = myColor !== null;
+  const canRematch = room.status === 'finished' && isParticipant && Boolean(room.whiteId);
+  const rematchRequestedByMe = Boolean(room.rematchBy) && room.rematchBy === currentUser?.id;
+  const rematchRequestedByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
+  const rematchRequesterName = room.rematchBy === room.blackId ? room.blackName : room.whiteName;
 
   return (
     <div className="omok-room-page__layout">
@@ -446,6 +501,16 @@ export function OmokRoom({ roomId }: { roomId: string }) {
           </div>
 
           <p className="omok-room__status">{statusText}</p>
+
+          {showClock && (
+            <p className={`omok-room__clock ${clockUrgent ? 'omok-room__clock--urgent' : ''}`}>
+              ⏱ {String(Math.floor(remainingSec / 60)).padStart(2, '0')}:
+              {String(remainingSec % 60).padStart(2, '0')}
+              <span className="omok-room__clock-note">
+                한 수 {Math.round(TURN_LIMIT_MS / 1000)}초
+              </span>
+            </p>
+          )}
 
           {showDisconnectBanner && (
             <div className="omok-room__disconnect-banner">
@@ -480,22 +545,62 @@ export function OmokRoom({ roomId }: { roomId: string }) {
             >
               {leaving ? '나가는 중...' : '게임 나가기'}
             </button>
-            {canRestart && (
+            {canRematch && !room.rematchBy && (
               <button
                 className="omok-room__restart-btn"
-                disabled={restarting}
-                onClick={handleRestart}
+                disabled={rematchPending}
+                onClick={() => handleRematch('request')}
                 type="button"
               >
-                {restarting ? '시작하는 중...' : '게임 재시작'}
+                {rematchPending ? '신청하는 중...' : '재대국 신청'}
+              </button>
+            )}
+            {canRematch && rematchRequestedByMe && (
+              <button
+                className="omok-room__rematch-cancel-btn"
+                disabled={rematchPending}
+                onClick={() => handleRematch('decline')}
+                type="button"
+              >
+                신청 취소
               </button>
             )}
           </div>
+
+          {canRematch && rematchRequestedByMe && (
+            <p className="omok-room__rematch-waiting">
+              재대국을 신청했어요. 상대의 수락을 기다리는 중이에요.
+            </p>
+          )}
+
+          {canRematch && rematchRequestedByOpponent && (
+            <div className="omok-room__rematch-offer">
+              <span>{rematchRequesterName}님이 재대국을 신청했어요. 흑백을 바꿔서 다시 둡니다.</span>
+              <div className="omok-room__rematch-offer-actions">
+                <button
+                  className="omok-room__restart-btn"
+                  disabled={rematchPending}
+                  onClick={() => handleRematch('accept')}
+                  type="button"
+                >
+                  {rematchPending ? '시작하는 중...' : '수락'}
+                </button>
+                <button
+                  className="omok-room__rematch-cancel-btn"
+                  disabled={rematchPending}
+                  onClick={() => handleRematch('decline')}
+                  type="button"
+                >
+                  거절
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="omok-room-page__chat">
-        <OmokChat canPost={myColor !== null} roomId={roomId} />
+        <OmokChat myRole={myColor ?? 'spectator'} roomId={roomId} />
       </div>
     </div>
   );

@@ -5093,6 +5093,71 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: not-allowed;
 }
 
+.omok-room__rematch-cancel-btn {
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.omok-room__rematch-cancel-btn:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.omok-room__rematch-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.omok-room__rematch-waiting {
+  margin-top: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.omok-room__rematch-offer {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.omok-room__rematch-offer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.omok-room__clock {
+  margin-top: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.omok-room__clock--urgent {
+  color: #e0483f;
+}
+
+.omok-room__clock-note {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 /* ===== Omok chat ===== */
 .omok-chat {
   display: flex;
@@ -5191,12 +5256,30 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: not-allowed;
 }
 
-.omok-chat__spectator-note {
-  padding: var(--space-md);
-  border-top: 1px solid var(--card-border);
-  text-align: center;
+.omok-chat__role {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.omok-chat__role--black {
+  background: #2f2f2f;
+  color: #fff;
+}
+
+.omok-chat__role--white {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ccc;
+}
+
+.omok-chat__role--spectator {
+  background: transparent;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  border: 1px solid var(--card-border);
 }
 
 /* ===== Omok ranking ===== */
