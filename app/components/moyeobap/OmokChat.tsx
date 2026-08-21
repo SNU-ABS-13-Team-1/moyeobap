@@ -20,7 +20,27 @@ function formatTime(iso: string): string {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean }) {
+// 메시지를 보낸 시점이 아니라 "지금" 이 방에서 그 사람이 흑/백/관전자
+// 무엇인지 계산합니다. 흑/백 전환 기능과 맞물려 있어, 전환 후에는 과거
+// 메시지의 표시도 최신 배정을 따릅니다(별도 이력 컬럼을 추가하지 않은
+// 의도적인 단순화입니다).
+function roleLabel(authorId: string, blackId: string, whiteId: string | null): string {
+  if (authorId === blackId) return '흑';
+  if (whiteId && authorId === whiteId) return '백';
+  return '관전자';
+}
+
+export function OmokChat({
+  roomId,
+  canPost,
+  blackId,
+  whiteId,
+}: {
+  roomId: string;
+  canPost: boolean;
+  blackId: string;
+  whiteId: string | null;
+}) {
   const { currentUser } = useAuth();
   const { data, error, mutate } = useSWR<{ messages: OmokChatMessage[] }>(
     `/api/games/omok/rooms/${roomId}/chat`,
@@ -105,7 +125,7 @@ export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean
             key={m.id}
           >
             <span className="omok-chat__meta">
-              [{formatTime(m.createdAt)}] {m.authorName}
+              [{formatTime(m.createdAt)}] [{roleLabel(m.authorId, blackId, whiteId)}] {m.authorName}
             </span>
             <span className="omok-chat__bubble">{m.text}</span>
           </div>
@@ -130,7 +150,7 @@ export function OmokChat({ roomId, canPost }: { roomId: string; canPost: boolean
           </button>
         </form>
       ) : (
-        <p className="omok-chat__spectator-note">참여자만 채팅할 수 있어요.</p>
+        <p className="omok-chat__spectator-note">로그인하면 채팅할 수 있어요.</p>
       )}
     </div>
   );

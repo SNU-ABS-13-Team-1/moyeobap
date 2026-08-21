@@ -45,9 +45,10 @@ export async function getRoomChat(roomId: string): Promise<OmokChatMessage[]> {
   return (data as OmokChatRow[]).map(mapRow);
 }
 
-// 대국 참여자(흑/백)만 채팅을 보낼 수 있습니다. 관전자는 GET으로 읽을 수는
-// 있지만(서버가 service_role로 내려주므로 RLS와 무관하게 동작) 쓰기는
-// 막아, 팟 채팅과 동일한 "참여자만 쓸 수 있다" 원칙을 지킵니다.
+// 흑/백뿐 아니라 관전자도 채팅을 보낼 수 있습니다(게임 조작은 여전히
+// 참여자만 가능 — app/lib/omok.ts의 submitMove 참고). 여기서는 방이 실제로
+// 존재하는지만 확인해 엉뚱한/존재하지 않는 방에 메시지가 쌓이는 것만
+// 막습니다.
 export async function postRoomChat(
   roomId: string,
   userId: string,
@@ -60,9 +61,6 @@ export async function postRoomChat(
 
   const room = await getRoom(roomId);
   if (!room) return { error: "존재하지 않는 방이에요." };
-  if (room.blackId !== userId && room.whiteId !== userId) {
-    return { error: "참여자만 채팅할 수 있어요." };
-  }
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };

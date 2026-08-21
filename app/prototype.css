@@ -5067,6 +5067,27 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: not-allowed;
 }
 
+.omok-room__swap-btn {
+  padding: 12px 24px;
+  background: #fff;
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.omok-room__swap-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.omok-room__swap-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===== Omok chat ===== */
 .omok-chat {
   display: flex;

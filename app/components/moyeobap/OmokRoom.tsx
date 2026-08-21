@@ -38,6 +38,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const [leaving, setLeaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [swapping, setSwapping] = useState(false);
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
@@ -276,6 +277,19 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     }
   }
 
+  async function handleSwapColors() {
+    setSwapping(true);
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/swap-colors`, { method: 'POST' });
+      mutate();
+    } catch {
+      // 무시. 게임 중이었다면 서버가 거부했을 뿐이고, 다음 polling/realtime
+      // 갱신에서 최신 상태로 자연스럽게 맞춰집니다.
+    } finally {
+      setSwapping(false);
+    }
+  }
+
   async function handleMove(row: number, col: number) {
     try {
       await requestJson(`/api/games/omok/rooms/${roomId}/move`, {
@@ -341,6 +355,8 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   }
 
   const canRestart = room.status === 'finished' && myColor !== null;
+  const showSwapButton = myColor !== null && room.whiteId !== null;
+  const swapDisabled = swapping || room.status === 'playing';
 
   return (
     <div className="omok-room-page__layout">
@@ -405,12 +421,23 @@ export function OmokRoom({ roomId }: { roomId: string }) {
                 {restarting ? '시작하는 중...' : '게임 재시작'}
               </button>
             )}
+            {showSwapButton && (
+              <button
+                className="omok-room__swap-btn"
+                disabled={swapDisabled}
+                onClick={handleSwapColors}
+                title={room.status === 'playing' ? '게임 진행 중에는 흑/백을 변경할 수 없습니다.' : undefined}
+                type="button"
+              >
+                {swapping ? '변경 중...' : '흑/백 전환'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className="omok-room-page__chat">
-        <OmokChat canPost={myColor !== null} roomId={roomId} />
+        <OmokChat blackId={room.blackId} canPost={currentUser !== null} roomId={roomId} whiteId={room.whiteId} />
       </div>
     </div>
   );

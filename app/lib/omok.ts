@@ -182,6 +182,18 @@ export async function joinRoom(
   return mapRow(data as OmokRoomRow);
 }
 
+/**
+ * 대국을 승패로 종료 처리하는 유일한 경로입니다(기권/몰수승 등). move_count
+ * 까지 조건에 넣은 이유: "이미 종료된 게임에서 나가기를 눌렀는데 패배가
+ * 또 기록되는" 버그는 실제로는 room.status를 읽은 시점과 이 UPDATE를 실행
+ * 하는 시점 사이에 상대방의 착수(승리 판정 포함)가 먼저 끝나버리는 경쟁
+ * 상태에서 발생합니다 — status만 확인하면 그 사이 승부가 이미 났는데도
+ * "playing"으로 읽었던 값 그대로 종료 처리를 덮어써서 recordMatchResult가
+ * 두 번 불릴 수 있습니다. move_count는 착수마다 반드시 바뀌므로, 그 사이에
+ * 어떤 수라도(승리 수 포함) 먼저 처리됐다면 이 UPDATE는 0행에 매치되어
+ * 안전하게 무시됩니다 — 이미 있는 낙관적 동시성 필드를 그대로 재사용한
+ * 것으로, 새 상태 시스템을 추가하지 않았습니다.
+ */
 async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "white"): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -195,6 +207,7 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
     })
     .eq("id", room.id)
     .eq("status", "playing")
+    .eq("move_count", room.moveCount)
     .select()
     .maybeSingle();
 
@@ -208,12 +221,15 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
 }
 
 /**
- * "게임 나가기" 버튼의 서버 처리입니다. 방 상태에 따라 동작이 달라집니다.
+ * "게임 나가기" 버튼의 서버 처리입니다. 방 상태를 세 가지로 명확히
+ * 구분해서 처리합니다.
  * - waiting: 방장(흑)이 나가면 방을 삭제합니다. 아직 시작 전이라 잃을 게
  *   없습니다.
  * - playing: 나가는 사람이 기권한 것으로 보고 상대가 승리합니다. 전적도
  *   함께 기록합니다.
- * - finished: 이미 끝난 대국이라 아무 것도 바꾸지 않습니다.
+ * - finished: 이미 승패가 결정된 대국이므로 그냥 방을 나가는 것 외에
+ *   아무 것도 하지 않습니다 — 특히 승/패 기록을 다시 만들지 않습니다.
+ *   (게임 종료 후 나가기 시 패배가 중복 기록되던 버그의 수정 지점)
  */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
@@ -237,10 +253,13 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
     return;
   }
 
-  if (room.status === "playing") {
-    const winnerColor: "black" | "white" = isBlack ? "white" : "black";
-    await finishRoomWithWinner(room, winnerColor);
+  if (room.status === "finished") {
+    return;
   }
+
+  // room.status === "playing"
+  const winnerColor: "black" | "white" = isBlack ? "white" : "black";
+  await finishRoomWithWinner(room, winnerColor);
 }
 
 /**
@@ -311,6 +330,63 @@ export async function restartRoom(
   if (error) {
     console.error("restartRoom error:", error);
     return { error: "다시 시작하지 못했어요." };
+  }
+  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  return mapRow(data as OmokRoomRow);
+}
+
+/**
+ * 같은 방에서 흑/백을 서로 바꿉니다. restartRoom과 마찬가지로 참여자(흑
+ * 또는 백) 누구나 요청할 수 있고, 관전자는 애초에 흑/백 어느 쪽도 아니라
+ * 자연스럽게 거부됩니다. 대국 중(playing)에는 절대 바꿀 수 없고, 대기
+ * 중이거나(둘 다 배정된 대기 상태는 현재 방 생명주기상 존재하지 않지만
+ * 방어적으로 함께 허용) 종료된 뒤에만 가능합니다 — "지금 끝난 게임 결과를
+ * 바꾸는 것"이 아니라 "다음 게임의 색 배정을 바꾸는 것"이라 board/winner
+ * 등은 건드리지 않습니다.
+ *
+ * 동시성: move_count가 아니라 지금 읽은 black_id/white_id 값 자체를
+ * WHERE 조건에 걸어서, 그 사이 다른 전환 요청이 먼저 처리됐다면(또는
+ * 게임이 다시 시작돼 상태가 바뀌었다면) 이 UPDATE가 0행에 매치되어
+ * 안전하게 실패합니다.
+ */
+export async function swapColors(
+  roomId: string,
+  userId: string,
+): Promise<OmokRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.blackId !== userId && room.whiteId !== userId) {
+    return { error: "참여자만 흑/백을 바꿀 수 있어요." };
+  }
+  if (room.status === "playing") {
+    return { error: "게임 진행 중에는 흑/백을 변경할 수 없습니다." };
+  }
+  if (!room.whiteId) {
+    return { error: "상대가 없어서 흑/백을 바꿀 수 없어요." };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("omok_rooms")
+    .update({
+      black_id: room.whiteId,
+      black_name: room.whiteName,
+      white_id: room.blackId,
+      white_name: room.blackName,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", roomId)
+    .neq("status", "playing")
+    .eq("black_id", room.blackId)
+    .eq("white_id", room.whiteId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("swapColors error:", error);
+    return { error: "흑/백을 바꾸지 못했어요." };
   }
   if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
   return mapRow(data as OmokRoomRow);
