@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { requestJson } from '../../lib/api-client';
+import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { isForbiddenMove } from '../../lib/omokForbidden';
 import { useAuth } from './AuthProvider';
 import { OmokChat } from './OmokChat';
 
@@ -35,9 +36,12 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hoverCanvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
@@ -138,6 +142,13 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     const timer = window.setTimeout(() => setClaimAvailable(true), DISCONNECT_CLAIM_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [showDisconnectBanner]);
+
+  // 금수 안내 문구는 몇 초 뒤 자동으로 사라집니다.
+  useEffect(() => {
+    if (!moveError) return undefined;
+    const timer = window.setTimeout(() => setMoveError(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [moveError]);
 
   // 캔버스에 격자판 + 돌을 그립니다. 방금 놓인 돌은 살짝 확대되며
   // 나타나는 간단한 애니메이션과 강조 테두리를 추가로 그립니다.
@@ -242,6 +253,35 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     };
   }, [room]);
 
+  // 금수 위치 마우스 오버 표시는 별도의 투명 오버레이 캔버스에만 그립니다.
+  // 클릭 처리는 계속 메인 캔버스가 담당하고(오버레이는 pointer-events:none),
+  // 보드 자체를 다시 그리는 애니메이션/effect와 완전히 분리해 서로 간섭하지
+  // 않습니다.
+  useEffect(() => {
+    const canvas = hoverCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || !room) return;
+
+    const size = room.board.length;
+    const dim = PADDING * 2 + (size - 1) * CELL_SIZE;
+    canvas.width = dim;
+    canvas.height = dim;
+    ctx.clearRect(0, 0, dim, dim);
+
+    if (!hoverForbiddenCell) return;
+    const x = PADDING + hoverForbiddenCell.col * CELL_SIZE;
+    const y = PADDING + hoverForbiddenCell.row * CELL_SIZE;
+    ctx.strokeStyle = '#e0483f';
+    ctx.lineWidth = 2;
+    const r = CELL_SIZE / 2 - 3;
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r);
+    ctx.lineTo(x + r, y + r);
+    ctx.moveTo(x + r, y - r);
+    ctx.lineTo(x - r, y + r);
+    ctx.stroke();
+  }, [room, hoverForbiddenCell]);
+
   async function handleLeaveRoom() {
     setLeaving(true);
     try {
@@ -283,20 +323,22 @@ export function OmokRoom({ roomId }: { roomId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row, col }),
       });
+      setMoveError(null);
       mutate();
-    } catch {
-      // 상대 차례이거나 이미 놓인 자리, 또는 동시 착수로 인한 재시도 케이스라
-      // 별도 알림 없이 무시하고, 다음 polling/realtime 갱신에서 최신 상태로
-      // 자연스럽게 맞춰집니다.
+    } catch (err) {
+      // 상대 차례이거나 이미 놓인 자리, 동시 착수로 인한 재시도 케이스는
+      // 별도 알림 없이 무시하고 다음 polling/realtime 갱신에서 자연스럽게
+      // 맞춰지지만, 금수 거부는 사용자에게 명확히 알려줍니다.
+      const message = getErrorMessage(err, '');
+      if (message.startsWith('금수입니다')) {
+        setMoveError(message);
+      }
       mutate();
     }
   }
 
-  function handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement>) {
-    if (!room || !isMyTurn) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+  // 클릭/마우스오버 둘 다 캔버스 좌표 → 격자 교차점 변환이 필요해서 공유합니다.
+  function resolveIntersection(canvas: HTMLCanvasElement, event: { clientX: number; clientY: number }, size: number) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -305,15 +347,51 @@ export function OmokRoom({ roomId }: { roomId: string }) {
 
     const col = Math.round((x - PADDING) / CELL_SIZE);
     const row = Math.round((y - PADDING) / CELL_SIZE);
-    const size = room.board.length;
-    if (row < 0 || row >= size || col < 0 || col >= size) return;
+    if (row < 0 || row >= size || col < 0 || col >= size) return null;
 
     const nearestX = PADDING + col * CELL_SIZE;
     const nearestY = PADDING + row * CELL_SIZE;
-    if (Math.hypot(x - nearestX, y - nearestY) > CELL_SIZE / 2) return;
-    if (room.board[row][col] !== null) return;
+    if (Math.hypot(x - nearestX, y - nearestY) > CELL_SIZE / 2) return null;
 
-    handleMove(row, col);
+    return { row, col };
+  }
+
+  function handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (!room || !isMyTurn) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const cell = resolveIntersection(canvas, event, room.board.length);
+    if (!cell || room.board[cell.row][cell.col] !== null) return;
+
+    handleMove(cell.row, cell.col);
+  }
+
+  // 흑 차례일 때만 의미가 있는 미리보기라, 그 외에는 항상 표시를 지웁니다.
+  // 실제 착수 가능 여부는 서버(app/lib/omok.ts의 submitMove)가 다시 검증하니
+  // 이건 어디까지나 UX용 힌트입니다.
+  function handleCanvasMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (!room || !isMyTurn || myColor !== 'black') {
+      if (hoverForbiddenCell) setHoverForbiddenCell(null);
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const cell = resolveIntersection(canvas, event, room.board.length);
+    if (!cell || room.board[cell.row][cell.col] !== null) {
+      if (hoverForbiddenCell) setHoverForbiddenCell(null);
+      return;
+    }
+
+    const tempBoard = room.board.map((r) => [...r]);
+    tempBoard[cell.row][cell.col] = 'black';
+    const { forbidden } = isForbiddenMove(tempBoard, cell.row, cell.col, 'black');
+    setHoverForbiddenCell(forbidden ? cell : null);
+  }
+
+  function handleCanvasMouseLeave() {
+    if (hoverForbiddenCell) setHoverForbiddenCell(null);
   }
 
   if (error) {
@@ -380,11 +458,18 @@ export function OmokRoom({ roomId }: { roomId: string }) {
             </div>
           )}
 
-          <canvas
-            className={`omok-room__canvas ${isMyTurn ? 'omok-room__canvas--active' : ''}`}
-            onClick={handleCanvasClick}
-            ref={canvasRef}
-          />
+          <div className="omok-room__canvas-wrap">
+            <canvas
+              className={`omok-room__canvas ${isMyTurn ? 'omok-room__canvas--active' : ''} ${hoverForbiddenCell ? 'omok-room__canvas--forbidden' : ''}`}
+              onClick={handleCanvasClick}
+              onMouseLeave={handleCanvasMouseLeave}
+              onMouseMove={handleCanvasMouseMove}
+              ref={canvasRef}
+            />
+            <canvas className="omok-room__hover-canvas" ref={hoverCanvasRef} />
+          </div>
+
+          {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
           <div className="omok-room__actions">
             <button
