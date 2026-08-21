@@ -1,6 +1,7 @@
 import { getSupabase } from "./supabase";
 import { recordMatchResult } from "./omokRanking";
 import { FORBIDDEN_MOVE_MESSAGES, isForbiddenMove } from "./omokForbidden";
+import { isTurnExpired, swappedColors } from "./omokMatch";
 
 export const BOARD_SIZE = 15;
 const WIN_LENGTH = 5;
@@ -24,6 +25,8 @@ export type OmokRoom = {
   lastRow: number | null;
   lastCol: number | null;
   startedAt: string | null;
+  turnStartedAt: string | null;
+  rematchBy: string | null;
   createdAt: string;
 };
 
@@ -42,6 +45,8 @@ type OmokRoomRow = {
   last_row: number | null;
   last_col: number | null;
   started_at: string | null;
+  turn_started_at: string | null;
+  rematch_by: string | null;
   created_at: string;
 };
 
@@ -90,6 +95,8 @@ function mapRow(row: OmokRoomRow): OmokRoom {
     lastRow: row.last_row,
     lastCol: row.last_col,
     startedAt: row.started_at,
+    turnStartedAt: row.turn_started_at,
+    rematchBy: row.rematch_by,
     createdAt: row.created_at,
   };
 }
@@ -169,6 +176,7 @@ export async function joinRoom(
       white_name: userName,
       status: "playing",
       started_at: new Date().toISOString(),
+      turn_started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
@@ -192,6 +200,10 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
     .update({
       status: "finished",
       winner: winnerColor,
+      // 끝난 방은 시계를 멈추고, 이전 대국에서 남아 있던 재대국 신청도
+      // 정리합니다.
+      turn_started_at: null,
+      rematch_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", room.id)
@@ -214,7 +226,9 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
  *   없습니다.
  * - playing: 나가는 사람이 기권한 것으로 보고 상대가 승리합니다. 전적도
  *   함께 기록합니다.
- * - finished: 이미 끝난 대국이라 아무 것도 바꾸지 않습니다.
+ * - finished: 승부는 그대로 두고, 남아 있던 재대국 신청만 정리합니다.
+ *   재대국은 상대가 수락해야 시작되므로(requestRematch/acceptRematch),
+ *   여기서 방이 playing으로 되돌아가 있는 일은 없습니다.
  */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
@@ -241,6 +255,17 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   if (room.status === "playing") {
     const winnerColor: "black" | "white" = isBlack ? "white" : "black";
     await finishRoomWithWinner(room, winnerColor);
+    return;
+  }
+
+  // 나간 사람이 걸어둔 재대국 신청이 남아 있으면, 남은 사람이 이미 자리를
+  // 뜬 상대에게 "수락" 버튼을 보게 되므로 지웁니다.
+  if (room.status === "finished" && room.rematchBy) {
+    const { error } = await supabase
+      .from("omok_rooms")
+      .update({ rematch_by: null, updated_at: new Date().toISOString() })
+      .eq("id", roomId);
+    if (error) console.error("leaveRoom(clear rematch) error:", error);
   }
 }
 
@@ -273,10 +298,12 @@ export async function claimDisconnectWin(
 }
 
 /**
- * 종료된 대국을 같은 두 사람이 이어서 새로 시작합니다. 흑/백 배정은 그대로
- * 유지하고 보드와 턴, 마지막 착수 위치만 초기화합니다.
+ * 재대국은 "신청 -> 상대 수락" 두 단계입니다. 한 사람이 혼자 방을 다시
+ * playing으로 되돌리면, 아직 종료 화면을 보고 있던 상대가 "게임 나가기"를
+ * 눌렀을 때 기권으로 처리돼 패가 쌓입니다. 수락 전까지 방을 finished로
+ * 두면 그 경로 자체가 없어집니다.
  */
-export async function restartRoom(
+export async function requestRematch(
   roomId: string,
   userId: string,
 ): Promise<OmokRoom | { error: string }> {
@@ -284,16 +311,57 @@ export async function restartRoom(
   if (!room) return { error: "존재하지 않는 방이에요." };
   if (room.status !== "finished") return { error: "종료된 대국만 다시 시작할 수 있어요." };
   if (room.blackId !== userId && room.whiteId !== userId) {
-    return { error: "참여자만 다시 시작할 수 있어요." };
+    return { error: "참여자만 재대국을 신청할 수 있어요." };
   }
   if (!room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (room.rematchBy === userId) return { error: "이미 재대국을 신청했어요." };
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
 
   const { data, error } = await supabase
     .from("omok_rooms")
+    .update({ rematch_by: userId, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq("status", "finished")
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("requestRematch error:", error);
+    return { error: "재대국을 신청하지 못했어요." };
+  }
+  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  return mapRow(data as OmokRoomRow);
+}
+
+/**
+ * 상대의 재대국 신청을 수락해 새 판을 시작합니다. 흑/백은 통째로 교대되고
+ * (같은 방에서 계속 두면 선을 잡는 쪽이 고정되므로) 보드·턴·시계가
+ * 초기화됩니다.
+ */
+export async function acceptRematch(
+  roomId: string,
+  userId: string,
+): Promise<OmokRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "finished") return { error: "종료된 대국만 다시 시작할 수 있어요." };
+  if (room.blackId !== userId && room.whiteId !== userId) {
+    return { error: "참여자만 수락할 수 있어요." };
+  }
+  if (!room.rematchBy) return { error: "재대국 신청이 없어요." };
+  if (room.rematchBy === userId) return { error: "상대의 수락을 기다리는 중이에요." };
+  if (!room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("omok_rooms")
     .update({
+      ...swappedColors(room),
       board: createEmptyBoard(),
       turn: "black",
       winner: null,
@@ -301,20 +369,83 @@ export async function restartRoom(
       move_count: 0,
       last_row: null,
       last_col: null,
-      started_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      rematch_by: null,
+      started_at: now,
+      turn_started_at: now,
+      updated_at: now,
     })
     .eq("id", roomId)
     .eq("status", "finished")
+    // 신청이 그대로 남아 있을 때만 성립합니다. 그 사이 상대가 신청을
+    // 취소했다면 0행에 매치돼 조용히 실패합니다.
+    .eq("rematch_by", room.rematchBy)
     .select()
     .maybeSingle();
 
   if (error) {
-    console.error("restartRoom error:", error);
+    console.error("acceptRematch error:", error);
     return { error: "다시 시작하지 못했어요." };
   }
   if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
   return mapRow(data as OmokRoomRow);
+}
+
+/** 재대국 신청을 거절하거나(받은 쪽), 취소합니다(보낸 쪽). */
+export async function declineRematch(
+  roomId: string,
+  userId: string,
+): Promise<OmokRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.blackId !== userId && room.whiteId !== userId) {
+    return { error: "참여자만 할 수 있어요." };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("omok_rooms")
+    .update({ rematch_by: null, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("declineRematch error:", error);
+    return { error: "처리하지 못했어요." };
+  }
+  if (!data) return { error: "방을 찾을 수 없어요." };
+  return mapRow(data as OmokRoomRow);
+}
+
+/**
+ * 한 수의 제한 시간이 지났을 때 현재 차례인 쪽을 패배 처리합니다.
+ *
+ * 양쪽 클라이언트가 각자 카운트다운을 돌리다 0이 되면 호출하므로 중복 호출이
+ * 정상입니다. 실제 판정은 여기서 DB의 turn_started_at으로 다시 계산하고,
+ * 확정은 finishRoomWithWinner의 status='playing' 조건이 한 번만 통과시킵니다.
+ */
+export async function timeoutTurn(
+  roomId: string,
+  userId: string,
+): Promise<{ room: OmokRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 게임이 아니에요." };
+  if (room.blackId !== userId && room.whiteId !== userId) {
+    return { error: "참여자만 할 수 있어요." };
+  }
+  if (!isTurnExpired(room.turnStartedAt, Date.now())) {
+    return { error: "아직 시간이 남아 있어요." };
+  }
+
+  const winnerColor: "black" | "white" = room.turn === "black" ? "white" : "black";
+  await finishRoomWithWinner(room, winnerColor);
+
+  const updated = await getRoom(roomId);
+  if (!updated) return { error: "방을 찾을 수 없어요." };
+  return { room: updated };
 }
 
 export async function submitMove(
@@ -372,6 +503,9 @@ export async function submitMove(
       move_count: room.moveCount + 1,
       last_row: row,
       last_col: col,
+      // 다음 사람의 제한 시간은 이 수가 확정된 순간부터 흐릅니다. 대국이
+      // 끝났으면 시계를 멈춰 둡니다(종료된 방은 시간 초과로 처리되지 않음).
+      turn_started_at: finished ? null : new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
