@@ -19,6 +19,7 @@ const CHAT_EMOJIS_V2: readonly ChatEmoji[] = [
   { id: 'cancel', label: '취소할게요ㅠ', src: '/emojis/cancel.png' },
   { id: 'pickleball', label: '피클볼 ㄱ?', src: '/emojis/pickleball.png' },
   { id: 'sleepy', label: '졸려', src: '/emojis/sleepy.png' },
+  { id: 'hungry', label: '배고파...', src: '/emojis/hungry.png' },
   { id: 'exam-over', label: '시험 끝!', src: '/emojis/exam-over.png' },
 ];
 
@@ -37,7 +38,7 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-// 피커 노출 순서 = 2차 개편분(15종) 먼저, 기존 12종이 뒤에 이어집니다.
+// 피커 노출 순서 = 2차 개편분(16종) 먼저, 기존 12종이 뒤에 이어집니다.
 // 전송 화이트리스트(getChatEmojiById)와 렌더용 조회(getChatEmojiBySrc)가
 // 같은 목록을 보도록 하나로 유지합니다.
 export const CHAT_EMOJIS: readonly ChatEmoji[] = [
