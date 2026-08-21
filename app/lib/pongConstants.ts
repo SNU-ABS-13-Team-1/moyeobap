@@ -7,12 +7,12 @@ export const CANVAS_WIDTH = 640;
 export const CANVAS_HEIGHT = 400;
 
 export const PADDLE_WIDTH = 10;
-export const PADDLE_HEIGHT = 65;
+export const PADDLE_HEIGHT = 80;
 export const PADDLE_MARGIN = 20; // 좌우 벽에서 패들까지 거리
 export const PADDLE_SPEED = 360; // px/second
 
 export const BALL_RADIUS = 8;
-export const BALL_START_SPEED = 480; // px/second
+export const BALL_START_SPEED = 420; // px/second
 export const BALL_MAX_SPEED = 900; // px/second
 export const BALL_SPEED_INCREMENT = 34; // 패들에 맞을 때마다 증가폭
 
