@@ -5007,6 +5007,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: not-allowed;
 }
 
+.omok-room__canvas-wrap {
+  position: relative;
+  line-height: 0;
+  max-width: 100%;
+}
+
 .omok-room__canvas {
   border-radius: var(--radius-sm);
   border: 2px solid #a97c30;
@@ -5018,6 +5024,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-room__canvas--active {
   cursor: pointer;
+}
+
+.omok-room__canvas--forbidden {
+  cursor: not-allowed;
+}
+
+.omok-room__hover-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.omok-room__move-error {
+  margin-top: var(--space-sm);
+  color: #e0483f;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 .omok-room__actions {
