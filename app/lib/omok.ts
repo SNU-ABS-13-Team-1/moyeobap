@@ -344,7 +344,8 @@ export async function submitMove(
 
   // 흑 전용 금수(6목 이상, 쌍삼) 판정입니다. 백은 항상 통과합니다. 금수면
   // 여기서 바로 에러를 반환해 DB에 아무것도 쓰지 않으므로, 착수가 실제로
-  // 확정되지 않습니다(app/lib/omokForbidden.ts 참고).
+  // 확정되지 않습니다(app/lib/omokForbidden.ts 참고). 정확히 5목이 되는
+  // 수는 쌍삼보다 우선해 통과하므로, 아래 checkWin이 그대로 승리를 잡습니다.
   const forbidden = isForbiddenMove(nextBoard, row, col, myColor);
   if (forbidden.forbidden && forbidden.reason) {
     return { error: FORBIDDEN_MOVE_MESSAGES[forbidden.reason] };

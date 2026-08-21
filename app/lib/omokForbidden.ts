@@ -17,6 +17,7 @@ const AXES: readonly [number, number][] = [
 ];
 
 const OVERLINE_THRESHOLD = 6;
+const FIVE_LENGTH = 5;
 const OPEN_THREE_LENGTH = 3;
 
 function inBounds(board: Stone[][], row: number, col: number): boolean {
@@ -75,6 +76,18 @@ export function isOverline(board: Stone[][], row: number, col: number, player: S
 }
 
 /**
+ * 해당 착수로 정확히 5목이 만들어지는지 검사합니다. 6목 이상은 별개의
+ * 금수라 여기서는 5로 세지 않습니다(그쪽은 isOverline이 먼저 잡습니다).
+ */
+export function makesFive(board: Stone[][], row: number, col: number, player: Stone): boolean {
+  if (!player) return false;
+  for (const [dr, dc] of AXES) {
+    if (runThrough(board, row, col, player, dr, dc).length === FIVE_LENGTH) return true;
+  }
+  return false;
+}
+
+/**
  * 해당 착수로 새로 만들어진 "열린 3"의 개수를 셉니다. 열린 3은 정확히 3개
  * 연속된 돌이고, 그 구간의 양쪽 바로 바깥 칸이 (보드 안에서) 둘 다 비어
  * 있는 경우만 인정합니다. 한쪽이라도 막혀 있거나 보드 밖이면 열린 3이
@@ -109,7 +122,13 @@ export function isForbiddenMove(
   player: Stone,
 ): { forbidden: boolean; reason: ForbiddenReason } {
   if (player !== "black") return { forbidden: false, reason: null };
+  // 판정 순서가 곧 렌주 룰의 우선순위입니다.
+  // 1) 6목 이상은 5목을 품고 있어도 금수입니다.
   if (isOverline(board, row, col, player)) return { forbidden: true, reason: "overline" };
+  // 2) 정확히 5목이면 승리가 확정되는 수라, 쌍삼 모양이 같이 생겨도 금수가
+  //    아닙니다. 이기는 수를 금수로 막지 않기 위해 쌍삼보다 먼저 봅니다.
+  if (makesFive(board, row, col, player)) return { forbidden: false, reason: null };
+  // 3) 그 외에 열린 3이 2개 이상이면 쌍삼 금수입니다.
   if (countOpenThrees(board, row, col, player) >= 2) return { forbidden: true, reason: "double-three" };
   return { forbidden: false, reason: null };
 }

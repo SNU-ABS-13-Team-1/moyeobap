@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { countOpenThrees, isForbiddenMove, isOverline, type Stone } from "./omokForbidden.ts";
+import { countOpenThrees, isForbiddenMove, isOverline, makesFive, type Stone } from "./omokForbidden.ts";
 
 function emptyBoard(size = 15): Stone[][] {
   return Array.from({ length: size }, () => Array<Stone>(size).fill(null));
@@ -140,4 +140,49 @@ test("보드 경계에 붙은 3은 바깥쪽이 막힌 것으로 취급해 열�
   const result = isForbiddenMove(board, 0, 2, "black");
   assert.equal(countOpenThrees(board, 0, 2, "black"), 0);
   assert.equal(result.forbidden, false);
+});
+
+test("5목을 완성하는 수는 쌍삼 모양이 같이 생겨도 금수가 아니다", () => {
+  const board = emptyBoard();
+  // 가로: (7,3)~(7,6) + 착수 -> 정확히 5목
+  place(board, "black", [
+    [7, 3],
+    [7, 4],
+    [7, 5],
+    [7, 6],
+  ]);
+  // 세로/대각선 \ 은 착수와 함께 각각 열린 3이 됨
+  place(board, "black", [
+    [6, 7],
+    [8, 7],
+    [6, 6],
+    [8, 8],
+  ]);
+  board[7][7] = "black";
+  assert.equal(countOpenThrees(board, 7, 7, "black"), 2); // 쌍삼 모양은 실제로 성립하지만
+  assert.equal(makesFive(board, 7, 7, "black"), true);
+  const result = isForbiddenMove(board, 7, 7, "black");
+  assert.equal(result.forbidden, false); // 5목 승리가 우선
+  assert.equal(result.reason, null);
+});
+
+test("6목은 5목을 품고 있어도 여전히 금수다", () => {
+  const board = emptyBoard();
+  place(board, "black", [
+    [7, 2],
+    [7, 3],
+    [7, 4],
+    [7, 5],
+    [7, 6],
+  ]);
+  place(board, "black", [
+    [6, 7],
+    [8, 7],
+    [6, 6],
+    [8, 8],
+  ]);
+  board[7][7] = "black"; // 가로 6목 + 쌍삼 모양
+  const result = isForbiddenMove(board, 7, 7, "black");
+  assert.equal(result.forbidden, true);
+  assert.equal(result.reason, "overline");
 });
