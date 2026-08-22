@@ -8,16 +8,19 @@ import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import {
-  CHESS_TURN_LIMIT_MS,
   END_REASON_LABEL,
-  isTurnExpired,
-  remainingTurnMs,
+  TIME_CONTROL_LABEL,
+  isClockExpired,
+  remainingMsFor,
   type ChessEndReason,
   type ChessWinner,
+  type ClockState,
+  type TimeControl,
 } from '../../lib/chessMatch';
 import { useAuth } from './AuthProvider';
 import { ChessBoard } from './ChessBoard';
 import { ChessChat } from './ChessChat';
+import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
 
 type ChessRoomData = {
   id: string;
@@ -35,24 +38,37 @@ type ChessRoomData = {
   moveCount: number;
   lastFrom: string | null;
   lastTo: string | null;
+  timeControl: TimeControl;
+  whiteTimeMs: number | null;
+  blackTimeMs: number | null;
+  drawOfferBy: string | null;
   turnStartedAt: string | null;
   rematchBy: string | null;
 };
 
 const DISCONNECT_CLAIM_DELAY_MS = 60_000;
+const RECONNECT_NOTICE_MS = 4_000;
+
+function formatClock(ms: number): string {
+  const sec = Math.ceil(ms / 1000);
+  return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+}
 
 // 오목 방(OmokRoom)과 같은 구조입니다: 2초 폴링 + Realtime 구독으로 방 상태를
-// 받고, Presence로 상대 접속 여부와 관전자 수를 추적합니다. 보드 규칙은
-// chess.js가 담당하고, 실제 착수 검증은 서버(app/lib/chessOnline.ts)가 다시 합니다.
+// 받고, Presence로 상대 접속 여부와 관전자를 추적합니다. 보드 규칙은 chess.js가
+// 담당하고, 실제 착수 검증은 서버(app/lib/chessOnline.ts)가 다시 합니다.
 export function ChessRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [leaving, setLeaving] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
+  const [drawPending, setDrawPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [moveError, setMoveError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Square | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+  const [reconnectNotice, setReconnectNotice] = useState<string | null>(null);
   const { data, error, mutate } = useSWR<{ room: ChessRoomData }>(`/api/games/chess/rooms/${roomId}`, fetcher, {
     refreshInterval: 2000,
   });
@@ -98,16 +114,24 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     return null;
   }, [board, inCheck, game]);
 
+  const legalMoves = useMemo(
+    () => (selected && isMyTurn ? game.moves({ square: selected, verbose: true }) : []),
+    [game, selected, isMyTurn],
+  );
   const targets = useMemo(() => {
     const map = new Map<Square, boolean>();
-    if (!selected || !isMyTurn) return map;
-    for (const move of game.moves({ square: selected, verbose: true })) map.set(move.to, Boolean(move.captured));
+    for (const move of legalMoves) map.set(move.to, Boolean(move.captured));
     return map;
-  }, [game, selected, isMyTurn]);
+  }, [legalMoves]);
 
-  // Presence: 참여자 온라인 여부 + 관전자 수
+  // Presence: 참여자 온라인 여부 + 관전자 목록. 상대가 끊겼다가 돌아오면 짧게 알려줍니다.
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [spectators, setSpectators] = useState<string[]>([]);
+  const previousOnlineRef = useRef<Set<string> | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
+
+  const opponentId = myColor === 'w' ? room?.blackId : myColor === 'b' ? room?.whiteId : null;
+  const opponentName = myColor === 'w' ? room?.blackName : myColor === 'b' ? room?.whiteName : null;
 
   useEffect(() => {
     if (!currentUser || !room) return undefined;
@@ -130,6 +154,16 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           if (meta.role === 'spectator' && !names.includes(meta.name)) names.push(meta.name);
         });
       });
+
+      // 이전에는 없던 상대가 다시 나타나면 "재접속" 안내를 잠깐 띄웁니다.
+      const previous = previousOnlineRef.current;
+      if (previous && opponentId && !previous.has(opponentId) && ids.has(opponentId)) {
+        setReconnectNotice(`✅ ${opponentName ?? '상대'}님이 다시 접속했어요.`);
+        if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = window.setTimeout(() => setReconnectNotice(null), RECONNECT_NOTICE_MS);
+      }
+      previousOnlineRef.current = ids;
+
       setOnlineUserIds(ids);
       setSpectators(names);
     });
@@ -142,13 +176,12 @@ export function ChessRoom({ roomId }: { roomId: string }) {
 
     return () => {
       supabase.removeChannel(channel);
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
     };
-    // room 전체가 아닌 whiteId/blackId가 바뀔 때만 재구독하도록 의도적으로 좁힌 의존성입니다.
+    // room 전체가 아닌 참여자 id가 바뀔 때만 재구독하도록 의도적으로 좁힌 의존성입니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, currentUser, room?.whiteId, room?.blackId]);
 
-  const opponentId = myColor === 'w' ? room?.blackId : myColor === 'b' ? room?.whiteId : null;
-  const opponentName = myColor === 'w' ? room?.blackName : myColor === 'b' ? room?.whiteName : null;
   const opponentOnline = !opponentId || onlineUserIds.has(opponentId);
   const showDisconnectBanner = Boolean(room && room.status === 'playing' && myColor !== null && opponentId && !opponentOnline);
 
@@ -176,12 +209,16 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     return () => window.clearInterval(timer);
   }, [roomStatus]);
 
+  const clock: ClockState | null = room
+    ? { timeControl: room.timeControl, turn: room.turn, whiteTimeMs: room.whiteTimeMs, blackTimeMs: room.blackTimeMs, turnStartedAt: room.turnStartedAt }
+    : null;
+
   // 제한 시간이 지나면 서버에 알립니다(판정은 서버가 다시 함).
   const reportedTurnRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!room || room.status !== 'playing' || myColor === null) return undefined;
+    if (!room || !clock || room.status !== 'playing' || myColor === null) return undefined;
     const turnKey = room.turnStartedAt;
-    if (!turnKey || !isTurnExpired(turnKey, now)) return undefined;
+    if (!turnKey || !isClockExpired(clock, now)) return undefined;
     if (reportedTurnRef.current === turnKey) return undefined;
 
     reportedTurnRef.current = turnKey;
@@ -196,6 +233,8 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     return () => {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
+    // clock은 room에서 파생된 값이라 room만 의존성에 둡니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, now, myColor, roomId, mutate]);
 
   async function handleLeaveRoom() {
@@ -209,22 +248,27 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     router.push('/games/chess/online');
   }
 
-  async function handleRematch(action: 'request' | 'accept' | 'decline') {
-    setRematchPending(true);
+  async function postAction(path: 'rematch' | 'draw', action: string, setPending: (v: boolean) => void, fallback: string) {
+    setPending(true);
     try {
-      await requestJson(`/api/games/chess/rooms/${roomId}/rematch`, {
+      await requestJson(`/api/games/chess/rooms/${roomId}/${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
       mutate();
     } catch (err) {
-      setMoveError(getErrorMessage(err, '재대국 요청을 처리하지 못했어요.'));
+      setMoveError(getErrorMessage(err, fallback));
       mutate();
     } finally {
-      setRematchPending(false);
+      setPending(false);
     }
   }
+
+  const handleRematch = (action: 'request' | 'accept' | 'decline') =>
+    postAction('rematch', action, setRematchPending, '재대국 요청을 처리하지 못했어요.');
+  const handleDraw = (action: 'offer' | 'accept' | 'decline') =>
+    postAction('draw', action, setDrawPending, '무승부 요청을 처리하지 못했어요.');
 
   async function handleClaimWin() {
     setClaiming(true);
@@ -245,9 +289,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
       optimistic.move({ from, to, promotion: promotion ?? 'q' });
       mutate(
         (prev) =>
-          prev
-            ? { room: { ...prev.room, fen: optimistic.fen(), turn: optimistic.turn(), lastFrom: from, lastTo: to } }
-            : prev,
+          prev ? { room: { ...prev.room, fen: optimistic.fen(), turn: optimistic.turn(), lastFrom: from, lastTo: to } } : prev,
         false,
       );
     } catch {
@@ -267,11 +309,15 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   }
 
   function handleSquareClick(square: Square) {
-    if (!room || !isMyTurn) return;
+    if (!room || !isMyTurn || pendingPromotion) return;
     if (selected && targets.has(square)) {
-      const move = game.moves({ square: selected, verbose: true }).find((m) => m.to === square);
+      const move = legalMoves.find((m) => m.to === square);
+      if (move?.promotion) {
+        setPendingPromotion({ from: selected, to: square });
+        return;
+      }
       setSelected(null);
-      sendMove(selected, square, move?.promotion);
+      sendMove(selected, square);
       return;
     }
     const piece = game.get(square);
@@ -279,8 +325,16 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     else setSelected(null);
   }
 
+  function handlePromotionPick(piece: PromotionPiece) {
+    if (!pendingPromotion) return;
+    const { from, to } = pendingPromotion;
+    setPendingPromotion(null);
+    setSelected(null);
+    sendMove(from, to, piece);
+  }
+
   if (error) return <div className="omok-room__state">방을 불러오지 못했어요.</div>;
-  if (!room) return <div className="omok-room__state">불러오는 중...</div>;
+  if (!room || !clock) return <div className="omok-room__state">불러오는 중...</div>;
 
   let statusText: string;
   const reasonText = room.endReason ? ` (${END_REASON_LABEL[room.endReason]})` : '';
@@ -292,22 +346,37 @@ export function ChessRoom({ roomId }: { roomId: string }) {
       const iWon = (room.winner === 'white' && myColor === 'w') || (room.winner === 'black' && myColor === 'b');
       statusText = iWon ? `🎉 승리했어요!${reasonText}` : `아쉽게 패배했어요${reasonText}`;
     } else statusText = `${room.winner === 'white' ? room.whiteName : room.blackName}님 승리${reasonText}`;
+  } else if (pendingPromotion) {
+    statusText = '승격할 기물을 고르세요';
   } else if (myColor) {
     statusText = isMyTurn ? (inCheck ? '🟢 내 턴 — 체크!' : '🟢 현재 내 턴입니다.') : '🔴 상대방의 턴입니다.';
   } else {
     statusText = `${room.turn === 'w' ? room.whiteName : room.blackName}님 차례예요${inCheck ? ' (체크)' : ''}`;
   }
 
-  const showClock = room.status === 'playing' && Boolean(room.turnStartedAt);
-  const remainingSec = Math.ceil(remainingTurnMs(room.turnStartedAt, now) / 1000);
-  const clockUrgent = remainingSec <= 10;
+  const showClocks = room.status === 'playing' && room.timeControl !== 'none';
+  const whiteRemaining = remainingMsFor(clock, 'w', now);
+  const blackRemaining = remainingMsFor(clock, 'b', now);
+  const isTotal = room.timeControl.startsWith('total');
 
   const isParticipant = myColor !== null;
   const canRematch = room.status === 'finished' && isParticipant && Boolean(room.blackId);
-  const rematchRequestedByMe = Boolean(room.rematchBy) && room.rematchBy === currentUser?.id;
-  const rematchRequestedByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
+  const rematchByMe = Boolean(room.rematchBy) && room.rematchBy === currentUser?.id;
+  const rematchByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
   const rematchRequesterName = room.rematchBy === room.whiteId ? room.whiteName : room.blackName;
+
+  const canOfferDraw = room.status === 'playing' && isParticipant;
+  const drawByMe = Boolean(room.drawOfferBy) && room.drawOfferBy === currentUser?.id;
+  const drawByOpponent = Boolean(room.drawOfferBy) && room.drawOfferBy !== currentUser?.id;
+  const drawOffererName = room.drawOfferBy === room.whiteId ? room.whiteName : room.blackName;
+
   const lastMove = room.lastFrom && room.lastTo ? { from: room.lastFrom, to: room.lastTo } : null;
+
+  function renderClock(ms: number | null, active: boolean) {
+    if (ms === null) return null;
+    const urgent = active && ms <= 10_000;
+    return <span className={`chess-room__clock ${active ? 'chess-room__clock--active' : ''} ${urgent ? 'chess-room__clock--urgent' : ''}`}>⏱ {formatClock(ms)}</span>;
+  }
 
   return (
     <div className="omok-room-page__layout">
@@ -315,6 +384,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
         <div className="omok-room">
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
+            <span className="chess-room__tc">⏱ {TIME_CONTROL_LABEL[room.timeControl]}</span>
             {spectators.length > 0 && (
               <span className="omok-room__spectators" title={spectators.join(', ')}>
                 👀 관전 {spectators.length}명
@@ -323,28 +393,20 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           </div>
 
           <div className="omok-room__players">
-            <span
-              className={`omok-room__player omok-room__player--white ${room.turn === 'w' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
-            >
+            <span className={`omok-room__player omok-room__player--white ${room.turn === 'w' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}>
               ♔ {room.whiteName}
-              {opponentId === room.whiteId && !opponentOnline ? ' (오프라인)' : ''}
+              {showClocks && (isTotal || room.turn === 'w') ? renderClock(whiteRemaining, room.turn === 'w') : null}
             </span>
             <span className="omok-room__vs">vs</span>
-            <span
-              className={`omok-room__player omok-room__player--black ${room.turn === 'b' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
-            >
+            <span className={`omok-room__player omok-room__player--black ${room.turn === 'b' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}>
               ♚ {room.blackName ?? '(대기 중)'}
+              {showClocks && (isTotal || room.turn === 'b') ? renderClock(blackRemaining, room.turn === 'b') : null}
             </span>
           </div>
 
           <p className="omok-room__status">{statusText}</p>
 
-          {showClock && (
-            <p className={`omok-room__clock ${clockUrgent ? 'omok-room__clock--urgent' : ''}`}>
-              ⏱ {String(Math.floor(remainingSec / 60)).padStart(2, '0')}:{String(remainingSec % 60).padStart(2, '0')}
-              <span className="omok-room__clock-note">한 수 {Math.round(CHESS_TURN_LIMIT_MS / 1000)}초</span>
-            </p>
-          )}
+          {reconnectNotice && <p className="chess-room__notice">{reconnectNotice}</p>}
 
           {showDisconnectBanner && (
             <div className="omok-room__disconnect-banner">
@@ -357,17 +419,34 @@ export function ChessRoom({ roomId }: { roomId: string }) {
             </div>
           )}
 
-          <div className="chess-room__board">
+          {canOfferDraw && drawByOpponent && (
+            <div className="omok-room__rematch-offer">
+              <span>{drawOffererName}님이 무승부를 제안했어요.</span>
+              <div className="omok-room__rematch-offer-actions">
+                <button className="omok-room__restart-btn" disabled={drawPending} onClick={() => handleDraw('accept')} type="button">
+                  수락 (합의 무승부)
+                </button>
+                <button className="omok-room__rematch-cancel-btn" disabled={drawPending} onClick={() => handleDraw('decline')} type="button">
+                  거절
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="chess-room__board chess__board-wrap">
             <ChessBoard
               board={board}
               checkSquare={checkSquare}
-              disabled={!isMyTurn}
+              disabled={!isMyTurn || Boolean(pendingPromotion)}
               lastMove={lastMove}
               onSquareClick={handleSquareClick}
               orientation={myColor === 'b' ? 'b' : 'w'}
               selected={selected}
               targets={targets}
             />
+            {pendingPromotion && myColor && (
+              <PromotionPicker color={myColor} onCancel={() => setPendingPromotion(null)} onPick={handlePromotionPick} />
+            )}
           </div>
 
           {room.moves.length > 0 && (
@@ -382,23 +461,35 @@ export function ChessRoom({ roomId }: { roomId: string }) {
             <button className="omok-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
               {leaving ? '나가는 중...' : room.status === 'playing' && isParticipant ? '기권하고 나가기' : '게임 나가기'}
             </button>
+            {canOfferDraw && !room.drawOfferBy && (
+              <button className="omok-room__rematch-cancel-btn" disabled={drawPending} onClick={() => handleDraw('offer')} type="button">
+                {drawPending ? '제안하는 중...' : '무승부 제안'}
+              </button>
+            )}
+            {canOfferDraw && drawByMe && (
+              <button className="omok-room__rematch-cancel-btn" disabled={drawPending} onClick={() => handleDraw('decline')} type="button">
+                무승부 제안 취소
+              </button>
+            )}
             {canRematch && !room.rematchBy && (
               <button className="omok-room__restart-btn" disabled={rematchPending} onClick={() => handleRematch('request')} type="button">
                 {rematchPending ? '신청하는 중...' : '재대국 신청'}
               </button>
             )}
-            {canRematch && rematchRequestedByMe && (
+            {canRematch && rematchByMe && (
               <button className="omok-room__rematch-cancel-btn" disabled={rematchPending} onClick={() => handleRematch('decline')} type="button">
                 신청 취소
               </button>
             )}
           </div>
 
-          {canRematch && rematchRequestedByMe && (
+          {canOfferDraw && drawByMe && <p className="omok-room__rematch-waiting">무승부를 제안했어요. 상대의 답을 기다리는 중이에요.</p>}
+
+          {canRematch && rematchByMe && (
             <p className="omok-room__rematch-waiting">재대국을 신청했어요. 상대의 수락을 기다리는 중이에요.</p>
           )}
 
-          {canRematch && rematchRequestedByOpponent && (
+          {canRematch && rematchByOpponent && (
             <div className="omok-room__rematch-offer">
               <span>{rematchRequesterName}님이 재대국을 신청했어요. 백흑을 바꿔서 다시 둡니다.</span>
               <div className="omok-room__rematch-offer-actions">

@@ -1,21 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
-import { DIFFICULTY_LABEL, DIFFICULTY_MULTIPLIER, pickCpuMove, type Difficulty } from '../../lib/chessAi';
-import { ChessBoard, colorLabel } from './ChessBoard';
+import { DIFFICULTY_LABEL, pickCpuMove, type Difficulty } from '../../lib/chessAi';
+import type { ChessAiRequest, ChessAiResponse } from '../../lib/chessAi.worker';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
+import { ChessBoard } from './ChessBoard';
+import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
 
-const GAME_KEY = 'chess';
-const LEADERBOARD_URL = `/api/games/${GAME_KEY}/scores`;
+// 컴퓨터와 두는 체스. 난이도(5단계)별로 랭킹이 따로 있고, 이기면 그 난이도 랭킹에 기록됩니다.
 
 type ScoreEntry = { userId: string; userName: string; bestScore: number };
 type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null };
 
-type Mode = 'cpu' | 'local';
 type Outcome =
   | { kind: 'playing' }
   | { kind: 'checkmate'; winner: Color }
@@ -23,6 +23,13 @@ type Outcome =
 
 const HUMAN_COLOR: Color = 'w';
 const CPU_THINK_MS = 350;
+/** 이 난이도부터는 탐색이 오래 걸릴 수 있어 Web Worker에서 계산합니다. */
+const WORKER_FROM_LEVEL: Difficulty = 4;
+const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5];
+
+function leaderboardUrl(difficulty: Difficulty): string {
+  return `/api/games/chess-l${difficulty}/scores`;
+}
 
 function readOutcome(game: Chess): Outcome {
   if (game.isCheckmate()) {
@@ -36,44 +43,43 @@ function readOutcome(game: Chess): Outcome {
   return { kind: 'playing' };
 }
 
-/** 빠르게 이길수록, 어려운 상대일수록 높은 점수. (기본 300-3×수, 최소 10) × 난이도 배율 */
-function winScore(fullMoves: number, difficulty: Difficulty): number {
-  return Math.round(Math.max(10, 300 - fullMoves * 3) * DIFFICULTY_MULTIPLIER[difficulty]);
+/** 빠르게 이길수록 높은 점수(난이도별 랭킹이 따로라 배율은 없음). 최소 10점, 최대 300점. */
+function winScore(fullMoves: number): number {
+  return Math.max(10, 300 - fullMoves * 3);
 }
-
-const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5];
 
 export function ChessGame() {
   const [game, setGame] = useState<Chess>(() => new Chess());
   const { currentUser } = useAuth();
+  const [difficulty, setDifficulty] = useState<Difficulty>(3);
   const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
-    LEADERBOARD_URL,
+    leaderboardUrl(difficulty),
     fetcher,
   );
 
-  const [mode, setMode] = useState<Mode>('cpu');
-  const [difficulty, setDifficulty] = useState<Difficulty>(3);
   const [fen, setFen] = useState(() => game.fen());
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [savedScore, setSavedScore] = useState<number | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
+
+  const workerRef = useRef<Worker | null>(null);
+  const requestIdRef = useRef(0);
 
   const turn = game.turn();
   const outcome = useMemo(() => readOutcome(game), [game, fen]); // eslint-disable-line react-hooks/exhaustive-deps
   const inCheck = outcome.kind === 'playing' && game.isCheck();
   const board = useMemo(() => game.board(), [game, fen]); // eslint-disable-line react-hooks/exhaustive-deps
-  const isCpuTurn = mode === 'cpu' && turn !== HUMAN_COLOR && outcome.kind === 'playing';
+  const isCpuTurn = turn !== HUMAN_COLOR && outcome.kind === 'playing';
   // 컴퓨터 차례인 동안은 "생각 중"으로 취급해 입력을 막습니다(별도 상태 없이 파생).
   const thinking = isCpuTurn;
-  const humanCanMove = outcome.kind === 'playing' && !thinking && (mode === 'local' || turn === HUMAN_COLOR);
+  const humanCanMove = outcome.kind === 'playing' && !thinking && turn === HUMAN_COLOR && !pendingPromotion;
 
   const legalTargets = useMemo(() => {
     if (!selected) return new Map<Square, Move>();
     const map = new Map<Square, Move>();
-    for (const move of game.moves({ square: selected, verbose: true })) {
-      map.set(move.to, move);
-    }
+    for (const move of game.moves({ square: selected, verbose: true })) map.set(move.to, move);
     return map;
   }, [game, selected, fen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,22 +91,31 @@ export function ChessGame() {
 
   const kingInCheckSquare = useMemo(() => {
     if (!inCheck) return null;
-    for (const row of board) {
-      for (const cell of row) {
-        if (cell && cell.type === 'k' && cell.color === turn) return cell.square;
-      }
-    }
+    for (const row of board) for (const cell of row) if (cell && cell.type === 'k' && cell.color === turn) return cell.square;
     return null;
   }, [board, inCheck, turn]);
+
+  // Web Worker는 한 번만 만들고 페이지를 떠날 때 정리합니다. 만들 수 없는 환경이면 메인 스레드에서 계산합니다.
+  useEffect(() => {
+    try {
+      workerRef.current = new Worker(new URL('../../lib/chessAi.worker.ts', import.meta.url));
+    } catch {
+      workerRef.current = null;
+    }
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
 
   function syncBoard(target: Chess = game) {
     setFen(target.fen());
   }
 
   function submitWinScore() {
-    const score = winScore(game.moveNumber(), difficulty);
+    const score = winScore(game.moveNumber());
     setSubmitted(true);
-    requestJson(LEADERBOARD_URL, {
+    requestJson(leaderboardUrl(difficulty), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ score }),
@@ -113,39 +128,46 @@ export function ChessGame() {
   }
 
   function applyMove(from: Square, to: Square, promotion?: PieceSymbol) {
-    const moved = game.move({ from, to, promotion: promotion ?? 'q' });
+    let moved;
+    try {
+      moved = game.move({ from, to, promotion: promotion ?? 'q' });
+    } catch {
+      return;
+    }
     if (!moved) return;
     setLastMove({ from: moved.from, to: moved.to });
     setSelected(null);
+    setPendingPromotion(null);
     syncBoard();
 
-    // 컴퓨터 모드에서 내 수로 체크메이트가 나면(= 이제 컴퓨터 차례인데 둘 수 없음) 점수를 한 번만 기록합니다.
-    const humanWon = mode === 'cpu' && game.turn() !== HUMAN_COLOR && game.isCheckmate();
+    // 내 수로 체크메이트가 나면(= 이제 컴퓨터 차례인데 둘 수 없음) 점수를 한 번만 기록합니다.
+    const humanWon = game.turn() !== HUMAN_COLOR && game.isCheckmate();
     if (humanWon && currentUser && !submitted) submitWinScore();
   }
 
-  function handleNewGame(nextMode: Mode = mode, nextDifficulty: Difficulty = difficulty) {
+  function handleNewGame(nextDifficulty: Difficulty = difficulty) {
     const fresh = new Chess();
+    requestIdRef.current += 1; // 진행 중이던 워커 계산 결과는 무시
     setGame(fresh);
-    setMode(nextMode);
     setDifficulty(nextDifficulty);
     setSelected(null);
     setLastMove(null);
     setSubmitted(false);
     setSavedScore(null);
+    setPendingPromotion(null);
     syncBoard(fresh);
   }
 
   function handleUndo() {
     if (thinking) return;
-    const current = game;
-    current.undo();
-    // 컴퓨터 모드에서는 내 수와 컴퓨터의 응수를 함께 물립니다.
-    if (mode === 'cpu' && current.turn() !== HUMAN_COLOR) current.undo();
-    const history = current.history({ verbose: true });
+    game.undo();
+    // 내 수와 컴퓨터의 응수를 함께 물립니다.
+    if (game.turn() !== HUMAN_COLOR) game.undo();
+    const history = game.history({ verbose: true });
     const prev = history[history.length - 1];
     setLastMove(prev ? { from: prev.from, to: prev.to } : null);
     setSelected(null);
+    setPendingPromotion(null);
     setSubmitted(false);
     setSavedScore(null);
     syncBoard();
@@ -157,23 +179,48 @@ export function ChessGame() {
     if (selected) {
       const target = legalTargets.get(square);
       if (target) {
-        applyMove(selected, square, target.promotion);
+        if (target.promotion) {
+          // 승격 기물은 사용자가 고릅니다.
+          setPendingPromotion({ from: selected, to: square });
+          return;
+        }
+        applyMove(selected, square);
         return;
       }
     }
 
     const piece = game.get(square);
-    if (piece && piece.color === turn) {
-      setSelected(selected === square ? null : square);
-    } else {
-      setSelected(null);
-    }
+    if (piece && piece.color === turn) setSelected(selected === square ? null : square);
+    else setSelected(null);
   }
 
-  // 컴퓨터 차례가 되면 잠깐 "생각"한 뒤 둡니다.
+  function handlePromotionPick(piece: PromotionPiece) {
+    if (!pendingPromotion) return;
+    applyMove(pendingPromotion.from, pendingPromotion.to, piece);
+  }
+
+  // 컴퓨터 차례가 되면 잠깐 "생각"한 뒤 둡니다. 고수·프로는 워커에서, 나머지는 바로 계산합니다.
   useEffect(() => {
     if (!isCpuTurn) return;
+    const requestId = ++requestIdRef.current;
+    const worker = difficulty >= WORKER_FROM_LEVEL ? workerRef.current : null;
+
+    if (worker) {
+      const handleMessage = (event: MessageEvent<ChessAiResponse>) => {
+        if (event.data.id !== requestId) return; // 새 게임/무르기로 무효가 된 응답
+        const move = event.data.move;
+        if (move) applyMove(move.from as Square, move.to as Square, move.promotion as PieceSymbol | undefined);
+      };
+      worker.addEventListener('message', handleMessage);
+      const request: ChessAiRequest = { id: requestId, fen: game.fen(), difficulty };
+      worker.postMessage(request);
+      return () => {
+        worker.removeEventListener('message', handleMessage);
+      };
+    }
+
     const timer = setTimeout(() => {
+      if (requestIdRef.current !== requestId) return;
       const move = pickCpuMove(game, difficulty);
       if (move) applyMove(move.from, move.to, move.promotion);
     }, CPU_THINK_MS);
@@ -183,71 +230,52 @@ export function ChessGame() {
   }, [isCpuTurn, fen]);
 
   const statusText = (() => {
-    if (outcome.kind === 'checkmate') {
-      const winner = colorLabel(outcome.winner);
-      if (mode === 'cpu') return outcome.winner === HUMAN_COLOR ? '체크메이트! 🎉 이겼어요' : '체크메이트… 컴퓨터가 이겼어요';
-      return `체크메이트! ${winner} 승리`;
-    }
+    if (outcome.kind === 'checkmate') return outcome.winner === HUMAN_COLOR ? '체크메이트! 🎉 이겼어요' : '체크메이트… 컴퓨터가 이겼어요';
     if (outcome.kind === 'draw') return `무승부 (${outcome.reason})`;
-    if (thinking) return '컴퓨터가 생각 중…';
-    const who = mode === 'cpu' ? (turn === HUMAN_COLOR ? '내 차례' : '컴퓨터 차례') : `${colorLabel(turn)} 차례`;
-    return inCheck ? `${who} — 체크!` : who;
+    if (pendingPromotion) return '승격할 기물을 고르세요';
+    if (thinking) return `컴퓨터(${DIFFICULTY_LABEL[difficulty]})가 생각 중…`;
+    return inCheck ? '내 차례 — 체크!' : '내 차례';
   })();
 
   return (
     <div className="chess">
       <p className="chess__desc">
-        기물을 누르면 갈 수 있는 칸이 표시돼요. 폰이 끝까지 가면 자동으로 퀸이 됩니다.
-        {mode === 'cpu' ? ` 나는 백(아래), 컴퓨터(${DIFFICULTY_LABEL[difficulty]})는 흑이에요. 난이도를 바꾸면 새 게임이 시작돼요.` : ' 한 기기에서 둘이 번갈아 두는 모드예요.'}
+        기물을 누르면 갈 수 있는 칸이 표시돼요. 나는 백(아래), 컴퓨터는 흑이에요. 난이도를 바꾸면 새 게임이 시작돼요.
       </p>
 
-      <div className="chess__toolbar" role="group" aria-label="게임 모드">
-        <button
-          className={`chess__mode-btn ${mode === 'cpu' ? 'chess__mode-btn--active' : ''}`}
-          onClick={() => handleNewGame('cpu')}
-          type="button"
-        >
-          컴퓨터와 대결
-        </button>
-        <button
-          className={`chess__mode-btn ${mode === 'local' ? 'chess__mode-btn--active' : ''}`}
-          onClick={() => handleNewGame('local')}
-          type="button"
-        >
-          둘이서 번갈아
-        </button>
+      <div className="chess__toolbar chess__toolbar--levels" role="group" aria-label="컴퓨터 난이도">
+        <span className="chess__toolbar-label">난이도</span>
+        {DIFFICULTIES.map((level) => (
+          <button
+            className={`chess__mode-btn ${difficulty === level ? 'chess__mode-btn--active' : ''}`}
+            key={level}
+            onClick={() => handleNewGame(level)}
+            type="button"
+          >
+            {DIFFICULTY_LABEL[level]}
+          </button>
+        ))}
       </div>
-
-      {mode === 'cpu' && (
-        <div className="chess__toolbar chess__toolbar--levels" role="group" aria-label="컴퓨터 난이도">
-          <span className="chess__toolbar-label">난이도</span>
-          {DIFFICULTIES.map((level) => (
-            <button
-              className={`chess__mode-btn ${difficulty === level ? 'chess__mode-btn--active' : ''}`}
-              key={level}
-              onClick={() => handleNewGame('cpu', level)}
-              type="button"
-            >
-              {DIFFICULTY_LABEL[level]}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className={`chess__status ${outcome.kind !== 'playing' ? 'chess__status--over' : ''}`} aria-live="polite">
         {statusText}
         <span className="chess__move-no">{game.moveNumber()}수</span>
       </div>
 
-      <ChessBoard
-        board={board}
-        checkSquare={kingInCheckSquare}
-        disabled={!humanCanMove}
-        lastMove={lastMove}
-        onSquareClick={handleSquareClick}
-        selected={selected}
-        targets={targetSquares}
-      />
+      <div className="chess__board-wrap">
+        <ChessBoard
+          board={board}
+          checkSquare={kingInCheckSquare}
+          disabled={!humanCanMove}
+          lastMove={lastMove}
+          onSquareClick={handleSquareClick}
+          selected={selected}
+          targets={targetSquares}
+        />
+        {pendingPromotion && (
+          <PromotionPicker color={HUMAN_COLOR} onCancel={() => setPendingPromotion(null)} onPick={handlePromotionPick} />
+        )}
+      </div>
 
       <div className="chess__actions">
         <button className="chess__btn" onClick={() => handleNewGame()} type="button">
@@ -264,16 +292,14 @@ export function ChessGame() {
       </div>
 
       {savedScore !== null && (
-        <p className="chess__saved">랭킹에 {savedScore}점이 기록됐어요. (빠르게 이길수록, 어려운 난이도일수록 높은 점수)</p>
+        <p className="chess__saved">{DIFFICULTY_LABEL[difficulty]} 랭킹에 {savedScore}점이 기록됐어요. (빠르게 이길수록 높은 점수)</p>
       )}
 
       <div className="chess__leaderboard">
-        <p className="chess__leaderboard-title">🏆 랭킹 (컴퓨터 상대 최고 점수)</p>
-        {!currentUser && (
-          <p className="chess__leaderboard-note">로그인하면 컴퓨터를 이겼을 때 점수가 랭킹에 기록돼요.</p>
-        )}
+        <p className="chess__leaderboard-title">🏆 {DIFFICULTY_LABEL[difficulty]} 랭킹 (최고 점수)</p>
+        {!currentUser && <p className="chess__leaderboard-note">로그인하면 컴퓨터를 이겼을 때 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
-          <p className="chess__leaderboard-note">아직 기록이 없어요. 첫 승리를 남겨보세요!</p>
+          <p className="chess__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>
         )}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (
           <ol className="chess__leaderboard-list">

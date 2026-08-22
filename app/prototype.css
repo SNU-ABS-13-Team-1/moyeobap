@@ -6358,3 +6358,201 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   word-break: break-word;
   margin-bottom: 8px;
 }
+
+/* ---------- 실시간 대전 채팅: 채팅 영역 높이를 고정해 목록만 스크롤되게 ---------- */
+.omok-room-page__chat {
+  max-height: calc(100vh - 120px);
+}
+
+.omok-room-page__chat .omok-chat {
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+}
+
+.omok-chat__list {
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .omok-room-page__chat,
+  .omok-room-page__chat .omok-chat {
+    height: 60vh;
+    max-height: 60vh;
+    min-height: 360px;
+  }
+}
+
+/* ---------- 로비: 시간제 선택·방 정보 ---------- */
+.omok-lobby__select {
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+.omok-lobby__row-meta {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+/* ---------- 체스 방: 시계·시간제·재접속 안내 ---------- */
+.chess-room__tc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+}
+
+.chess-room__clock {
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.chess-room__clock--active {
+  color: var(--text-primary, #1a2634);
+}
+
+.chess-room__clock--urgent {
+  color: #dc2626;
+}
+
+.chess-room__notice {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ---------- 승격 기물 선택 ---------- */
+.chess__board-wrap {
+  position: relative;
+}
+
+.promotion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(26, 38, 52, 0.78);
+  border-radius: var(--radius-md);
+  z-index: 2;
+}
+
+.promotion__title {
+  color: #fff;
+  font-weight: 700;
+}
+
+.promotion__choices {
+  display: flex;
+  gap: 10px;
+}
+
+.promotion__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 64px;
+}
+
+.promotion__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.promotion__glyph {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.promotion__glyph--w {
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
+}
+
+.promotion__glyph--b {
+  color: #111;
+}
+
+.promotion__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.promotion__cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* ---------- 체스 랭킹: 최근 대국 ---------- */
+.chess-recent {
+  margin-top: var(--space-lg);
+}
+
+.chess-recent__title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.chess-recent__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chess-recent__item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary, #f8fafc);
+  font-size: 0.88rem;
+}
+
+.chess-recent__result {
+  font-weight: 600;
+}
+
+.chess-recent__when {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .chess-recent__item {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

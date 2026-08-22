@@ -15,6 +15,7 @@ export type ChessEndReason =
   | "resign"
   | "timeout"
   | "disconnect"
+  | "agreement"
   | null;
 
 export const END_REASON_LABEL: Record<NonNullable<ChessEndReason>, string> = {
@@ -26,11 +27,53 @@ export const END_REASON_LABEL: Record<NonNullable<ChessEndReason>, string> = {
   resign: "기권",
   timeout: "시간 초과",
   disconnect: "연결 끊김(몰수)",
+  agreement: "합의 무승부",
 };
 
-/** 한 수에 주어지는 시간. 오목(30초)보다 생각할 게 많아 60초로 둡니다. */
-export const CHESS_TURN_LIMIT_MS = 60_000;
+/**
+ * 시간제. move60 = 한 수마다 60초, totalN = 각자 N분 총 시간제(수를 둘 때마다 내
+ * 시간이 줄어듦), none = 제한 없음. 방을 만들 때 고릅니다.
+ */
+export type TimeControl = "move60" | "total5" | "total10" | "total15" | "none";
+
+export const TIME_CONTROL_OPTIONS: TimeControl[] = ["move60", "total5", "total10", "total15", "none"];
+
+export const TIME_CONTROL_LABEL: Record<TimeControl, string> = {
+  move60: "한 수 60초",
+  total5: "각자 5분",
+  total10: "각자 10분",
+  total15: "각자 15분",
+  none: "시간 제한 없음",
+};
+
+export function isTimeControl(value: unknown): value is TimeControl {
+  return typeof value === "string" && (TIME_CONTROL_OPTIONS as string[]).includes(value);
+}
+
+export const MOVE_LIMIT_MS = 60_000;
 export const TURN_GRACE_MS = 2_000;
+
+/** 총 시간제의 시작 잔여 시간(ms). 총 시간제가 아니면 null. */
+export function initialBankMs(timeControl: TimeControl): number | null {
+  switch (timeControl) {
+    case "total5":
+      return 5 * 60_000;
+    case "total10":
+      return 10 * 60_000;
+    case "total15":
+      return 15 * 60_000;
+    default:
+      return null;
+  }
+}
+
+export type ClockState = {
+  timeControl: TimeControl;
+  turn: Color;
+  whiteTimeMs: number | null;
+  blackTimeMs: number | null;
+  turnStartedAt: string | null;
+};
 
 export function colorToTurn(color: ChessColor): Color {
   return color === "white" ? "w" : "b";
@@ -138,19 +181,53 @@ function startedAtMs(turnStartedAt: string | null): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-export function isTurnExpired(turnStartedAt: string | null, now: number): boolean {
-  const started = startedAtMs(turnStartedAt);
-  if (started === null) return false;
-  return now - started >= CHESS_TURN_LIMIT_MS + TURN_GRACE_MS;
+function elapsedMs(state: ClockState, now: number): number {
+  const started = startedAtMs(state.turnStartedAt);
+  if (started === null) return 0;
+  return Math.max(0, now - started);
 }
 
-export function remainingTurnMs(turnStartedAt: string | null, now: number): number {
-  const started = startedAtMs(turnStartedAt);
-  if (started === null) return CHESS_TURN_LIMIT_MS;
-  const elapsed = now - started;
-  if (elapsed <= 0) return CHESS_TURN_LIMIT_MS;
-  if (elapsed >= CHESS_TURN_LIMIT_MS) return 0;
-  return CHESS_TURN_LIMIT_MS - elapsed;
+/**
+ * `color` 쪽의 남은 시간(ms). 제한이 없으면 null. 총 시간제에서는 지금 둘
+ * 차례인 쪽만 시간이 줄어들고, 상대의 시간은 멈춰 있습니다.
+ */
+export function remainingMsFor(state: ClockState, color: Color, now: number): number | null {
+  if (state.timeControl === "none") return null;
+  const ticking = state.turn === color;
+  const elapsed = ticking ? elapsedMs(state, now) : 0;
+
+  if (state.timeControl === "move60") {
+    return ticking ? Math.max(0, MOVE_LIMIT_MS - elapsed) : MOVE_LIMIT_MS;
+  }
+
+  const bank = color === "w" ? state.whiteTimeMs : state.blackTimeMs;
+  if (bank === null) return null;
+  return Math.max(0, bank - elapsed);
+}
+
+/**
+ * 지금 둘 차례인 쪽이 시간 초과인지. 서버가 DB 값으로 다시 판정하는 지점이라
+ * 클라이언트가 빨리 호출해도 실제로 시간이 지나지 않았으면 false입니다.
+ */
+export function isClockExpired(state: ClockState, now: number): boolean {
+  if (state.timeControl === "none") return false;
+  if (startedAtMs(state.turnStartedAt) === null) return false;
+  const elapsed = elapsedMs(state, now);
+  if (state.timeControl === "move60") return elapsed >= MOVE_LIMIT_MS + TURN_GRACE_MS;
+  const bank = state.turn === "w" ? state.whiteTimeMs : state.blackTimeMs;
+  if (bank === null) return false;
+  return elapsed >= bank + TURN_GRACE_MS;
+}
+
+/** 수를 둔 직후 양쪽 잔여 시간(총 시간제만 줄어듦). */
+export function banksAfterMove(state: ClockState, now: number): { white_time_ms: number | null; black_time_ms: number | null } {
+  if (initialBankMs(state.timeControl) === null) return { white_time_ms: null, black_time_ms: null };
+  const elapsed = elapsedMs(state, now);
+  const white = state.whiteTimeMs ?? 0;
+  const black = state.blackTimeMs ?? 0;
+  return state.turn === "w"
+    ? { white_time_ms: Math.max(0, white - elapsed), black_time_ms: black }
+    : { white_time_ms: white, black_time_ms: Math.max(0, black - elapsed) };
 }
 
 /** 재대국 때 백/흑을 통째로 맞바꾼 DB 컬럼 값. */

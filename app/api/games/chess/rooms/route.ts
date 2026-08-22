@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { createRoom, listRooms } from "@/app/lib/chessOnline";
+import { isTimeControl } from "@/app/lib/chessMatch";
 
 export async function GET() {
   const rooms = await listRooms();
@@ -15,8 +16,9 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const roomName = typeof body?.roomName === "string" ? body.roomName : undefined;
+  const timeControl = isTimeControl(body?.timeControl) ? body.timeControl : "move60";
 
-  const room = await createRoom(user.id, user.name, roomName);
+  const room = await createRoom(user.id, user.name, roomName, timeControl);
   if (!room) {
     return NextResponse.json({ error: "방을 만들지 못했어요. 잠시 뒤 다시 시도해주세요." }, { status: 503 });
   }

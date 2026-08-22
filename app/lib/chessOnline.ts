@@ -2,17 +2,24 @@ import { getSupabase } from "./supabase";
 import { recordChessMatchResult } from "./chessRanking";
 import {
   applyChessMove,
-  isTurnExpired,
+  banksAfterMove,
+  initialBankMs,
+  isClockExpired,
   swappedColors,
   type ChessColor,
   type ChessEndReason,
   type ChessWinner,
+  type ClockState,
+  type TimeControl,
 } from "./chessMatch";
 
 // 실시간 체스 대전의 서버 로직입니다. 오목(app/lib/omok.ts)과 같은 흐름이고,
 // 보드 대신 FEN + 수순(SAN 배열)을 저장합니다. 방장 = 백(선수), 참여자 = 흑.
 
 export const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+/** 끝난 방은 로비에 안 보이지만 DB에 쌓이므로 하루 지나면 정리합니다(전적·랭킹은 별도 표라 남습니다). */
+const FINISHED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type RoomStatus = "waiting" | "playing" | "finished";
 
@@ -32,6 +39,10 @@ export type ChessRoom = {
   moveCount: number;
   lastFrom: string | null;
   lastTo: string | null;
+  timeControl: TimeControl;
+  whiteTimeMs: number | null;
+  blackTimeMs: number | null;
+  drawOfferBy: string | null;
   startedAt: string | null;
   turnStartedAt: string | null;
   rematchBy: string | null;
@@ -54,6 +65,10 @@ type ChessRoomRow = {
   move_count: number;
   last_from: string | null;
   last_to: string | null;
+  time_control: TimeControl | null;
+  white_time_ms: number | null;
+  black_time_ms: number | null;
+  draw_offer_by: string | null;
   started_at: string | null;
   turn_started_at: string | null;
   rematch_by: string | null;
@@ -77,10 +92,24 @@ function mapRow(row: ChessRoomRow): ChessRoom {
     moveCount: row.move_count,
     lastFrom: row.last_from,
     lastTo: row.last_to,
+    timeControl: row.time_control ?? "move60",
+    whiteTimeMs: row.white_time_ms,
+    blackTimeMs: row.black_time_ms,
+    drawOfferBy: row.draw_offer_by,
     startedAt: row.started_at,
     turnStartedAt: row.turn_started_at,
     rematchBy: row.rematch_by,
     createdAt: row.created_at,
+  };
+}
+
+function clockOf(room: ChessRoom): ClockState {
+  return {
+    timeControl: room.timeControl,
+    turn: room.turn,
+    whiteTimeMs: room.whiteTimeMs,
+    blackTimeMs: room.blackTimeMs,
+    turnStartedAt: room.turnStartedAt,
   };
 }
 
@@ -90,11 +119,17 @@ export function colorOf(room: ChessRoom, userId: string): ChessColor | null {
   return null;
 }
 
-export async function createRoom(userId: string, userName: string, roomName?: string): Promise<ChessRoom | null> {
+export async function createRoom(
+  userId: string,
+  userName: string,
+  roomName?: string,
+  timeControl: TimeControl = "move60",
+): Promise<ChessRoom | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const trimmedName = roomName?.trim().slice(0, 40);
+  const bank = initialBankMs(timeControl);
   const { data, error } = await supabase
     .from("chess_rooms")
     .insert({
@@ -103,6 +138,9 @@ export async function createRoom(userId: string, userName: string, roomName?: st
       room_name: trimmedName || `${userName}님의 방`,
       fen: START_FEN,
       moves: [],
+      time_control: timeControl,
+      white_time_ms: bank,
+      black_time_ms: bank,
     })
     .select()
     .single();
@@ -114,9 +152,20 @@ export async function createRoom(userId: string, userName: string, roomName?: st
   return mapRow(data as ChessRoomRow);
 }
 
+async function cleanupOldFinishedRooms(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const cutoff = new Date(Date.now() - FINISHED_ROOM_TTL_MS).toISOString();
+  const { error } = await supabase.from("chess_rooms").delete().eq("status", "finished").lt("updated_at", cutoff);
+  if (error) console.error("chess cleanupOldFinishedRooms error:", error);
+}
+
 export async function listRooms(): Promise<ChessRoom[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
+
+  // 로비를 열 때마다 가볍게 청소합니다(조건에 맞는 행이 없으면 바로 끝).
+  await cleanupOldFinishedRooms();
 
   const { data, error } = await supabase
     .from("chess_rooms")
@@ -174,13 +223,13 @@ export async function joinRoom(
   return mapRow(data as ChessRoomRow);
 }
 
-async function finishRoomWithWinner(
+async function finishRoom(
   room: ChessRoom,
-  winner: ChessColor,
+  winner: Exclude<ChessWinner, null>,
   reason: Exclude<ChessEndReason, null>,
-): Promise<void> {
+): Promise<ChessRoom | null> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return null;
 
   const { data, error } = await supabase
     .from("chess_rooms")
@@ -190,6 +239,7 @@ async function finishRoomWithWinner(
       end_reason: reason,
       turn_started_at: null,
       rematch_by: null,
+      draw_offer_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", room.id)
@@ -198,15 +248,17 @@ async function finishRoomWithWinner(
     .maybeSingle();
 
   if (error) {
-    console.error("chess finishRoomWithWinner error:", error);
-    return;
+    console.error("chess finishRoom error:", error);
+    return null;
   }
-  if (!data) return; // 이미 다른 경로로 종료된 방
+  if (!data) return null; // 이미 다른 경로로 종료된 방
 
-  await recordChessMatchResult(mapRow(data as ChessRoomRow), winner);
+  const finished = mapRow(data as ChessRoomRow);
+  await recordChessMatchResult(finished, winner);
+  return finished;
 }
 
-/** "게임 나가기": 대기 중이면 방 삭제, 대국 중이면 기권(상대 승), 종료 후엔 재대국 신청만 정리. */
+/** "게임 나가기": 대기 중이면 방 삭제, 대국 중이면 기권(상대 승), 종료 후엔 신청만 정리. */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -225,7 +277,7 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   }
 
   if (room.status === "playing") {
-    await finishRoomWithWinner(room, myColor === "white" ? "black" : "white", "resign");
+    await finishRoom(room, myColor === "white" ? "black" : "white", "resign");
     return;
   }
 
@@ -238,7 +290,6 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   }
 }
 
-/** 상대가 연결이 끊긴 뒤 돌아오지 않을 때 남은 플레이어가 승리 처리(클라이언트 60초 타이머 신뢰). */
 export async function claimDisconnectWin(
   roomId: string,
   userId: string,
@@ -250,11 +301,75 @@ export async function claimDisconnectWin(
   const myColor = colorOf(room, userId);
   if (!myColor) return { error: "참여자만 할 수 있어요." };
 
-  await finishRoomWithWinner(room, myColor, "disconnect");
+  await finishRoom(room, myColor, "disconnect");
   const updated = await getRoom(roomId);
   if (!updated) return { error: "방을 찾을 수 없어요." };
   return { room: updated };
 }
+
+// ---------- 무승부 제안 ----------
+
+export async function offerDraw(roomId: string, userId: string): Promise<ChessRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 대국에서만 제안할 수 있어요." };
+  if (!colorOf(room, userId)) return { error: "참여자만 제안할 수 있어요." };
+  if (room.drawOfferBy === userId) return { error: "이미 무승부를 제안했어요." };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("chess_rooms")
+    .update({ draw_offer_by: userId, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq("status", "playing")
+    .select()
+    .maybeSingle();
+  if (error) {
+    console.error("chess offerDraw error:", error);
+    return { error: "무승부를 제안하지 못했어요." };
+  }
+  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  return mapRow(data as ChessRoomRow);
+}
+
+export async function acceptDraw(roomId: string, userId: string): Promise<ChessRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 대국이 아니에요." };
+  if (!colorOf(room, userId)) return { error: "참여자만 수락할 수 있어요." };
+  if (!room.drawOfferBy) return { error: "무승부 제안이 없어요." };
+  if (room.drawOfferBy === userId) return { error: "상대의 수락을 기다리는 중이에요." };
+
+  const finished = await finishRoom(room, "draw", "agreement");
+  if (!finished) return { error: "이미 다른 상태로 바뀌었어요." };
+  return finished;
+}
+
+export async function declineDraw(roomId: string, userId: string): Promise<ChessRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (!colorOf(room, userId)) return { error: "참여자만 할 수 있어요." };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("chess_rooms")
+    .update({ draw_offer_by: null, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .select()
+    .maybeSingle();
+  if (error) {
+    console.error("chess declineDraw error:", error);
+    return { error: "처리하지 못했어요." };
+  }
+  if (!data) return { error: "방을 찾을 수 없어요." };
+  return mapRow(data as ChessRoomRow);
+}
+
+// ---------- 재대국 ----------
 
 export async function requestRematch(roomId: string, userId: string): Promise<ChessRoom | { error: string }> {
   const room = await getRoom(roomId);
@@ -283,7 +398,7 @@ export async function requestRematch(roomId: string, userId: string): Promise<Ch
   return mapRow(data as ChessRoomRow);
 }
 
-/** 재대국 수락: 백/흑을 교대하고 국면을 초기화합니다. */
+/** 재대국 수락: 백/흑을 교대하고 국면·시계를 초기화합니다. */
 export async function acceptRematch(roomId: string, userId: string): Promise<ChessRoom | { error: string }> {
   const room = await getRoom(roomId);
   if (!room) return { error: "존재하지 않는 방이에요." };
@@ -297,6 +412,7 @@ export async function acceptRematch(roomId: string, userId: string): Promise<Che
   if (!supabase) return { error: "서버 오류예요." };
 
   const now = new Date().toISOString();
+  const bank = initialBankMs(room.timeControl);
   const { data, error } = await supabase
     .from("chess_rooms")
     .update({
@@ -310,6 +426,9 @@ export async function acceptRematch(roomId: string, userId: string): Promise<Che
       move_count: 0,
       last_from: null,
       last_to: null,
+      white_time_ms: bank,
+      black_time_ms: bank,
+      draw_offer_by: null,
       rematch_by: null,
       started_at: now,
       turn_started_at: now,
@@ -352,21 +471,25 @@ export async function declineRematch(roomId: string, userId: string): Promise<Ch
   return mapRow(data as ChessRoomRow);
 }
 
-/** 한 수 제한 시간이 지나면 현재 차례인 쪽이 시간패. 판정은 DB의 turn_started_at으로 다시 계산합니다. */
+// ---------- 시계 ----------
+
+/** 제한 시간이 지나면 현재 차례인 쪽이 시간패. 판정은 DB 값으로 다시 계산합니다. */
 export async function timeoutTurn(roomId: string, userId: string): Promise<{ room: ChessRoom } | { error: string }> {
   const room = await getRoom(roomId);
   if (!room) return { error: "존재하지 않는 방이에요." };
   if (room.status !== "playing") return { error: "진행 중인 게임이 아니에요." };
   if (!colorOf(room, userId)) return { error: "참여자만 할 수 있어요." };
-  if (!isTurnExpired(room.turnStartedAt, Date.now())) return { error: "아직 시간이 남아 있어요." };
+  if (!isClockExpired(clockOf(room), Date.now())) return { error: "아직 시간이 남아 있어요." };
 
   const winner: ChessColor = room.turn === "w" ? "black" : "white";
-  await finishRoomWithWinner(room, winner, "timeout");
+  await finishRoom(room, winner, "timeout");
 
   const updated = await getRoom(roomId);
   if (!updated) return { error: "방을 찾을 수 없어요." };
   return { room: updated };
 }
+
+// ---------- 착수 ----------
 
 export async function submitMove(
   roomId: string,
@@ -382,11 +505,21 @@ export async function submitMove(
   const myColor = colorOf(room, userId);
   if (!myColor) return { error: "참여자만 둘 수 있어요." };
 
+  const nowMs = Date.now();
+  // 수를 두기 전에 이미 시간이 다 됐으면 그 수는 인정하지 않고 시간패로 끝냅니다.
+  if (room.turn === (myColor === "white" ? "w" : "b") && isClockExpired(clockOf(room), nowMs)) {
+    await finishRoom(room, myColor === "white" ? "black" : "white", "timeout");
+    return { error: "시간이 다 돼서 패배 처리됐어요." };
+  }
+
   const result = applyChessMove(room.moves, myColor, from, to, promotion);
   if (!result.ok) return { error: result.error };
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
+
+  const banks = banksAfterMove(clockOf(room), nowMs);
+  const now = new Date(nowMs).toISOString();
 
   // 낙관적 동시성 제어: 읽어온 move_count와 DB의 move_count가 다르면 0행 매치로 실패합니다.
   const { data, error } = await supabase
@@ -401,9 +534,13 @@ export async function submitMove(
       move_count: room.moveCount + 1,
       last_from: result.from,
       last_to: result.to,
-      turn_started_at: result.finished ? null : new Date().toISOString(),
+      white_time_ms: banks.white_time_ms,
+      black_time_ms: banks.black_time_ms,
+      turn_started_at: result.finished ? null : now,
+      // 수를 두면 걸려 있던 무승부 제안은 자동으로 거절된 것으로 봅니다.
+      draw_offer_by: null,
       rematch_by: null,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     })
     .eq("id", roomId)
     .eq("move_count", room.moveCount)

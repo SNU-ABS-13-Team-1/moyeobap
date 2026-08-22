@@ -14,22 +14,22 @@ const GAMES = [
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
   },
   {
-    href: '/games/flappy',
-    emoji: '🐤',
-    title: '플래피 버드',
-    desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
-  },
-  {
     href: '/games/chess',
     emoji: '♟️',
-    title: '체스',
-    desc: '컴퓨터와 대결하거나 둘이서 번갈아 두세요. 빠르게 이길수록 높은 점수.',
+    title: '체스 컴퓨터',
+    desc: '완전 초보부터 프로까지 5단계 컴퓨터와 대결. 난이도별 랭킹.',
   },
   {
     href: '/games/chess/online',
     emoji: '♞',
     title: '체스 (실시간 대전)',
-    desc: '로비에서 상대를 찾아 실시간으로 체스를 두세요. 관전·채팅 가능.',
+    desc: '로비에서 상대를 찾아 실시간으로 체스를 두세요. 관전·채팅·시간제 선택.',
+  },
+  {
+    href: '/games/flappy',
+    emoji: '🐤',
+    title: '플래피 버드',
+    desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
   },
 ] as const;
 

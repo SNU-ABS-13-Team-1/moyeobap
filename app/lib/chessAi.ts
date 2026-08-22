@@ -21,15 +21,6 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   5: '프로',
 };
 
-/** 승리 점수 배율 — 어려운 상대를 이길수록 높은 점수. */
-export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
-  1: 0.5,
-  2: 0.75,
-  3: 1,
-  4: 1.5,
-  5: 2,
-};
-
 const PIECE_VALUE: Record<PieceSymbol, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
 const MATE_SCORE = 100_000;
 

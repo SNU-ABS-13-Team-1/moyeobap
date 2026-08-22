@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getChessRanking } from "@/app/lib/chessRanking";
+import { getChessRanking, getRecentChessMatches } from "@/app/lib/chessRanking";
 
 export async function GET() {
-  const ranking = await getChessRanking(20);
-  return NextResponse.json({ ranking });
+  const [ranking, recent] = await Promise.all([getChessRanking(20), getRecentChessMatches(10)]);
+  return NextResponse.json({ ranking, recent });
 }

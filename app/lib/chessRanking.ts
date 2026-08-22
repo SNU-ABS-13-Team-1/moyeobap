@@ -5,6 +5,16 @@ import type { ChessRoom } from "./chessOnline";
 const K_FACTOR = 32;
 const DEFAULT_RATING = 1200;
 
+export type ChessRecentMatch = {
+  id: string;
+  whiteName: string;
+  blackName: string;
+  winner: "white" | "black" | "draw";
+  endReason: string | null;
+  moveCount: number;
+  endedAt: string;
+};
+
 export type ChessRankingEntry = {
   userId: string;
   userName: string;
@@ -111,5 +121,31 @@ export async function getChessRanking(limit = 20): Promise<ChessRankingEntry[]> 
     wins: row.wins,
     losses: row.losses,
     draws: row.draws,
+  }));
+}
+
+/** 최근 끝난 대국 목록(랭킹 페이지의 "최근 대국"). */
+export async function getRecentChessMatches(limit = 10): Promise<ChessRecentMatch[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("chess_matches")
+    .select("id, white_name, black_name, winner, end_reason, move_count, ended_at")
+    .order("ended_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    if (error) console.error("getRecentChessMatches error:", error);
+    return [];
+  }
+  return (data as { id: string; white_name: string; black_name: string; winner: "white" | "black" | "draw"; end_reason: string | null; move_count: number; ended_at: string }[]).map((row) => ({
+    id: row.id,
+    whiteName: row.white_name,
+    blackName: row.black_name,
+    winner: row.winner,
+    endReason: row.end_reason,
+    moveCount: row.move_count,
+    endedAt: row.ended_at,
   }));
 }
