@@ -19,6 +19,12 @@ const GAMES = [
     title: '플래피 버드',
     desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
   },
+  {
+    href: '/games/chess',
+    emoji: '♟️',
+    title: '체스',
+    desc: '컴퓨터와 대결하거나 둘이서 번갈아 두세요. 빠르게 이길수록 높은 점수.',
+  },
 ] as const;
 
 export default function GamesPage() {
