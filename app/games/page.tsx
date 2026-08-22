@@ -14,6 +14,12 @@ const GAMES = [
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
   },
   {
+    href: '/games/chess',
+    emoji: '♟️',
+    title: '체스',
+    desc: '컴퓨터와 대결하거나 다른 사람과 실시간으로 두세요.',
+  },
+  {
     href: '/games/flappy',
     emoji: '🐤',
     title: '플래피 버드',
