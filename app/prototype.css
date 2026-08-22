@@ -4621,10 +4621,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .snake__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .snake__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
@@ -5009,11 +5009,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-room__canvas-wrap {
   position: relative;
-  line-height: 0;
   max-width: 100%;
 }
 
 .omok-room__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #a97c30;
   box-shadow: var(--shadow-md);
@@ -5604,10 +5604,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .pong-room__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .pong-room__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #374151;
   max-width: 100%;
@@ -5905,10 +5905,10 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .flappy__canvas-wrap {
   position: relative;
-  line-height: 0;
 }
 
 .flappy__canvas {
+  display: block; /* baseline 아래 여백 제거. 래퍼 line-height: 0은 오버레이까지 상속돼 안 씁니다 */
   border-radius: var(--radius-sm);
   border: 2px solid #1f2937;
   box-shadow: var(--shadow-md);
@@ -6084,4 +6084,480 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   text-align: center;
   color: var(--text-secondary);
   font-size: 0.85rem;
+}
+
+/* ---------- 미니게임: 체스 ---------- */
+.chess {
+  max-width: fit-content;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chess__desc {
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-align: center;
+  max-width: 440px;
+  font-size: 0.92rem;
+}
+
+.chess__toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 4px;
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: var(--radius-md);
+}
+
+.chess__mode-btn {
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chess__mode-btn--active {
+  background: #fff;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.chess__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+}
+
+.chess__status--over {
+  color: var(--primary);
+}
+
+.chess__move-no {
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.chess__board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: min(92vw, 440px);
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: 2px solid #6b4f3a;
+}
+
+.chess__square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  aspect-ratio: 1;
+  user-select: none;
+}
+
+.chess__square:disabled {
+  cursor: default;
+}
+
+.chess__square--light { background: #f0d9b5; }
+.chess__square--dark { background: #b58863; }
+
+.chess__square--last { box-shadow: inset 0 0 0 999px rgba(255, 214, 0, 0.35); }
+.chess__square--selected { box-shadow: inset 0 0 0 999px rgba(255, 107, 53, 0.45); }
+.chess__square--check { box-shadow: inset 0 0 0 999px rgba(220, 38, 38, 0.55); }
+
+.chess__square--target::after {
+  content: '';
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: rgba(26, 38, 52, 0.35);
+}
+
+.chess__square--capture::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 4px solid rgba(220, 38, 38, 0.6);
+}
+
+.chess__piece {
+  font-size: clamp(1.6rem, 7vw, 2.3rem);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.chess__piece--w {
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
+}
+
+.chess__piece--b {
+  color: #111;
+}
+
+.chess__coord {
+  position: absolute;
+  font-size: 0.6rem;
+  font-weight: 700;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.chess__coord--rank { top: 2px; left: 3px; }
+.chess__coord--file { bottom: 1px; right: 3px; }
+
+.chess__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--space-md);
+}
+
+.chess__btn {
+  padding: 10px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.chess__btn:hover { filter: brightness(1.05); }
+
+.chess__btn--ghost {
+  background: #fff;
+  color: var(--text-primary, #1a2634);
+  border: 1px solid var(--card-border);
+}
+
+.chess__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.chess__saved {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.chess__leaderboard {
+  margin-top: var(--space-lg);
+  width: 100%;
+  max-width: 340px;
+}
+
+.chess__leaderboard-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.chess__leaderboard-note {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.chess__leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chess__leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary, #f8fafc);
+  font-size: 0.9rem;
+}
+
+.chess__leaderboard-item--me {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  font-weight: 700;
+}
+
+.chess__leaderboard-rank {
+  width: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.chess__leaderboard-name { flex: 1; }
+.chess__leaderboard-score { font-weight: 700; }
+
+.chess__toolbar--levels {
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  max-width: min(92vw, 440px);
+}
+
+.chess__toolbar-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 0 6px;
+}
+
+.chess-page__links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chess-room__board {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-md) 0;
+}
+
+.chess-room__moves {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 4.8em;
+  overflow-y: auto;
+  word-break: break-word;
+  margin-bottom: 8px;
+}
+
+/* ---------- 실시간 대전 채팅: 채팅 영역 높이를 고정해 목록만 스크롤되게 ---------- */
+.omok-room-page__chat {
+  max-height: calc(100vh - 120px);
+}
+
+.omok-room-page__chat .omok-chat {
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+}
+
+.omok-chat__list {
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .omok-room-page__chat,
+  .omok-room-page__chat .omok-chat {
+    height: 60vh;
+    max-height: 60vh;
+    min-height: 360px;
+  }
+}
+
+/* ---------- 로비: 시간제 선택·방 정보 ---------- */
+.omok-lobby__select {
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+.omok-lobby__row-meta {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+/* ---------- 체스 방: 시계·시간제·재접속 안내 ---------- */
+.chess-room__tc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+}
+
+.chess-room__clock {
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.chess-room__clock--active {
+  color: var(--text-primary, #1a2634);
+}
+
+.chess-room__clock--urgent {
+  color: #dc2626;
+}
+
+.chess-room__notice {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ---------- 승격 기물 선택 ---------- */
+.chess__board-wrap {
+  position: relative;
+}
+
+.promotion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(26, 38, 52, 0.78);
+  border-radius: var(--radius-md);
+  z-index: 2;
+}
+
+.promotion__title {
+  color: #fff;
+  font-weight: 700;
+}
+
+.promotion__choices {
+  display: flex;
+  gap: 10px;
+}
+
+.promotion__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 64px;
+}
+
+.promotion__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.promotion__glyph {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.promotion__glyph--w {
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
+}
+
+.promotion__glyph--b {
+  color: #111;
+}
+
+.promotion__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.promotion__cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* ---------- 체스 랭킹: 최근 대국 ---------- */
+.chess-recent {
+  margin-top: var(--space-lg);
+}
+
+.chess-recent__title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.chess-recent__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chess-recent__item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary, #f8fafc);
+  font-size: 0.88rem;
+}
+
+.chess-recent__result {
+  font-weight: 600;
+}
+
+.chess-recent__when {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .chess-recent__item {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* 체스 입구: 카드 두 장을 넉넉하게 */
+.games-grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
