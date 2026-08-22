@@ -6556,3 +6556,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     gap: 2px;
   }
 }
+
+/* 체스 입구: 카드 두 장을 넉넉하게 */
+.games-grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}

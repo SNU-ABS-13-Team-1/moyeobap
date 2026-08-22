@@ -16,14 +16,8 @@ const GAMES = [
   {
     href: '/games/chess',
     emoji: '♟️',
-    title: '체스 컴퓨터',
-    desc: '완전 초보부터 프로까지 5단계 컴퓨터와 대결. 난이도별 랭킹.',
-  },
-  {
-    href: '/games/chess/online',
-    emoji: '♞',
-    title: '체스 (실시간 대전)',
-    desc: '로비에서 상대를 찾아 실시간으로 체스를 두세요. 관전·채팅·시간제 선택.',
+    title: '체스',
+    desc: '컴퓨터와 대결하거나 다른 사람과 실시간으로 두세요.',
   },
   {
     href: '/games/flappy',
