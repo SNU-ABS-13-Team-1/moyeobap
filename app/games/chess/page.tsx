@@ -16,7 +16,10 @@ export default function ChessPage() {
           <h1>체스</h1>
           <p>마감까지 기다리는 동안 가볍게 즐겨보세요.</p>
         </div>
-        <Link className="page-back-link" href="/games">← 미니게임으로</Link>
+        <div className="chess-page__links">
+          <Link className="page-back-link" href="/games/chess/online">♞ 실시간 대전 로비 →</Link>
+          <Link className="page-back-link" href="/games">← 미니게임으로</Link>
+        </div>
       </div>
 
       <ChessGame />

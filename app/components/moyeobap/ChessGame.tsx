@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
 import { DIFFICULTY_LABEL, DIFFICULTY_MULTIPLIER, pickCpuMove, type Difficulty } from '../../lib/chessAi';
+import { ChessBoard, colorLabel } from './ChessBoard';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
@@ -20,14 +21,8 @@ type Outcome =
   | { kind: 'checkmate'; winner: Color }
   | { kind: 'draw'; reason: string };
 
-const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 const HUMAN_COLOR: Color = 'w';
 const CPU_THINK_MS = 350;
-
-const PIECE_GLYPH: Record<Color, Record<PieceSymbol, string>> = {
-  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
-};
 
 function readOutcome(game: Chess): Outcome {
   if (game.isCheckmate()) {
@@ -47,10 +42,6 @@ function winScore(fullMoves: number, difficulty: Difficulty): number {
 }
 
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5];
-
-function colorLabel(color: Color): string {
-  return color === 'w' ? '백' : '흑';
-}
 
 export function ChessGame() {
   const [game, setGame] = useState<Chess>(() => new Chess());
@@ -85,6 +76,12 @@ export function ChessGame() {
     }
     return map;
   }, [game, selected, fen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const targetSquares = useMemo(() => {
+    const map = new Map<Square, boolean>();
+    legalTargets.forEach((move, square) => map.set(square, Boolean(move.captured)));
+    return map;
+  }, [legalTargets]);
 
   const kingInCheckSquare = useMemo(() => {
     if (!inCheck) return null;
@@ -242,44 +239,15 @@ export function ChessGame() {
         <span className="chess__move-no">{game.moveNumber()}수</span>
       </div>
 
-      <div className="chess__board" role="grid" aria-label="체스판">
-        {board.map((row, rankIndex) =>
-          row.map((cell, fileIndex) => {
-            const square = `${FILES[fileIndex]}${8 - rankIndex}` as Square;
-            const isDark = (rankIndex + fileIndex) % 2 === 1;
-            const target = legalTargets.get(square);
-            const classes = [
-              'chess__square',
-              isDark ? 'chess__square--dark' : 'chess__square--light',
-              selected === square ? 'chess__square--selected' : '',
-              lastMove && (lastMove.from === square || lastMove.to === square) ? 'chess__square--last' : '',
-              target ? (target.captured ? 'chess__square--capture' : 'chess__square--target') : '',
-              kingInCheckSquare === square ? 'chess__square--check' : '',
-            ]
-              .filter(Boolean)
-              .join(' ');
-
-            return (
-              <button
-                aria-label={`${square}${cell ? ` ${colorLabel(cell.color)} ${cell.type}` : ''}`}
-                className={classes}
-                disabled={!humanCanMove}
-                key={square}
-                onClick={() => handleSquareClick(square)}
-                type="button"
-              >
-                {cell && (
-                  <span className={`chess__piece chess__piece--${cell.color}`} aria-hidden="true">
-                    {PIECE_GLYPH[cell.color][cell.type]}
-                  </span>
-                )}
-                {fileIndex === 0 && <span className="chess__coord chess__coord--rank">{8 - rankIndex}</span>}
-                {rankIndex === 7 && <span className="chess__coord chess__coord--file">{FILES[fileIndex]}</span>}
-              </button>
-            );
-          }),
-        )}
-      </div>
+      <ChessBoard
+        board={board}
+        checkSquare={kingInCheckSquare}
+        disabled={!humanCanMove}
+        lastMove={lastMove}
+        onSquareClick={handleSquareClick}
+        selected={selected}
+        targets={targetSquares}
+      />
 
       <div className="chess__actions">
         <button className="chess__btn" onClick={() => handleNewGame()} type="button">

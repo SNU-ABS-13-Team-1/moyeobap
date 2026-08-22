@@ -6336,3 +6336,25 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--text-secondary);
   padding: 0 6px;
 }
+
+.chess-page__links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chess-room__board {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-md) 0;
+}
+
+.chess-room__moves {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 4.8em;
+  overflow-y: auto;
+  word-break: break-word;
+  margin-bottom: 8px;
+}
