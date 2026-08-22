@@ -6322,3 +6322,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .chess__leaderboard-name { flex: 1; }
 .chess__leaderboard-score { font-weight: 700; }
+
+.chess__toolbar--levels {
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  max-width: min(92vw, 440px);
+}
+
+.chess__toolbar-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 0 6px;
+}

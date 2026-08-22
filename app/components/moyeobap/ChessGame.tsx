@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
+import { DIFFICULTY_LABEL, DIFFICULTY_MULTIPLIER, pickCpuMove, type Difficulty } from '../../lib/chessAi';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
@@ -21,51 +22,12 @@ type Outcome =
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 const HUMAN_COLOR: Color = 'w';
-const CPU_THINK_MS = 450;
+const CPU_THINK_MS = 350;
 
 const PIECE_GLYPH: Record<Color, Record<PieceSymbol, string>> = {
   w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
   b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
 };
-
-const PIECE_VALUE: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-
-/**
- * 컴퓨터 상대의 수 고르기. 체스 엔진이 아니라 "한 수 앞만 보는" 간단한 규칙입니다.
- * 1) 바로 체크메이트가 되는 수 2) 가치 높은 기물을 잡는 수 3) 프로모션·체크 순으로
- * 점수를 매기고, 같은 점수면 무작위로 고릅니다. 초보자가 연습하기에 적당한 수준입니다.
- */
-function pickCpuMove(game: Chess): Move | null {
-  const moves = game.moves({ verbose: true });
-  if (moves.length === 0) return null;
-
-  let best: Move[] = [];
-  let bestScore = -Infinity;
-
-  for (const move of moves) {
-    let score = Math.random() * 0.5;
-    if (move.captured) score += PIECE_VALUE[move.captured] * 10;
-    if (move.promotion) score += 80;
-
-    const probe = new Chess(game.fen());
-    probe.move({ from: move.from, to: move.to, promotion: move.promotion ?? 'q' });
-    if (probe.isCheckmate()) score += 10_000;
-    else if (probe.isCheck()) score += 4;
-
-    // 옮긴 기물이 바로 잡힐 수 있으면 감점(아주 단순한 안전 확인).
-    const attacked = probe.moves({ verbose: true }).some((reply) => reply.to === move.to && reply.captured);
-    if (attacked) score -= PIECE_VALUE[move.piece] * 8;
-
-    if (score > bestScore + 1e-9) {
-      bestScore = score;
-      best = [move];
-    } else if (Math.abs(score - bestScore) < 1e-9) {
-      best.push(move);
-    }
-  }
-
-  return best[Math.floor(Math.random() * best.length)] ?? null;
-}
 
 function readOutcome(game: Chess): Outcome {
   if (game.isCheckmate()) {
@@ -79,10 +41,12 @@ function readOutcome(game: Chess): Outcome {
   return { kind: 'playing' };
 }
 
-/** 빠르게 이길수록 높은 점수. 최소 10점, 최대 300점. */
-function winScore(fullMoves: number): number {
-  return Math.max(10, 300 - fullMoves * 3);
+/** 빠르게 이길수록, 어려운 상대일수록 높은 점수. (기본 300-3×수, 최소 10) × 난이도 배율 */
+function winScore(fullMoves: number, difficulty: Difficulty): number {
+  return Math.round(Math.max(10, 300 - fullMoves * 3) * DIFFICULTY_MULTIPLIER[difficulty]);
 }
+
+const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5];
 
 function colorLabel(color: Color): string {
   return color === 'w' ? '백' : '흑';
@@ -97,6 +61,7 @@ export function ChessGame() {
   );
 
   const [mode, setMode] = useState<Mode>('cpu');
+  const [difficulty, setDifficulty] = useState<Difficulty>(3);
   const [fen, setFen] = useState(() => game.fen());
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
@@ -136,7 +101,7 @@ export function ChessGame() {
   }
 
   function submitWinScore() {
-    const score = winScore(game.moveNumber());
+    const score = winScore(game.moveNumber(), difficulty);
     setSubmitted(true);
     requestJson(LEADERBOARD_URL, {
       method: 'POST',
@@ -162,10 +127,11 @@ export function ChessGame() {
     if (humanWon && currentUser && !submitted) submitWinScore();
   }
 
-  function handleNewGame(nextMode: Mode = mode) {
+  function handleNewGame(nextMode: Mode = mode, nextDifficulty: Difficulty = difficulty) {
     const fresh = new Chess();
     setGame(fresh);
     setMode(nextMode);
+    setDifficulty(nextDifficulty);
     setSelected(null);
     setLastMove(null);
     setSubmitted(false);
@@ -211,7 +177,7 @@ export function ChessGame() {
   useEffect(() => {
     if (!isCpuTurn) return;
     const timer = setTimeout(() => {
-      const move = pickCpuMove(game);
+      const move = pickCpuMove(game, difficulty);
       if (move) applyMove(move.from, move.to, move.promotion);
     }, CPU_THINK_MS);
     return () => clearTimeout(timer);
@@ -235,7 +201,7 @@ export function ChessGame() {
     <div className="chess">
       <p className="chess__desc">
         기물을 누르면 갈 수 있는 칸이 표시돼요. 폰이 끝까지 가면 자동으로 퀸이 됩니다.
-        {mode === 'cpu' ? ' 나는 백(아래), 컴퓨터는 흑이에요.' : ' 한 기기에서 둘이 번갈아 두는 모드예요.'}
+        {mode === 'cpu' ? ` 나는 백(아래), 컴퓨터(${DIFFICULTY_LABEL[difficulty]})는 흑이에요. 난이도를 바꾸면 새 게임이 시작돼요.` : ' 한 기기에서 둘이 번갈아 두는 모드예요.'}
       </p>
 
       <div className="chess__toolbar" role="group" aria-label="게임 모드">
@@ -254,6 +220,22 @@ export function ChessGame() {
           둘이서 번갈아
         </button>
       </div>
+
+      {mode === 'cpu' && (
+        <div className="chess__toolbar chess__toolbar--levels" role="group" aria-label="컴퓨터 난이도">
+          <span className="chess__toolbar-label">난이도</span>
+          {DIFFICULTIES.map((level) => (
+            <button
+              className={`chess__mode-btn ${difficulty === level ? 'chess__mode-btn--active' : ''}`}
+              key={level}
+              onClick={() => handleNewGame('cpu', level)}
+              type="button"
+            >
+              {DIFFICULTY_LABEL[level]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className={`chess__status ${outcome.kind !== 'playing' ? 'chess__status--over' : ''}`} aria-live="polite">
         {statusText}
@@ -314,7 +296,7 @@ export function ChessGame() {
       </div>
 
       {savedScore !== null && (
-        <p className="chess__saved">랭킹에 {savedScore}점이 기록됐어요. (빠르게 이길수록 높은 점수)</p>
+        <p className="chess__saved">랭킹에 {savedScore}점이 기록됐어요. (빠르게 이길수록, 어려운 난이도일수록 높은 점수)</p>
       )}
 
       <div className="chess__leaderboard">
