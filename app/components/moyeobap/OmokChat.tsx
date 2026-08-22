@@ -11,6 +11,9 @@ const CONFIG: GameChatConfig<OmokChatAuthorRole> = {
   table: 'omok_chat_messages',
   channelPrefix: 'omok-chat',
   roleLabel: { black: '흑', white: '백', spectator: '관전' },
+  // 오목 채팅만 모여밥 이모티콘을 씁니다. 체스는 chat 테이블에 kind 컬럼이
+  // 없어서(20260827000000_omok_chat_emojis.sql은 omok만) 켜지 않습니다.
+  emojis: true,
 };
 
 export function OmokChat({ roomId, myRole }: { roomId: string; myRole: OmokChatAuthorRole }) {

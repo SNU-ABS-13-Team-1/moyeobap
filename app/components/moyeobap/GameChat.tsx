@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
+import { CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
 
 // 실시간 대전 방 공용 채팅. 오목·체스가 API 경로·Realtime 테이블·역할 이름만 다르게
@@ -19,6 +20,11 @@ export type GameChatConfig<Role extends string> = {
   channelPrefix: string;
   /** 메시지에 붙는 역할 배지 라벨 */
   roleLabel: Record<Role, string>;
+  /**
+   * 모여밥 이모티콘 버튼을 띄울지. 채팅 테이블에 kind 컬럼이 있고 API가
+   * emojiId를 받는 게임에서만 켭니다(현재 오목).
+   */
+  emojis?: boolean;
 };
 
 export type GameChatMessage<Role extends string> = {
@@ -27,6 +33,9 @@ export type GameChatMessage<Role extends string> = {
   authorName: string;
   authorRole: Role | null;
   text: string;
+  /** 이모티콘 메시지는 'image'. 이 기능 이전 메시지·미지원 게임은 undefined입니다. */
+  kind?: 'text' | 'image';
+  imageUrl?: string;
   createdAt: string;
 };
 
@@ -53,6 +62,7 @@ export function GameChat<Role extends string>({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const messages = data?.messages ?? [];
 
@@ -96,6 +106,7 @@ export function GameChat<Role extends string>({
       authorName: currentUser.name,
       authorRole: myRole,
       text: trimmed,
+      kind: 'text',
       createdAt: new Date().toISOString(),
     };
     mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
@@ -110,6 +121,40 @@ export function GameChat<Role extends string>({
       await mutate();
     } catch (err) {
       setSendError(getErrorMessage(err, '메시지를 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleSendEmoji(emoji: ChatEmoji) {
+    if (sending || !currentUser) return;
+
+    setSendError(null);
+    setIsEmojiPickerOpen(false);
+
+    const optimisticMsg: GameChatMessage<Role> = {
+      id: `temp-emoji-${crypto.randomUUID()}`,
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      authorRole: myRole,
+      text: emoji.src,
+      kind: 'image',
+      imageUrl: emoji.src,
+      createdAt: new Date().toISOString(),
+    };
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    setSending(true);
+    try {
+      await requestJson(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emojiId: emoji.id }),
+      });
+      await mutate();
+    } catch (err) {
+      setSendError(getErrorMessage(err, '이모티콘을 보내지 못했어요.'));
       await mutate();
     } finally {
       setSending(false);
@@ -132,14 +177,56 @@ export function GameChat<Role extends string>({
                 <span className={`omok-chat__role omok-chat__role--${m.authorRole}`}>{config.roleLabel[m.authorRole]}</span>
               )}
             </span>
-            <span className="omok-chat__bubble">{m.text}</span>
+            {m.kind === 'image' && m.imageUrl && isChatEmojiPath(m.imageUrl) ? (
+              <span className="chat-panel__bubble--emoji">
+                <span className="chat-panel__image-wrap chat-panel__image-wrap--emoji">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="이모티콘" className="chat-panel__emoji-message-image" src={m.imageUrl} />
+                </span>
+              </span>
+            ) : (
+              <span className="omok-chat__bubble">{m.text}</span>
+            )}
           </div>
         ))}
       </div>
 
       {sendError && <p className="omok-chat__error">{sendError}</p>}
 
+      {config.emojis && isEmojiPickerOpen && (
+        <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id={`${config.channelPrefix}-emoji-picker`}>
+          {CHAT_EMOJIS.map((emoji) => (
+            <button
+              aria-label={`${emoji.label} 보내기`}
+              className="chat-panel__emoji-option"
+              disabled={sending}
+              key={emoji.id}
+              onClick={() => handleSendEmoji(emoji)}
+              title={`${emoji.label} 보내기`}
+              type="button"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={emoji.label} src={emoji.src} />
+            </button>
+          ))}
+        </div>
+      )}
+
       <form className="omok-chat__form" onSubmit={handleSubmit}>
+        {config.emojis && (
+          <button
+            aria-controls={`${config.channelPrefix}-emoji-picker`}
+            aria-expanded={isEmojiPickerOpen}
+            aria-label="모여밥 이모티콘 선택"
+            className={`chat-panel__tool-chip chat-panel__tool-chip--emoji ${isEmojiPickerOpen ? 'chat-panel__tool-chip--active' : ''}`}
+            disabled={sending}
+            onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+            title="모여밥 이모티콘 선택"
+            type="button"
+          >
+            🍚
+          </button>
+        )}
         <input
           aria-label="메시지"
           className="omok-chat__input"

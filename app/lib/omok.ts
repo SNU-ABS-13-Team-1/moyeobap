@@ -191,6 +191,15 @@ export async function joinRoom(
   return mapRow(data as OmokRoomRow);
 }
 
+/**
+ * move_count까지 조건에 거는 이유: room.status를 읽은 시점과 이 UPDATE를
+ * 실행하는 시점 사이에 상대의 착수(승리 판정 포함)가 먼저 끝나버리는 경쟁
+ * 상태에서, status만 확인하면 그 사이 이미 승부가 났는데도 낡은 "playing"
+ * 값을 근거로 종료 처리를 덮어써 recordMatchResult가 두 번 불릴 수 있다
+ * (예: 방금 이긴 사람이 "게임 나가기"를 눌렀는데 패배가 추가로 기록되는
+ * 버그). move_count는 착수마다 반드시 바뀌므로, 그 사이 어떤 수라도(승리
+ * 수 포함) 먼저 처리됐다면 이 UPDATE는 0행에 매치되어 안전하게 무시된다.
+ */
 async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "white"): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -208,6 +217,7 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
     })
     .eq("id", room.id)
     .eq("status", "playing")
+    .eq("move_count", room.moveCount)
     .select()
     .maybeSingle();
 
