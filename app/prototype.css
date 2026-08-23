@@ -4861,6 +4861,20 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   filter: brightness(1.05);
 }
 
+.omok-lobby__row-actions {
+  white-space: nowrap;
+}
+
+.omok-lobby__row-actions .omok-lobby__join-btn + .omok-lobby__join-btn {
+  margin-left: 6px;
+}
+
+.omok-lobby__join-btn--ghost {
+  background: #fff;
+  color: var(--text-primary, #1a2634);
+  border: 1px solid var(--card-border);
+}
+
 .omok-lobby__join-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -6560,4 +6574,325 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 /* 체스 입구: 카드 두 장을 넉넉하게 */
 .games-grid--wide {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* ---------- 미니게임: 루미큐브 ---------- */
+.rummy {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rummy__toolbar,
+.rummy__hand-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rummy__toolbar-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+.rummy__chip {
+  padding: 6px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rummy__chip--active {
+  background: #fff7ed;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rummy__players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+
+.rummy__player {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid transparent;
+}
+
+.rummy__player--active {
+  border-color: var(--primary);
+  background: #fff7ed;
+  font-weight: 700;
+}
+
+.rummy__player--winner {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.rummy__deck {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+.rummy__status {
+  font-weight: 700;
+}
+
+.rummy__status--over {
+  color: var(--primary);
+}
+
+.rummy__table {
+  min-height: 140px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: #1f5e3a;
+  background-image: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.08), transparent 60%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.rummy__empty {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.rummy__hand .rummy__empty {
+  color: var(--text-secondary);
+}
+
+.rummy__set {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.rummy__set--invalid {
+  outline: 2px solid #f87171;
+}
+
+.rummy__set-info {
+  position: absolute;
+  left: 8px;
+  bottom: 3px;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.rummy-tile {
+  width: 36px;
+  height: 50px;
+  border-radius: 6px;
+  border: 1px solid #d6d3d1;
+  background: linear-gradient(#fffdf7, #f3efe4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease;
+}
+
+.rummy-tile:disabled {
+  cursor: default;
+}
+
+.rummy-tile--red { color: #dc2626; }
+.rummy-tile--blue { color: #2563eb; }
+.rummy-tile--black { color: #111827; }
+.rummy-tile--orange { color: #ea580c; }
+.rummy-tile--joker { color: #7c3aed; font-size: 1.3rem; }
+
+.rummy-tile--selected {
+  transform: translateY(-6px);
+  outline: 3px solid var(--primary);
+}
+
+.rummy__drop {
+  height: 50px;
+  min-width: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 2px dashed rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rummy__drop--new {
+  min-width: 160px;
+  font-size: 0.88rem;
+}
+
+.rummy__drop:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.rummy__message {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+}
+
+.rummy__hand-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rummy__hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  min-height: 70px;
+}
+
+.rummy__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rummy__btn {
+  padding: 10px 18px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rummy__btn--ghost {
+  background: #fff;
+  color: var(--text-primary, #1a2634);
+  border: 1px solid var(--card-border);
+}
+
+.rummy__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rummy__btn--danger {
+  background: #dc2626;
+}
+
+/* 기권 확인(브라우저 confirm 대신 화면 안에서 한 번 더 묻기) */
+.rummy__confirm {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* 대기 방에서 방장이 자리를 비운 사람을 내보내는 ✕ */
+.rummy__kick {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rummy__kick:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.rummy__saved {
+  font-size: 0.88rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.rummy__leaderboard { max-width: 340px; }
+.rummy__leaderboard-title { font-weight: 700; margin-bottom: 8px; }
+.rummy__leaderboard-note { color: var(--text-secondary); font-size: 0.85rem; }
+.rummy__leaderboard-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.rummy__leaderboard-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-secondary, #f8fafc); font-size: 0.9rem; }
+.rummy__leaderboard-item--me { background: #fff7ed; border: 1px solid #fed7aa; font-weight: 700; }
+.rummy__leaderboard-rank { width: 20px; text-align: center; color: var(--text-secondary); font-weight: 700; }
+.rummy__leaderboard-name { flex: 1; }
+.rummy__leaderboard-score { font-weight: 700; }
+
+@media (max-width: 600px) {
+  .rummy-tile { width: 30px; height: 42px; font-size: 1rem; }
+}
+
+.rummy__loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-lg);
+}
+
+/* 루미큐브 온라인 방 */
+.rummy--room {
+  max-width: none;
+}
+
+.rummy__player--left {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.rummy__waiting {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
