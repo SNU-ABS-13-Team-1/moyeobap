@@ -7,7 +7,7 @@ import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { INITIAL_MELD, type Tile } from '../../lib/rummy';
-import { END_REASON_LABEL, MAX_PLAYERS, MIN_PLAYERS, TURN_GRACE_MS, type EndReason, type RoomPlayer, type RoomStatus } from '../../lib/rummyOnline';
+import { END_REASON_LABEL, MAX_PLAYERS, MIN_PLAYERS, TURN_GRACE_MS, type EndReason, type RoomPlayer, type RoomStatus } from '../../lib/rummyMatch';
 import { useAuth } from './AuthProvider';
 import { GameChat, type GameChatConfig } from './GameChat';
 import { RummyBoard, applyMove, type MoveTarget, type Selection } from './RummyBoard';

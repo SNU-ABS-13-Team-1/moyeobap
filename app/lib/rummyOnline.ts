@@ -1,52 +1,27 @@
 import { getSupabase } from "./supabase";
-import { HAND_SIZE, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile, type TileColor } from "./rummy";
+import { HAND_SIZE, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from "./rummy";
+import {
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  activePlayers,
+  currentPlayer,
+  isTurnExpired,
+  tileFromId,
+  type EndReason,
+  type RoomPlayer,
+  type RoomStatus,
+  type RummyRoom,
+} from "./rummyMatch";
+
+// 타입·상수·순수 함수는 rummyMatch.ts에 있고, API 라우트 편의상 여기서 다시 내보냅니다.
+export { END_REASON_LABEL, MAX_PLAYERS, MIN_PLAYERS, TURN_GRACE_MS, activePlayers, currentPlayer, isTurnExpired, tileFromId } from "./rummyMatch";
+export type { EndReason, RoomPlayer, RoomStatus, RummyRoom } from "./rummyMatch";
 
 // 루미큐브 온라인 대전(2~4명)의 서버 로직. 손패·더미는 서버 전용 표에 있고,
 // 클라이언트는 턴 종료 때 "최종 테이블"만 보냅니다. 서버가 자기 손패 기준으로 규칙을 다시 검증합니다.
 
-export const MAX_PLAYERS = 4;
-export const MIN_PLAYERS = 2;
-export const TURN_GRACE_MS = 3_000;
 /** 끝난 방은 하루 지나면 정리합니다(전적·랭킹은 별도 표라 남습니다). */
 const FINISHED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
-
-export type RoomStatus = "waiting" | "playing" | "finished";
-export type EndReason = "empty_hand" | "stuck" | "others_left" | null;
-
-export const END_REASON_LABEL: Record<NonNullable<EndReason>, string> = {
-  empty_hand: "타일을 모두 냄",
-  stuck: "더 낼 사람이 없음(벌점 최소)",
-  others_left: "다른 참여자가 모두 나감",
-};
-
-export type RoomPlayer = {
-  id: string;
-  name: string;
-  melded: boolean;
-  tileCount: number;
-  left: boolean;
-  penalty?: number;
-  score?: number;
-};
-
-export type RummyRoom = {
-  id: string;
-  roomName: string;
-  status: RoomStatus;
-  hostId: string;
-  players: RoomPlayer[];
-  turnIndex: number;
-  table: Tile[][];
-  deckCount: number;
-  passStreak: number;
-  winnerId: string | null;
-  endReason: EndReason;
-  turnLimitSec: number;
-  version: number;
-  startedAt: string | null;
-  turnStartedAt: string | null;
-  createdAt: string;
-};
 
 type RoomRow = {
   id: string;
@@ -88,31 +63,6 @@ function mapRow(row: RoomRow): RummyRoom {
   };
 }
 
-/** 클라이언트가 보낸 타일은 믿지 않고 id로 다시 만듭니다(색·숫자 위조 방지). */
-export function tileFromId(id: string): Tile | null {
-  if (id === "joker-0" || id === "joker-1") return { id, joker: true };
-  const m = /^(red|blue|black|orange)-(\d{1,2})-(0|1)$/.exec(id);
-  if (!m) return null;
-  const num = Number(m[2]);
-  if (num < 1 || num > 13) return null;
-  return { id, joker: false, color: m[1] as TileColor, num };
-}
-
-export function activePlayers(room: RummyRoom): RoomPlayer[] {
-  return room.players.filter((p) => !p.left);
-}
-
-export function currentPlayer(room: RummyRoom): RoomPlayer | null {
-  return room.players[room.turnIndex] ?? null;
-}
-
-export function isTurnExpired(room: RummyRoom, now: number): boolean {
-  if (room.status !== "playing" || !room.turnStartedAt) return false;
-  const started = Date.parse(room.turnStartedAt);
-  if (Number.isNaN(started)) return false;
-  return now - started >= room.turnLimitSec * 1000 + TURN_GRACE_MS;
-}
-
 function nextTurnIndex(room: RummyRoom, from: number): number {
   const n = room.players.length;
   for (let step = 1; step <= n; step += 1) {
@@ -131,6 +81,7 @@ async function cleanupOldFinishedRooms(): Promise<void> {
   const { error } = await supabase.from("rummy_rooms").delete().eq("status", "finished").lt("updated_at", cutoff);
   if (error) console.error("rummy cleanup error:", error);
 }
+
 
 export async function listRooms(): Promise<RummyRoom[]> {
   const supabase = getSupabase();
