@@ -4861,6 +4861,20 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   filter: brightness(1.05);
 }
 
+.omok-lobby__row-actions {
+  white-space: nowrap;
+}
+
+.omok-lobby__row-actions .omok-lobby__join-btn + .omok-lobby__join-btn {
+  margin-left: 6px;
+}
+
+.omok-lobby__join-btn--ghost {
+  background: #fff;
+  color: var(--text-primary, #1a2634);
+  border: 1px solid var(--card-border);
+}
+
 .omok-lobby__join-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -6797,6 +6811,43 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .rummy__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.rummy__btn--danger {
+  background: #dc2626;
+}
+
+/* 기권 확인(브라우저 confirm 대신 화면 안에서 한 번 더 묻기) */
+.rummy__confirm {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* 대기 방에서 방장이 자리를 비운 사람을 내보내는 ✕ */
+.rummy__kick {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rummy__kick:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .rummy__saved {

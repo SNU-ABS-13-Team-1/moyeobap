@@ -61,6 +61,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [leaving, setLeaving] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
   const [drawPending, setDrawPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -237,8 +238,14 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, now, myColor, roomId, mutate]);
 
+  // 대국 중 기권은 브라우저 확인창(confirm) 대신 화면 안에서 한 번 더 묻습니다.
+  // (일부 내장 브라우저는 confirm 창을 막아 버튼이 먹지 않는 것처럼 보입니다.)
+  const needsResignConfirm = room?.status === 'playing' && Boolean(myColor);
   async function handleLeaveRoom() {
-    if (room?.status === 'playing' && myColor && !window.confirm('대국 중에 나가면 기권 처리돼요. 나갈까요?')) return;
+    if (needsResignConfirm && !confirmingLeave) {
+      setConfirmingLeave(true);
+      return;
+    }
     setLeaving(true);
     try {
       await requestJson(`/api/games/chess/rooms/${roomId}/leave`, { method: 'POST' });
@@ -458,9 +465,21 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
           <div className="omok-room__actions">
-            <button className="omok-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
-              {leaving ? '나가는 중...' : room.status === 'playing' && isParticipant ? '기권하고 나가기' : '게임 나가기'}
-            </button>
+            {needsResignConfirm && confirmingLeave ? (
+              <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
+                정말 기권할까요? 상대의 승리로 기록돼요.
+                <button className="rummy__btn rummy__btn--danger" disabled={leaving} onClick={handleLeaveRoom} type="button">
+                  {leaving ? '나가는 중...' : '기권'}
+                </button>
+                <button className="rummy__btn rummy__btn--ghost" disabled={leaving} onClick={() => setConfirmingLeave(false)} type="button">
+                  취소
+                </button>
+              </span>
+            ) : (
+              <button className="omok-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
+                {leaving ? '나가는 중...' : needsResignConfirm ? '기권하고 나가기' : '게임 나가기'}
+              </button>
+            )}
             {canOfferDraw && !room.drawOfferBy && (
               <button className="omok-room__rematch-cancel-btn" disabled={drawPending} onClick={() => handleDraw('offer')} type="button">
                 {drawPending ? '제안하는 중...' : '무승부 제안'}

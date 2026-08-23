@@ -21,6 +21,7 @@ export function RummyLobby() {
     rankingPath: '/games/rummy/ranking',
     namePlaceholder: '방 이름 (예: 점심 루미큐브)',
     maxPlayers: 4,
+    allowSpectateWaiting: true,
     hostId: (room) => room.hostId,
     playerCount: (room) => room.players.filter((p) => !p.left).length,
     hasOpenSeat: (room) => room.status === 'waiting' && room.players.length < 4,

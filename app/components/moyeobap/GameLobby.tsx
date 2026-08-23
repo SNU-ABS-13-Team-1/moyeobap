@@ -39,6 +39,8 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   createExtras?: ReactNode;
   /** 방 만들기 요청 본문에 합칠 값. */
   createBody?: () => Record<string, unknown>;
+  /** 자리가 남은 대기 방도 "관전"으로 들어갈 수 있게 버튼을 하나 더 보여줍니다(다인 게임용). */
+  allowSpectateWaiting?: boolean;
 };
 
 const STATUS_LABEL: Record<LobbyRoomBase['status'], string> = {
@@ -155,10 +157,26 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
                       {STATUS_LABEL[room.status]}
                     </span>
                   </td>
-                  <td>
+                  <td className="omok-lobby__row-actions">
                     <button className="omok-lobby__join-btn" disabled={busy} onClick={() => handleJoin(room)} type="button">
                       {isMine ? '입장하기' : hasOpenSeat ? '참여하기' : '관전하기'}
                     </button>
+                    {config.allowSpectateWaiting && !isMine && hasOpenSeat && (
+                      <button
+                        className="omok-lobby__join-btn omok-lobby__join-btn--ghost"
+                        disabled={busy}
+                        onClick={() => {
+                          if (!currentUser) {
+                            openAuth(config.pagePath);
+                            return;
+                          }
+                          router.push(`${config.pagePath}/${room.id}`);
+                        }}
+                        type="button"
+                      >
+                        관전
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
