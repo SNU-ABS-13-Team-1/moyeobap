@@ -2,6 +2,7 @@ import { getSupabase } from "./supabase";
 import { HAND_SIZE, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from "./rummy";
 import {
   MAX_PLAYERS,
+  MAX_TIMEOUT_STRIKES,
   MIN_PLAYERS,
   activePlayers,
   currentPlayer,
@@ -14,7 +15,7 @@ import {
 } from "./rummyMatch";
 
 // 타입·상수·순수 함수는 rummyMatch.ts에 있고, API 라우트 편의상 여기서 다시 내보냅니다.
-export { END_REASON_LABEL, MAX_PLAYERS, MIN_PLAYERS, TURN_GRACE_MS, activePlayers, currentPlayer, isTurnExpired, tileFromId } from "./rummyMatch";
+export { END_REASON_LABEL, MAX_PLAYERS, MAX_TIMEOUT_STRIKES, MIN_PLAYERS, TURN_GRACE_MS, activePlayers, currentPlayer, isTurnExpired, tileFromId } from "./rummyMatch";
 export type { EndReason, RoomPlayer, RoomStatus, RummyRoom } from "./rummyMatch";
 
 // 루미큐브 온라인 대전(2~4명)의 서버 로직. 손패·더미는 서버 전용 표에 있고,
@@ -168,6 +169,18 @@ export async function joinRoom(roomId: string, userId: string, userName: string)
   return updated ?? { error: "잠시 뒤 다시 시도해주세요." };
 }
 
+/** 대기 중인 방에서 방장이 자리를 비운 사람을 내보냅니다(게임 시작 전에만). */
+export async function kickPlayer(roomId: string, hostId: string, targetId: string): Promise<RummyRoom | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.hostId !== hostId) return { error: "방장만 내보낼 수 있어요." };
+  if (room.status !== "waiting") return { error: "게임이 시작된 뒤에는 내보낼 수 없어요." };
+  if (targetId === hostId) return { error: "자기 자신은 내보낼 수 없어요." };
+  if (!room.players.some((p) => p.id === targetId)) return { error: "방에 없는 사람이에요." };
+  const updated = await updateRoom(room, { players: room.players.filter((p) => p.id !== targetId) });
+  return updated ?? { error: "잠시 뒤 다시 시도해주세요." };
+}
+
 /** 방장이 시작: 타일을 섞어 나눠주고 무작위로 선을 정합니다. */
 export async function startGame(roomId: string, userId: string): Promise<RummyRoom | { error: string }> {
   const room = await getRoom(roomId);
@@ -294,7 +307,7 @@ export async function submitTurn(roomId: string, userId: string, rawTable: unkno
   const nextHand = hand.filter((t) => !seen.has(t.id));
   if (!(await saveHand(roomId, userId, nextHand))) return { error: "손패를 저장하지 못했어요." };
 
-  const players = room.players.map((p) => (p.id === userId ? { ...p, melded: true, tileCount: nextHand.length } : p));
+  const players = room.players.map((p) => (p.id === userId ? { ...p, melded: true, tileCount: nextHand.length, timeouts: 0 } : p));
   if (nextHand.length === 0) {
     return finishGame({ ...room, players, table: table.map(arrangeSet) }, userId, "empty_hand");
   }
@@ -324,8 +337,14 @@ export async function drawAndPass(roomId: string, userId: string, opts: { byTime
   if (!me) return { error: "차례 정보를 찾을 수 없어요." };
   if (!opts.byTimeout && me.id !== userId) return { error: "내 차례가 아니에요." };
 
+  // 연속 시간 초과가 한도에 닿으면 자리를 비운 것으로 보고 자동 기권 처리합니다.
+  const strikes = opts.byTimeout ? (me.timeouts ?? 0) + 1 : 0;
+  if (opts.byTimeout && strikes >= MAX_TIMEOUT_STRIKES) {
+    return resignPlayer(room, me.id);
+  }
+
   const deck = await getDeck(roomId);
-  let players = room.players;
+  let players = room.players.map((p) => (p.id === me.id ? { ...p, timeouts: strikes } : p));
   let passStreak = room.passStreak + 1;
   let deckCount = room.deckCount;
 
@@ -381,21 +400,27 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   }
 
   if (room.status === "playing") {
-    const players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p));
-    const withPlayers = { ...room, players };
-    const remaining = activePlayers(withPlayers);
-    if (remaining.length <= 1) {
-      await finishGame(withPlayers, remaining[0]?.id ?? null, "others_left");
-      return;
-    }
-    const wasMyTurn = currentPlayer(room)?.id === userId;
-    await updateRoom(room, {
-      players,
-      host_id: room.hostId === userId ? remaining[0].id : room.hostId,
-      turn_index: wasMyTurn ? nextTurnIndex(withPlayers, room.turnIndex) : room.turnIndex,
-      turn_started_at: wasMyTurn ? new Date().toISOString() : room.turnStartedAt,
-    });
+    await resignPlayer(room, userId);
   }
+}
+
+/** 진행 중 기권: 손패는 그대로 두고(정산 때 벌점으로 잡힘) 자리만 비웁니다. 1명만 남으면 그 사람 승리로 끝냅니다. */
+async function resignPlayer(room: RummyRoom, userId: string): Promise<Outcome> {
+  if (!room.players.some((p) => p.id === userId && !p.left)) return { error: "이미 나간 사람이에요." };
+  const players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p));
+  const withPlayers = { ...room, players };
+  const remaining = activePlayers(withPlayers);
+  if (remaining.length <= 1) {
+    return finishGame(withPlayers, remaining[0]?.id ?? null, "others_left");
+  }
+  const wasMyTurn = currentPlayer(room)?.id === userId;
+  const updated = await updateRoom(room, {
+    players,
+    host_id: room.hostId === userId ? remaining[0].id : room.hostId,
+    turn_index: wasMyTurn ? nextTurnIndex(withPlayers, room.turnIndex) : room.turnIndex,
+    turn_started_at: wasMyTurn ? new Date().toISOString() : room.turnStartedAt,
+  });
+  return updated ? { room: updated } : { error: "다른 요청이 먼저 처리됐어요." };
 }
 
 // ---------- 종료·기록 ----------
@@ -414,10 +439,11 @@ async function finishGame(room: RummyRoom, winnerId: string | null, reason: NonN
     winner = [...active].sort((a, b) => (penaltyOf.get(a.id) ?? 0) - (penaltyOf.get(b.id) ?? 0))[0]?.id ?? null;
   }
 
+  // 기권(나감)한 사람도 남은 손패 벌점을 그대로 잃습니다 — 질 것 같을 때 나가서 기록을 피하는 일이 없게.
   const players = room.players.map((p) => {
-    const penalty = p.left ? 0 : penaltyOf.get(p.id) ?? 0;
-    const othersPenalty = active.filter((q) => q.id !== p.id).reduce((sum, q) => sum + (penaltyOf.get(q.id) ?? 0), 0);
-    const score = p.left ? 0 : p.id === winner ? othersPenalty - penalty : -penalty;
+    const penalty = penaltyOf.get(p.id) ?? 0;
+    const othersPenalty = room.players.filter((q) => q.id !== p.id).reduce((sum, q) => sum + (penaltyOf.get(q.id) ?? 0), 0);
+    const score = p.id === winner ? othersPenalty - penalty : -penalty;
     return { ...p, penalty, score };
   });
 
@@ -433,14 +459,14 @@ async function finishGame(room: RummyRoom, winnerId: string | null, reason: NonN
 
   const { error: matchError } = await supabase.from("rummy_matches").insert({
     room_id: room.id,
-    players: players.filter((p) => !p.left).map((p) => ({ id: p.id, name: p.name, penalty: p.penalty, score: p.score })),
+    players: players.map((p) => ({ id: p.id, name: p.name, penalty: p.penalty, score: p.score, left: p.left })),
     winner_id: winner,
     end_reason: reason,
     started_at: room.startedAt,
   });
   if (matchError) console.error("rummy match insert error:", matchError);
 
-  for (const p of players.filter((q) => !q.left)) {
+  for (const p of players) {
     const { data: rating } = await supabase
       .from("rummy_ratings")
       .select("games, wins, points")

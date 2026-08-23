@@ -7,6 +7,8 @@ import type { Tile, TileColor } from "./rummy";
 export const MAX_PLAYERS = 4;
 export const MIN_PLAYERS = 2;
 export const TURN_GRACE_MS = 3_000;
+/** 연속으로 이만큼 시간을 넘기면(자리를 비운 것으로 보고) 자동 기권 처리합니다. */
+export const MAX_TIMEOUT_STRIKES = 3;
 
 export type RoomStatus = "waiting" | "playing" | "finished";
 export type EndReason = "empty_hand" | "stuck" | "others_left" | null;
@@ -23,6 +25,8 @@ export type RoomPlayer = {
   melded: boolean;
   tileCount: number;
   left: boolean;
+  /** 연속 시간 초과 횟수(직접 턴을 마치면 0으로). */
+  timeouts?: number;
   penalty?: number;
   score?: number;
 };
