@@ -6727,10 +6727,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: default;
 }
 
-.rummy-tile--red { color: #dc2626; }
-.rummy-tile--blue { color: #2563eb; }
+/* 타일 색 4종. 빨강과 주황이 비슷해 헷갈린다는 피드백(8/23)으로 빨강은 진홍, 주황은 호박색(실제 루미큐브 타일에 가까움)으로
+   벌려 두었고, 파랑도 같은 톤으로 한 단계 깊게 맞췄습니다. */
+.rummy-tile--red { color: #b91c1c; }
+.rummy-tile--blue { color: #1d4ed8; }
 .rummy-tile--black { color: #111827; }
-.rummy-tile--orange { color: #ea580c; }
+.rummy-tile--orange { color: #d97706; }
 .rummy-tile--joker { color: #7c3aed; font-size: 1.3rem; }
 
 .rummy-tile--selected {
