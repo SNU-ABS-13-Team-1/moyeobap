@@ -27,7 +27,8 @@ type Game = {
   winner: number | null;
   /** 타일 더미가 빈 뒤 연속으로 넘긴 횟수. 모두가 넘기면 벌점이 가장 적은 사람이 이깁니다. */
   passStreak: number;
-  log: string[];
+  /** 더미가 빈 뒤 모두 넘겨서 끝났는지(벌점 최소 승리). */
+  stuck: boolean;
   /** 사람 턴 시작 시점의 테이블·손패(되돌리기·검증용). */
   snapshot: { table: Tile[][]; hand: Tile[] };
 };
@@ -53,18 +54,14 @@ function newGame(cpuCount: number): Game {
     current: first,
     winner: null,
     passStreak: 0,
-    log: [`게임 시작! ${first === 0 ? '내가' : `${players[first].name}이(가)`} 먼저 둡니다. 첫 등록은 내 타일만으로 ${INITIAL_MELD}점 이상.`],
+    stuck: false,
     snapshot: { table: [], hand: players[0].hand },
   };
 }
 
-function pushLog(log: string[], line: string): string[] {
-  return [...log, line].slice(-6);
-}
-
-function advance(g: Game, log: string[]): Game {
+function advance(g: Game): Game {
   const next = (g.current + 1) % g.players.length;
-  return { ...g, current: next, log, snapshot: next === 0 ? { table: g.table, hand: g.players[0].hand } : g.snapshot };
+  return { ...g, current: next, snapshot: next === 0 ? { table: g.table, hand: g.players[0].hand } : g.snapshot };
 }
 
 function drawTile(g: Game, playerIndex: number): { game: Game; drew: boolean } {
@@ -79,7 +76,7 @@ function finishIfStuck(g: Game): Game {
   if (g.deck.length > 0 || g.passStreak < g.players.length) return g;
   const penalties = g.players.map((p) => handPenalty(p.hand));
   const winner = penalties.indexOf(Math.min(...penalties));
-  return { ...g, winner, log: pushLog(g.log, `더 낼 수 있는 사람이 없어요. 벌점이 가장 적은 ${g.players[winner].name} 승리!`) };
+  return { ...g, winner, stuck: true };
 }
 
 export function RummyGame() {
@@ -158,7 +155,7 @@ export function RummyGame() {
         // 낸 게 없으면(테이블만 만졌더라도 원상복구하고) 타일을 뽑고 턴을 넘깁니다.
         const { game: g, drew } = drawTile({ ...game, table: game.snapshot.table }, 0);
         const withStreak = { ...g, passStreak: drew ? 0 : g.passStreak + 1 };
-        const next = finishIfStuck(advance(withStreak, pushLog(g.log, drew ? '나: 타일을 뽑았어요.' : '나: 뽑을 타일이 없어 넘겼어요.')));
+        const next = finishIfStuck(advance(withStreak));
         setGame(next);
         setSelection([]);
         setMessage(null);
@@ -172,9 +169,8 @@ export function RummyGame() {
     const players = game.players.map((p, i) => (i === 0 ? { ...p, melded: true } : p));
     const table = game.table.map(arrangeSet);
     const won = players[0].hand.length === 0;
-    const log = pushLog(game.log, `나: 타일 ${result.placedCount}장을 냈어요.${!me.melded ? ' (첫 등록 완료)' : ''}`);
-    const g: Game = { ...game, players, table, passStreak: 0, winner: won ? 0 : null, log: won ? pushLog(log, '🎉 내가 이겼어요!') : log };
-    setGame(won ? g : advance(g, g.log));
+    const g: Game = { ...game, players, table, passStreak: 0, winner: won ? 0 : null };
+    setGame(won ? g : advance(g));
     setSelection([]);
     setMessage(null);
     if (won) submitScore(g);
@@ -193,23 +189,22 @@ export function RummyGame() {
         if (!move) {
           const { game: drawn, drew } = drawTile(g, g.current);
           const withStreak = { ...drawn, passStreak: drew ? 0 : drawn.passStreak + 1 };
-          return finishIfStuck(advance(withStreak, pushLog(drawn.log, drew ? `${player.name}: 타일을 뽑았어요.` : `${player.name}: 넘겼어요.`)));
+          return finishIfStuck(advance(withStreak));
         }
         const placedIds = new Set(move.placed.map((t) => t.id));
         const players = g.players.map((p, i) => (i === g.current ? { ...p, hand: p.hand.filter((t) => !placedIds.has(t.id)), melded: true } : p));
         const won = players[g.current].hand.length === 0;
-        const log = pushLog(g.log, `${player.name}: 타일 ${move.placed.length}장을 냈어요.${!player.melded ? ' (첫 등록)' : ''}`);
-        const next: Game = { ...g, players, table: move.table, passStreak: 0, log };
-        if (won) return { ...next, winner: g.current, log: pushLog(log, `${player.name} 승리… 다음엔 이겨봐요!`) };
-        return advance(next, log);
+        const next: Game = { ...g, players, table: move.table, passStreak: 0 };
+        if (won) return { ...next, winner: g.current };
+        return advance(next);
       });
     }, CPU_THINK_MS);
     return () => window.clearTimeout(timer);
   }, [currentIsCpu, currentIndex, level]);
 
   const statusText = (() => {
-    if (game.winner === 0) return '🎉 이겼어요!';
-    if (game.winner !== null) return `${game.players[game.winner].name}이(가) 이겼어요.`;
+    if (game.winner === 0) return game.stuck ? '🎉 더 낼 사람이 없어 벌점이 가장 적은 내가 이겼어요!' : '🎉 이겼어요!';
+    if (game.winner !== null) return game.stuck ? `더 낼 사람이 없어 벌점이 가장 적은 ${game.players[game.winner].name}이(가) 이겼어요.` : `${game.players[game.winner].name}이(가) 이겼어요.`;
     if (isMyTurn) return me.melded ? '내 차례 — 타일을 내거나 뽑으세요.' : `내 차례 — 첫 등록(${INITIAL_MELD}점 이상)을 해보세요.`;
     return `${game.players[game.current].name}(${RUMMY_DIFFICULTY_LABEL[level]}) 차례…`;
   })();
@@ -277,12 +272,6 @@ export function RummyGame() {
           선택 해제
         </button>
       </div>
-
-      <ul className="rummy__log">
-        {game.log.map((line, i) => (
-          <li key={`${i}-${line}`}>{line}</li>
-        ))}
-      </ul>
 
       {savedScore !== null && (
         <p className="rummy__saved">
