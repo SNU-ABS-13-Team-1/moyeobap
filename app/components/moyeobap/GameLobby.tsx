@@ -27,6 +27,12 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   namePlaceholder: string;
   hostId: (room: Room) => string;
   hasOpenSeat: (room: Room) => boolean;
+  /** 현재 참여 인원(기본: 빈 자리가 있으면 1명, 없으면 2명). */
+  playerCount?: (room: Room) => number;
+  /** 최대 인원(기본 2). */
+  maxPlayers?: number;
+  /** 이미 참여한 방인지(다인 게임에서 "입장하기" 표시용). */
+  isMember?: (room: Room, userId: string) => boolean;
   /** 목록의 "플레이어" 칸에 보여줄 추가 정보(예: 시간제). */
   roomMeta?: (room: Room) => string | null;
   /** 방 만들기 옆에 붙는 추가 입력(예: 시간제 선택). */
@@ -76,7 +82,7 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
     }
     // 자리가 찬 방(관전) 또는 내가 만든 방은 별도 참여 요청 없이 바로 입장합니다.
     const hasOpenSeat = config.hasOpenSeat(room);
-    const isMine = config.hostId(room) === currentUser.id;
+    const isMine = config.hostId(room) === currentUser.id || Boolean(config.isMember?.(room, currentUser.id));
     if (!hasOpenSeat || isMine) {
       router.push(`${config.pagePath}/${room.id}`);
       return;
@@ -134,14 +140,15 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
           <tbody>
             {rooms.map((room) => {
               const hasOpenSeat = config.hasOpenSeat(room);
-              const playerCount = hasOpenSeat ? 1 : 2;
-              const isMine = currentUser?.id === config.hostId(room);
+              const maxPlayers = config.maxPlayers ?? 2;
+              const playerCount = config.playerCount ? config.playerCount(room) : hasOpenSeat ? 1 : 2;
+              const isMine = currentUser?.id === config.hostId(room) || Boolean(currentUser && config.isMember?.(room, currentUser.id));
               const meta = config.roomMeta?.(room);
               return (
                 <tr className="omok-lobby__row" key={room.id}>
                   <td className="omok-lobby__row-name">{room.roomName}</td>
                   <td>
-                    {playerCount} / 2{meta ? <span className="omok-lobby__row-meta"> · {meta}</span> : null}
+                    {playerCount} / {maxPlayers}{meta ? <span className="omok-lobby__row-meta"> · {meta}</span> : null}
                   </td>
                   <td>
                     <span className={`omok-lobby__status-badge omok-lobby__status-badge--${room.status}`}>

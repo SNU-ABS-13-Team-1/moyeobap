@@ -20,6 +20,12 @@ const GAMES = [
     desc: '컴퓨터와 대결하거나 다른 사람과 실시간으로 두세요.',
   },
   {
+    href: '/games/rummy',
+    emoji: '🀄',
+    title: '루미큐브',
+    desc: '컴퓨터(5단계)와 두거나 친구들과 온라인으로 2~4명이 겨루세요.',
+  },
+  {
     href: '/games/flappy',
     emoji: '🐤',
     title: '플래피 버드',
