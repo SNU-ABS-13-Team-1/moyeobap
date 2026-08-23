@@ -14,7 +14,7 @@ import { useAuth } from './AuthProvider';
 export type LobbyRoomBase = {
   id: string;
   roomName: string;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'presenting' | 'finished';
   createdAt: string;
 };
 
@@ -23,7 +23,8 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   apiRooms: string;
   /** 예: /games/omok — 방은 `${pagePath}/${id}` */
   pagePath: string;
-  rankingPath: string;
+  /** 랭킹 페이지. 없는 게임(갈틱폰)은 비워 둡니다. */
+  rankingPath?: string;
   namePlaceholder: string;
   hostId: (room: Room) => string;
   hasOpenSeat: (room: Room) => boolean;
@@ -46,6 +47,7 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
 const STATUS_LABEL: Record<LobbyRoomBase['status'], string> = {
   waiting: '대기중',
   playing: '게임중',
+  presenting: '앨범 공개 중',
   finished: '종료',
 };
 
@@ -121,9 +123,11 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
         </button>
       </div>
 
-      <Link className="omok-lobby__ranking-link" href={config.rankingPath}>
-        🏆 랭킹 보기
-      </Link>
+      {config.rankingPath && (
+        <Link className="omok-lobby__ranking-link" href={config.rankingPath}>
+          🏆 랭킹 보기
+        </Link>
+      )}
 
       {errorMessage && <p className="omok-lobby__error">{errorMessage}</p>}
 

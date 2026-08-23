@@ -6898,3 +6898,436 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+
+/* ==========================================================================
+   갈틱폰 (/games/phone)
+   방 껍데기는 루미큐브(.rummy·.rummy__*)를 재사용하고, 그림판·앨범만 .draw / .phone 으로 둡니다.
+   ========================================================================== */
+
+.phone .rummy__player {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.phone__avatar {
+  border-radius: 999px;
+  object-fit: cover;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+.phone__avatar--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.phone__player--done {
+  border-color: #16a34a;
+  background: #ecfdf5;
+}
+
+/* 작업 중에는 채팅 칸 대신 한 줄 안내만 */
+.phone-layout--playing {
+  grid-template-columns: 1fr;
+}
+
+.phone__chat-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.phone__work {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.phone__turnbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.phone__turn {
+  font-size: 0.95rem;
+}
+
+.phone__done {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.phone__prompt-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.phone__prev {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phone__prev-label {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.phone__prev-text {
+  margin: 0;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.phone__prev-image,
+.phone__entry-image {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  background: #fff;
+  object-fit: contain;
+}
+
+.phone__prev-image--empty,
+.phone__entry-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: repeating-linear-gradient(45deg, #f8fafc 0 10px, #f1f5f9 10px 20px);
+  font-size: 0.95rem;
+}
+
+.phone__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phone__input {
+  width: 100%;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 1.1rem;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--card-border);
+  background: #fff;
+}
+
+.phone__input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.phone__counter {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  align-self: center;
+}
+
+.phone__submitted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.phone__submitted p {
+  margin: 0;
+}
+
+.phone__mine {
+  font-weight: 700;
+}
+
+.phone__draw-work {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- 그림판 ---- */
+.draw {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  outline: none;
+}
+
+.draw__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.draw__group {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+}
+
+.draw__tool {
+  width: 38px;
+  height: 38px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.draw__tool:hover:not(:disabled) {
+  background: #fff;
+}
+
+.draw__tool--active {
+  background: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.15);
+}
+
+.draw__tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.draw__size span {
+  display: block;
+  border-radius: 999px;
+  background: #111827;
+}
+
+.draw__palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.draw__swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  padding: 0;
+}
+
+.draw__swatch--active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
+}
+
+.draw__swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.draw__canvas {
+  display: block;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--card-border);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.draw__canvas--eraser {
+  cursor: cell;
+}
+
+.draw__canvas--fill {
+  cursor: copy;
+}
+
+.draw--disabled .draw__canvas {
+  cursor: default;
+  opacity: 0.85;
+}
+
+/* ---- 앨범 공개 ---- */
+.phone__album {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone__album-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.phone__album-tab {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.phone__album-tab:disabled {
+  cursor: default;
+}
+
+.phone__album-tab--done {
+  color: var(--text-secondary);
+}
+
+.phone__album-tab--active {
+  border-color: var(--primary);
+  background: #fff7ed;
+  font-weight: 700;
+  color: var(--text-primary, #1a2634);
+}
+
+.phone__album-progress {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-left: 2px;
+}
+
+.phone__album-title {
+  margin: 4px 0 0;
+  font-size: 1.2rem;
+}
+
+.phone__album-count {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.phone__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.phone__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: phone-reveal 0.35s ease;
+}
+
+@keyframes phone-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone__entry {
+    animation: none;
+  }
+}
+
+.phone__entry-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.phone__entry-turn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.phone__entry-flag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+}
+
+.phone__entry-text {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.phone__entry-empty {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  padding: 20px 0;
+}
+
+.phone__reveal-controls {
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0;
+  background: linear-gradient(transparent, #fff 30%);
+}
+
+.phone__reveal-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
