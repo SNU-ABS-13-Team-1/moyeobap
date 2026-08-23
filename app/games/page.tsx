@@ -26,6 +26,12 @@ const GAMES = [
     desc: '컴퓨터(5단계)와 두거나 친구들과 온라인으로 2~4명이 겨루세요.',
   },
   {
+    href: '/games/phone',
+    emoji: '📞',
+    title: '갈틱폰',
+    desc: '문장 → 그림 → 문장… 전화 게임. 3~10명이 동시에 쓰고 그린 뒤 앨범을 같이 봐요.',
+  },
+  {
     href: '/games/flappy',
     emoji: '🐤',
     title: '플래피 버드',
