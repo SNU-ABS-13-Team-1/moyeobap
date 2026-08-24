@@ -306,25 +306,23 @@ export async function submitTurn(roomId: string, userId: string, rawTable: unkno
   if (!result.ok) return { error: result.reason };
 
   const nextHand = hand.filter((t) => !seen.has(t.id));
-  if (!(await saveHand(roomId, userId, nextHand))) return { error: "손패를 저장하지 못했어요." };
-
   const players = room.players.map((p) => (p.id === userId ? { ...p, melded: true, tileCount: nextHand.length, timeouts: 0 } : p));
-  if (nextHand.length === 0) {
-    return finishGame({ ...room, players, table: table.map(arrangeSet) }, userId, "empty_hand");
-  }
+  const won = nextHand.length === 0;
 
+  // 잠금 먼저(시간 초과 신고 등 다른 요청과 겹치면 여기서 지고, 아무것도 쓰지 않은 채 끝납니다).
   const now = new Date().toISOString();
   const updated = await updateRoom(room, {
     players,
     table_sets: table.map(arrangeSet),
     pass_streak: 0,
-    turn_index: nextTurnIndex({ ...room, players }, room.turnIndex),
-    turn_started_at: now,
+    turn_index: won ? room.turnIndex : nextTurnIndex({ ...room, players }, room.turnIndex),
+    turn_started_at: won ? room.turnStartedAt : now,
   });
-  if (!updated) {
-    // 방 갱신이 실패하면 손패도 되돌립니다.
-    await saveHand(roomId, userId, hand);
-    return { error: "다른 요청이 먼저 처리됐어요. 다시 시도해주세요." };
+  if (!updated) return { error: "다른 요청이 먼저 처리됐어요. 다시 시도해주세요." };
+
+  if (!(await saveHand(roomId, userId, nextHand))) console.error("rummy submit: 손패 저장 실패", roomId, userId);
+  if (won) {
+    return finishGame(updated, userId, "empty_hand");
   }
   return { room: updated };
 }
@@ -344,34 +342,37 @@ export async function drawAndPass(roomId: string, userId: string, opts: { byTime
     return resignPlayer(room, me.id);
   }
 
+  // ⚠️ 동시성: 시간 초과는 참여자 전원이 동시에 신고할 수 있어, 손패·더미를 쓰기 "전에"
+  // version 잠금이 걸린 방 갱신으로 승자 한 명을 먼저 정합니다(진 요청은 아무것도 쓰지 않음).
+  // 예전에는 쓰기가 먼저라 겹친 요청이 같은 타일을 손패에 두 번 넣는 문제가 있었습니다.
   const deck = await getDeck(roomId);
-  let players = room.players.map((p) => (p.id === me.id ? { ...p, timeouts: strikes } : p));
-  let passStreak = room.passStreak + 1;
-  let deckCount = room.deckCount;
-
-  if (deck.length > 0) {
-    const [tile, ...rest] = deck;
-    const hand = (await getHand(roomId, me.id)) ?? [];
-    if (!(await saveHand(roomId, me.id, sortTiles([...hand, tile], "color")))) return { error: "타일을 뽑지 못했어요." };
-    if (!(await saveDeck(roomId, rest))) return { error: "더미를 저장하지 못했어요." };
-    deckCount = rest.length;
-    passStreak = 0;
-    players = players.map((p) => (p.id === me.id ? { ...p, tileCount: hand.length + 1 } : p));
-  }
-
+  const hand = deck.length > 0 ? (await getHand(roomId, me.id)) ?? [] : [];
+  const drew = deck.length > 0;
+  const players = room.players.map((p) => (p.id === me.id ? { ...p, timeouts: strikes, tileCount: drew ? hand.length + 1 : p.tileCount } : p));
+  const passStreak = drew ? 0 : room.passStreak + 1;
   const withPlayers = { ...room, players };
-  if (deck.length === 0 && passStreak >= activePlayers(withPlayers).length) {
+
+  if (!drew && passStreak >= activePlayers(withPlayers).length) {
     return finishGame(withPlayers, null, "stuck");
   }
 
   const updated = await updateRoom(room, {
     players,
-    deck_count: deckCount,
+    deck_count: drew ? deck.length - 1 : room.deckCount,
     pass_streak: passStreak,
     turn_index: nextTurnIndex(withPlayers, room.turnIndex),
     turn_started_at: new Date().toISOString(),
   });
-  return updated ? { room: updated } : { error: "다른 요청이 먼저 처리됐어요." };
+  if (!updated) return { error: "다른 요청이 먼저 처리됐어요." };
+
+  if (drew) {
+    const [tile, ...rest] = deck;
+    // 같은 타일이 이미 있으면 추가하지 않는 이중 안전장치(과거 데이터·예외 상황 방어)
+    const nextHand = hand.some((t) => t.id === tile.id) ? hand : sortTiles([...hand, tile], "color");
+    if (!(await saveHand(roomId, me.id, nextHand))) console.error("rummy draw: 손패 저장 실패", roomId, me.id);
+    if (!(await saveDeck(roomId, rest))) console.error("rummy draw: 더미 저장 실패", roomId);
+  }
+  return { room: updated };
 }
 
 /** 제한 시간 초과: 누구든 알려오면 서버가 시각을 다시 확인하고, 현재 차례 사람이 타일 1장을 뽑고 넘긴 것으로 처리합니다. */
