@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import { HAND_SIZE, INITIAL_MELD, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from '../../lib/rummy';
 import { RUMMY_DIFFICULTY_LABEL, findCpuMoveByLevel, type RummyDifficulty } from '../../lib/rummyAi';
@@ -17,7 +18,7 @@ const CPU_NAMES = ['컴퓨터 A', '컴퓨터 B', '컴퓨터 C'];
 const DIFFICULTIES: RummyDifficulty[] = [1, 2, 3, 4, 5];
 
 type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: { key: string; label: string }; hall?: HallWeek[] };
+type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 
 type Player = { name: string; isCpu: boolean; hand: Tile[]; melded: boolean };
 type Game = {
@@ -282,6 +283,7 @@ export function RummyGame() {
 
       <div className="rummy__leaderboard">
         <p className="rummy__leaderboard-title">🏆 {RUMMY_DIFFICULTY_LABEL[level]} 이번 주 랭킹 (최고 점수)</p>
+        <WeekNote week={leaderboardData?.week} />
         {!currentUser && <p className="rummy__leaderboard-note">로그인하면 이겼을 때 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && <p className="rummy__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (

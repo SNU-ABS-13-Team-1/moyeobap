@@ -7,6 +7,7 @@ import { DIFFICULTY_LABEL, pickCpuMove, type Difficulty } from '../../lib/chessA
 import type { ChessAiRequest, ChessAiResponse } from '../../lib/chessAi.worker';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 import { ChessBoard } from './ChessBoard';
@@ -15,7 +16,7 @@ import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
 // 컴퓨터와 두는 체스. 난이도(5단계)별로 랭킹이 따로 있고, 이기면 그 난이도 랭킹에 기록됩니다.
 
 type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: { key: string; label: string }; hall?: HallWeek[] };
+type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 
 type Outcome =
   | { kind: 'playing' }
@@ -298,6 +299,7 @@ export function ChessGame() {
 
       <div className="chess__leaderboard">
         <p className="chess__leaderboard-title">🏆 {DIFFICULTY_LABEL[difficulty]} 이번 주 랭킹 (최고 점수)</p>
+        <WeekNote week={leaderboardData?.week} />
         {!currentUser && <p className="chess__leaderboard-note">로그인하면 컴퓨터를 이겼을 때 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
           <p className="chess__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>
