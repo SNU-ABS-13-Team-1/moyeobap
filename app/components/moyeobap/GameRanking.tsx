@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 
 // 실시간 대전 공용 ELO 랭킹 표. 오목·체스가 API 경로만 다르게 넘겨서 같이 씁니다.
 
@@ -15,7 +16,7 @@ export type RankingEntry = {
 };
 
 export function GameRanking({ apiRanking, children }: { apiRanking: string; children?: React.ReactNode }) {
-  const { data, error } = useSWR<{ ranking: RankingEntry[] }>(apiRanking, fetcher, { refreshInterval: 10000 });
+  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: { key: string; label: string } }>(apiRanking, fetcher, { refreshInterval: 10000 });
   const ranking = data?.ranking ?? [];
 
   if (error) {
@@ -25,7 +26,8 @@ export function GameRanking({ apiRanking, children }: { apiRanking: string; chil
   if (data && ranking.length === 0) {
     return (
       <>
-        <p className="omok-ranking__empty">아직 기록이 없어요. 첫 대국을 만들어보세요!</p>
+        <p className="omok-ranking__empty">이번 주 기록이 아직 없어요. 첫 대국을 만들어보세요!</p>
+        <HallOfFame hall={data.hall} unit="점" />
         {children}
       </>
     );
@@ -57,6 +59,7 @@ export function GameRanking({ apiRanking, children }: { apiRanking: string; chil
           ))}
         </tbody>
       </table>
+      <HallOfFame hall={data?.hall} unit="점" />
       {children}
     </>
   );
