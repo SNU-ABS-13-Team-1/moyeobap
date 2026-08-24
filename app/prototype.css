@@ -7673,3 +7673,31 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-weight: 700;
   white-space: nowrap;
 }
+
+/* ===== 테스트 서버 알림 띠 (NEXT_PUBLIC_APP_ENV=test 일 때만) ===== */
+.test-banner {
+  /* 헤더가 sticky top:0 이라 배너까지 sticky면 서로 겹칩니다.
+     일반 흐름에 두면 배너가 위에 자리를 잡고 헤더는 그 아래에 붙습니다. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #b45309;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.test-banner__link {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.test-banner__link:hover {
+  opacity: 0.85;
+}
