@@ -4,6 +4,7 @@ import "./globals.css";
 import "./prototype.css";
 import { AuthProvider } from "./components/moyeobap/AuthProvider";
 import { Header } from "./components/moyeobap/Header";
+import { TestServerBanner } from "./components/moyeobap/TestServerBanner";
 import { isFeatureEnabled } from "./lib/featureFlags";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -64,6 +65,7 @@ export default async function RootLayout({
     <html data-scroll-behavior="smooth" lang="ko">
       <body>
         <AuthProvider>
+          <TestServerBanner />
           <div className="moyeobap-body">
             <div className="app">
               <Header gamesEnabled={gamesEnabled} />
