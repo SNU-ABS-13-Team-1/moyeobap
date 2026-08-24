@@ -61,6 +61,7 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   // 방 변경 Realtime
@@ -156,6 +157,12 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
     }
   }
 
+  async function handleClose() {
+    if (await post('close', undefined, '방을 없애지 못했어요.')) {
+      router.push('/games/phone');
+    }
+  }
+
   const needsLeaveConfirm = room?.status === 'playing' && isPlayer;
   async function handleLeave() {
     if (needsLeaveConfirm && !confirmingLeave) {
@@ -200,6 +207,22 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
         </span>
       )}
     </div>
+  );
+
+  const closeControl = !isHost ? null : confirmingClose ? (
+    <span className="rummy__confirm" role="alertdialog" aria-label="방 없애기 확인">
+      방을 없앨까요? 모두에게서 바로 사라지고 되돌릴 수 없어요.
+      <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={handleClose} type="button">
+        방 없애기
+      </button>
+      <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingClose(false)} type="button">
+        취소
+      </button>
+    </span>
+  ) : (
+    <button className="rummy__btn rummy__btn--ghost phone__close-btn" disabled={busy} onClick={() => setConfirmingClose(true)} title="방장만 할 수 있어요" type="button">
+      🗑 방 없애기
+    </button>
   );
 
   const leaveControl =
@@ -260,6 +283,7 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
                   </button>
                 )}
                 {leaveControl}
+                {closeControl}
               </div>
             </div>
             {message && <p className="rummy__message">{message}</p>}
@@ -285,7 +309,10 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
             ) : (
               <p className="rummy__status">게임이 진행 중이에요. 이 판이 끝나면 함께 앨범을 볼 수 있고, 다음 판부터 참여할 수 있어요.</p>
             )}
-            <div className="rummy__actions">{leaveControl}</div>
+            <div className="rummy__actions">
+              {leaveControl}
+              {closeControl}
+            </div>
             {message && <p className="rummy__message">{message}</p>}
           </div>
         </div>
@@ -309,6 +336,7 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
               </button>
             )}
             {leaveControl}
+            {closeControl}
           </div>
           {message && <p className="rummy__message">{message}</p>}
         </div>
@@ -495,11 +523,18 @@ function TurnWorkspace({ room, now, onMessage, onRefresh }: { room: Room; now: n
 }
 
 // ---------- 앨범 공개 화면 ----------
+// 기본은 방장이 넘기는 대로 다 같이 보기. "자유롭게 보기"로 바꾸면 방장 진행과 무관하게
+// 모든 앨범을 끝까지 각자 볼 수 있습니다 — 방장이 자리를 비워도 앨범이 갇히지 않게.
 
 function AlbumViewer({ room, albums, isHost, busy, onPost }: { room: Room; albums: AlbumSummary[]; isHost: boolean; busy: boolean; onPost: (path: string, body?: unknown, fallback?: string) => Promise<boolean>; }) {
+  const [mode, setMode] = useState<'follow' | 'free'>('follow');
+  const [freeIndex, setFreeIndex] = useState(0);
   const { album: albumIndex, step } = room.reveal;
+  const shownIndex = mode === 'free' ? Math.min(freeIndex, Math.max(0, albums.length - 1)) : albumIndex;
   const { data } = useSWR<{ album: { owner: RoomPlayer; entries: AlbumEntry[]; length: number } }>(
-    `/api/games/phone/rooms/${room.id}/album?index=${albumIndex}&step=${step}&v=${room.version}`,
+    mode === 'free'
+      ? `/api/games/phone/rooms/${room.id}/album?index=${shownIndex}&full=1`
+      : `/api/games/phone/rooms/${room.id}/album?index=${albumIndex}&step=${step}&v=${room.version}`,
     fetcher,
     { revalidateOnFocus: false },
   );
@@ -507,12 +542,13 @@ function AlbumViewer({ room, albums, isHost, busy, onPost }: { room: Room; album
   const endRef = useRef<HTMLDivElement>(null);
   const entryCount = album?.entries.length ?? 0;
   useEffect(() => {
+    if (mode === 'free') return;
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [entryCount, albumIndex]);
+  }, [entryCount, albumIndex, mode]);
 
-  const current = albums[albumIndex];
+  const current = albums[shownIndex];
   const isLastAlbum = albumIndex >= albums.length - 1;
-  const allRevealed = Boolean(current && step >= current.length);
+  const allRevealed = Boolean(albums[albumIndex] && step >= albums[albumIndex].length);
   const finished = isLastAlbum && allRevealed;
 
   return (
@@ -520,22 +556,28 @@ function AlbumViewer({ room, albums, isHost, busy, onPost }: { room: Room; album
       <div className="phone__album-tabs" role="tablist" aria-label="앨범 목록">
         {albums.map((a) => (
           <button
-            aria-selected={a.index === albumIndex}
-            className={`phone__album-tab ${a.index === albumIndex ? 'phone__album-tab--active' : ''} ${a.revealed >= a.length && a.length > 0 ? 'phone__album-tab--done' : ''}`}
-            disabled={!isHost || busy}
+            aria-selected={a.index === shownIndex}
+            className={`phone__album-tab ${a.index === shownIndex ? 'phone__album-tab--active' : ''} ${a.revealed >= a.length && a.length > 0 ? 'phone__album-tab--done' : ''}`}
+            disabled={busy || (mode === 'follow' && !isHost)}
             key={a.ownerId}
-            onClick={() => onPost('reveal', { type: 'album', album: a.index })}
+            onClick={() => {
+              if (mode === 'free') setFreeIndex(a.index);
+              else void onPost('reveal', { type: 'album', album: a.index });
+            }}
             role="tab"
-            title={isHost ? `${a.ownerName}의 앨범으로` : undefined}
+            title={mode === 'free' || isHost ? `${a.ownerName}의 앨범으로` : undefined}
             type="button"
           >
-            {a.ownerName} <span className="phone__album-progress">{a.revealed}/{a.length}</span>
+            {a.ownerName} <span className="phone__album-progress">{mode === 'free' ? a.length : `${a.revealed}/${a.length}`}</span>
           </button>
         ))}
+        <button className="phone__mode-toggle" onClick={() => setMode((m) => (m === 'follow' ? 'free' : 'follow'))} type="button">
+          {mode === 'follow' ? '🔍 자유롭게 보기' : '👥 같이 보기로'}
+        </button>
       </div>
 
       <h3 className="phone__album-title">
-        🎞 {current?.ownerName ?? '…'}의 앨범 <span className="phone__album-count">({albumIndex + 1} / {albums.length})</span>
+        🎞 {current?.ownerName ?? '…'}의 앨범 <span className="phone__album-count">({shownIndex + 1} / {albums.length})</span>
       </h3>
 
       <ol className="phone__entries">
@@ -557,11 +599,25 @@ function AlbumViewer({ room, albums, isHost, busy, onPost }: { room: Room; album
             )}
           </li>
         ))}
-        {entryCount === 0 && <li className="phone__entry-empty">{isHost ? '다음 ▶ 을 눌러 첫 칸을 공개하세요.' : '방장이 첫 칸을 공개하길 기다리는 중…'}</li>}
+        {entryCount === 0 && (
+          <li className="phone__entry-empty">
+            {mode === 'free' ? '이 앨범은 비어 있어요.' : isHost ? '다음 ▶ 을 눌러 첫 칸을 공개하세요.' : '방장이 첫 칸을 공개하길 기다리는 중… (🔍 자유롭게 보기로 먼저 볼 수도 있어요)'}
+          </li>
+        )}
         <div ref={endRef} />
       </ol>
 
-      {isHost ? (
+      {mode === 'free' ? (
+        <div className="rummy__actions phone__reveal-controls">
+          <button className="rummy__btn rummy__btn--ghost" disabled={shownIndex === 0} onClick={() => setFreeIndex(shownIndex - 1)} type="button">
+            ◀ 이전 앨범
+          </button>
+          <button className="rummy__btn" disabled={shownIndex >= albums.length - 1} onClick={() => setFreeIndex(shownIndex + 1)} type="button">
+            다음 앨범 ▶
+          </button>
+          <span className="phone__reveal-note">자유롭게 보는 중 — 방장 진행과 상관없이 전부 볼 수 있어요.</span>
+        </div>
+      ) : isHost ? (
         <div className="rummy__actions phone__reveal-controls">
           <button className="rummy__btn rummy__btn--ghost" disabled={busy || (albumIndex === 0 && step === 0)} onClick={() => onPost('reveal', { type: 'prev' })} type="button">
             ◀ 이전
