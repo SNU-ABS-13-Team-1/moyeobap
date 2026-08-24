@@ -296,6 +296,31 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
 }
 
 /**
+ * "기권하기" 버튼의 서버 처리입니다. leaveRoom과 결과(상대 승리 + 전적 기록)는
+ * 같지만, 방에서 자리를 빼지 않습니다. 기권한 사람도 그대로 방에 남아 결과와
+ * 재대국 신청을 볼 수 있게 하려는 것입니다. 나가는 것은 별도의 "나가기"가
+ * 맡습니다.
+ */
+export async function resign(
+  roomId: string,
+  userId: string,
+): Promise<{ room: OmokRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 대국이 아니에요." };
+
+  const isBlack = room.blackId === userId;
+  const isWhite = room.whiteId === userId;
+  if (!isBlack && !isWhite) return { error: "참여자만 기권할 수 있어요." };
+
+  await finishRoomWithWinner(room, isBlack ? "white" : "black");
+
+  const updated = await getRoom(roomId);
+  if (!updated) return { error: "방을 찾을 수 없어요." };
+  return { room: updated };
+}
+
+/**
  * 상대가 대국 중 연결이 끊긴 뒤 일정 시간 돌아오지 않을 때, 남은 플레이어가
  * 직접 승리 처리할 수 있게 합니다. 서버는 Presence(실시간 접속 여부)를 직접
  * 확인할 방법이 없으므로 "상대가 일정 시간 자리를 비웠다"는 판단은
