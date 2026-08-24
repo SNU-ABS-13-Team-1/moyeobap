@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isFeatureEnabled } from '../lib/featureFlags';
 
 const GAMES = [
   {
@@ -12,6 +13,13 @@ const GAMES = [
     emoji: '⚫',
     title: '오목 (실시간 대전)',
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
+  },
+  {
+    href: '/games/baduk',
+    emoji: '⚫⚪',
+    title: '바둑',
+    desc: '정식 크기 바둑판에서 다른 사람과 실시간으로 대국하세요.',
+    flag: 'baduk',
   },
   {
     href: '/games/chess',
@@ -39,7 +47,10 @@ const GAMES = [
   },
 ] as const;
 
-export default function GamesPage() {
+export default async function GamesPage() {
+  const badukEnabled = await isFeatureEnabled('baduk');
+  const games = GAMES.filter((game) => !('flag' in game) || game.flag !== 'baduk' || badukEnabled);
+
   return (
     <main className="page-content">
       <div className="page-heading">
@@ -52,7 +63,7 @@ export default function GamesPage() {
       </div>
 
       <div className="games-grid">
-        {GAMES.map((game) => (
+        {games.map((game) => (
           <Link className="games-grid__card" href={game.href} key={game.href}>
             <span className="games-grid__emoji" aria-hidden="true">{game.emoji}</span>
             <span className="games-grid__title">{game.title}</span>
