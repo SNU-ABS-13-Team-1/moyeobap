@@ -22,8 +22,10 @@ export type { EndReason, RoomPlayer, RoomStatus, RummyRoom } from "./rummyMatch"
 // 루미큐브 온라인 대전(2~4명)의 서버 로직. 손패·더미는 서버 전용 표에 있고,
 // 클라이언트는 턴 종료 때 "최종 테이블"만 보냅니다. 서버가 자기 손패 기준으로 규칙을 다시 검증합니다.
 
-/** 끝난 방은 하루 지나면 정리합니다(전적·랭킹은 별도 표라 남습니다). */
-const FINISHED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+/** 하루 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(전적·랭킹은 별도 표라 남습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 턴 updated_at이 갱신되므로,
+ * 24시간 멈춘 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
 type RoomRow = {
   id: string;
@@ -76,11 +78,11 @@ function nextTurnIndex(room: RummyRoom, from: number): number {
 
 // ---------- 조회 ----------
 
-async function cleanupOldFinishedRooms(): Promise<void> {
+async function cleanupStaleRooms(): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
-  const cutoff = new Date(Date.now() - FINISHED_ROOM_TTL_MS).toISOString();
-  const { error } = await supabase.from("rummy_rooms").delete().eq("status", "finished").lt("updated_at", cutoff);
+  const cutoff = new Date(Date.now() - STALE_ROOM_TTL_MS).toISOString();
+  const { error } = await supabase.from("rummy_rooms").delete().lt("updated_at", cutoff);
   if (error) console.error("rummy cleanup error:", error);
 }
 
@@ -88,7 +90,7 @@ async function cleanupOldFinishedRooms(): Promise<void> {
 export async function listRooms(): Promise<RummyRoom[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
-  await cleanupOldFinishedRooms();
+  await cleanupStaleRooms();
   const { data, error } = await supabase
     .from("rummy_rooms")
     .select()
@@ -261,14 +263,6 @@ async function getDeck(roomId: string): Promise<Tile[]> {
   return data && Array.isArray(data.tiles) ? data.tiles : [];
 }
 
-async function saveDeck(roomId: string, tiles: Tile[]): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-  const { error } = await supabase.from("rummy_decks").upsert({ room_id: roomId, tiles, updated_at: new Date().toISOString() });
-  if (error) console.error("rummy saveDeck error:", error);
-  return !error;
-}
-
 /** 턴 종료: 클라이언트가 보낸 최종 테이블을 서버 손패 기준으로 검증하고 반영합니다. */
 export async function submitTurn(roomId: string, userId: string, rawTable: unknown): Promise<Outcome> {
   const room = await getRoom(roomId);
@@ -306,25 +300,25 @@ export async function submitTurn(roomId: string, userId: string, rawTable: unkno
   if (!result.ok) return { error: result.reason };
 
   const nextHand = hand.filter((t) => !seen.has(t.id));
-  if (!(await saveHand(roomId, userId, nextHand))) return { error: "손패를 저장하지 못했어요." };
-
   const players = room.players.map((p) => (p.id === userId ? { ...p, melded: true, tileCount: nextHand.length, timeouts: 0 } : p));
-  if (nextHand.length === 0) {
-    return finishGame({ ...room, players, table: table.map(arrangeSet) }, userId, "empty_hand");
-  }
+  const won = nextHand.length === 0;
 
+  // 잠금 먼저(시간 초과 신고 등 다른 요청과 겹치면 여기서 지고, 아무것도 쓰지 않은 채 끝납니다).
   const now = new Date().toISOString();
   const updated = await updateRoom(room, {
     players,
     table_sets: table.map(arrangeSet),
     pass_streak: 0,
-    turn_index: nextTurnIndex({ ...room, players }, room.turnIndex),
+    turn_index: won ? room.turnIndex : nextTurnIndex({ ...room, players }, room.turnIndex),
+    // 승리 제출에서도 시계를 새로 놓습니다 — 만료 직전 제출과 시간초과 신고가 겹쳐
+    // 승리 처리(finishGame) 전에 턴이 넘어가 버리는 틈을 막습니다.
     turn_started_at: now,
   });
-  if (!updated) {
-    // 방 갱신이 실패하면 손패도 되돌립니다.
-    await saveHand(roomId, userId, hand);
-    return { error: "다른 요청이 먼저 처리됐어요. 다시 시도해주세요." };
+  if (!updated) return { error: "다른 요청이 먼저 처리됐어요. 다시 시도해주세요." };
+
+  if (!(await saveHand(roomId, userId, nextHand))) console.error("rummy submit: 손패 저장 실패", roomId, userId);
+  if (won) {
+    return finishGame(updated, userId, "empty_hand");
   }
   return { room: updated };
 }
@@ -344,34 +338,38 @@ export async function drawAndPass(roomId: string, userId: string, opts: { byTime
     return resignPlayer(room, me.id);
   }
 
-  const deck = await getDeck(roomId);
-  let players = room.players.map((p) => (p.id === me.id ? { ...p, timeouts: strikes } : p));
-  let passStreak = room.passStreak + 1;
-  let deckCount = room.deckCount;
-
-  if (deck.length > 0) {
-    const [tile, ...rest] = deck;
-    const hand = (await getHand(roomId, me.id)) ?? [];
-    if (!(await saveHand(roomId, me.id, sortTiles([...hand, tile], "color")))) return { error: "타일을 뽑지 못했어요." };
-    if (!(await saveDeck(roomId, rest))) return { error: "더미를 저장하지 못했어요." };
-    deckCount = rest.length;
-    passStreak = 0;
-    players = players.map((p) => (p.id === me.id ? { ...p, tileCount: hand.length + 1 } : p));
-  }
-
+  // ⚠️ 동시성: 시간 초과는 참여자 전원이 동시에 신고할 수 있어, 손패를 쓰기 "전에"
+  // version 잠금이 걸린 방 갱신으로 승자 한 명을 먼저 정합니다(진 요청은 아무것도 쓰지 않음).
+  // 더미는 딜 이후 다시 쓰지 않는 불변 목록이고, "몇 장 뽑았는지"는 잠금된 방의 deck_count가
+  // 결정합니다 — 어떤 타일을 뽑는지가 잠금 안에서 정해지므로 같은 타일이 두 손에 들어갈 수 없습니다.
+  const deckTiles = await getDeck(roomId);
+  const drawIndex = deckTiles.length - room.deckCount; // 다음에 뽑을 위치(예전 방식으로 저장된 방도 0부터 이어짐)
+  const drew = room.deckCount > 0 && drawIndex >= 0 && drawIndex < deckTiles.length;
+  const hand = drew ? (await getHand(roomId, me.id)) ?? [] : [];
+  const players = room.players.map((p) => (p.id === me.id ? { ...p, timeouts: strikes, tileCount: drew ? hand.length + 1 : p.tileCount } : p));
+  const passStreak = drew ? 0 : room.passStreak + 1;
   const withPlayers = { ...room, players };
-  if (deck.length === 0 && passStreak >= activePlayers(withPlayers).length) {
+
+  if (!drew && passStreak >= activePlayers(withPlayers).length) {
     return finishGame(withPlayers, null, "stuck");
   }
 
   const updated = await updateRoom(room, {
     players,
-    deck_count: deckCount,
+    deck_count: drew ? room.deckCount - 1 : room.deckCount,
     pass_streak: passStreak,
     turn_index: nextTurnIndex(withPlayers, room.turnIndex),
     turn_started_at: new Date().toISOString(),
   });
-  return updated ? { room: updated } : { error: "다른 요청이 먼저 처리됐어요." };
+  if (!updated) return { error: "다른 요청이 먼저 처리됐어요." };
+
+  if (drew) {
+    const tile = deckTiles[drawIndex];
+    // 같은 타일이 이미 있으면 추가하지 않는 이중 안전장치(과거 데이터·예외 상황 방어)
+    const nextHand = hand.some((t) => t.id === tile.id) ? hand : sortTiles([...hand, tile], "color");
+    if (!(await saveHand(roomId, me.id, nextHand))) console.error("rummy draw: 손패 저장 실패", roomId, me.id);
+  }
+  return { room: updated };
 }
 
 /** 제한 시간 초과: 누구든 알려오면 서버가 시각을 다시 확인하고, 현재 차례 사람이 타일 1장을 뽑고 넘긴 것으로 처리합니다. */
@@ -383,25 +381,45 @@ export async function timeoutTurn(roomId: string, userId: string): Promise<Outco
   return drawAndPass(roomId, userId, { byTimeout: true });
 }
 
-/** 나가기: 대기 중이면 자리 비우기(방장이면 다음 사람에게 방장 이전, 혼자면 방 삭제), 진행 중이면 기권. */
+/** 나가기: 대기 중이면 자리 비우기(방장이면 다음 사람에게 방장 이전, 혼자면 방 삭제), 진행 중이면 기권,
+ * 끝난 방이면 자리 비움 표시(마지막 사람이 나가면 방 삭제 — "같은 멤버로 다시 하기"에 떠난 사람이 안 끼게).
+ * 다른 요청과 겹쳐 version 잠금에 지면 몇 번 다시 시도합니다 — 나가기가 조용히 유실되면
+ * 남은 사람들이 그 사람의 턴 시간초과를 3번이나 기다려야 하기 때문입니다. */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
-  const room = await getRoom(roomId);
-  if (!room || !room.players.some((p) => p.id === userId)) return;
 
-  if (room.status === "waiting") {
-    const remaining = room.players.filter((p) => p.id !== userId);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const room = await getRoom(roomId);
+    if (!room || !room.players.some((p) => p.id === userId)) return;
+
+    if (room.status === "waiting") {
+      const remaining = room.players.filter((p) => p.id !== userId);
+      if (remaining.length === 0) {
+        await supabase.from("rummy_rooms").delete().eq("id", roomId);
+        return;
+      }
+      const updated = await updateRoom(room, { players: remaining, host_id: room.hostId === userId ? remaining[0].id : room.hostId });
+      if (updated) return;
+      continue;
+    }
+
+    if (room.status === "playing") {
+      const result = await resignPlayer(room, userId);
+      if (!("error" in result) || result.error === "이미 나간 사람이에요.") return;
+      continue;
+    }
+
+    // finished
+    if (room.players.some((p) => p.id === userId && p.left)) return;
+    const players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p));
+    const remaining = players.filter((p) => !p.left);
     if (remaining.length === 0) {
       await supabase.from("rummy_rooms").delete().eq("id", roomId);
       return;
     }
-    await updateRoom(room, { players: remaining, host_id: room.hostId === userId ? remaining[0].id : room.hostId });
-    return;
-  }
-
-  if (room.status === "playing") {
-    await resignPlayer(room, userId);
+    const updated = await updateRoom(room, { players, host_id: room.hostId === userId ? remaining[0].id : room.hostId });
+    if (updated) return;
   }
 }
 
@@ -448,14 +466,22 @@ async function finishGame(room: RummyRoom, winnerId: string | null, reason: NonN
     return { ...p, penalty, score };
   });
 
-  const updated = await updateRoom(room, {
+  const finishPatch = {
     status: "finished",
     players,
     table_sets: room.table,
     winner_id: winner,
     end_reason: reason,
     turn_started_at: null,
-  });
+  };
+  let updated = await updateRoom(room, finishPatch);
+  if (!updated) {
+    // 다른 요청(나가기·시간초과 신고)이 한발 먼저 방을 갱신했으면, 최신 상태 위에 한 번 더 시도합니다.
+    const fresh = await getRoom(room.id);
+    if (!fresh) return { error: "존재하지 않는 방이에요." };
+    if (fresh.status === "finished") return { room: fresh }; // 이미 다른 경로로 끝남 — 정산 중복 방지
+    updated = await updateRoom(fresh, finishPatch);
+  }
   if (!updated) return { error: "이미 다른 상태로 바뀌었어요." };
 
   const { error: matchError } = await supabase.from("rummy_matches").insert({
