@@ -18,6 +18,7 @@ import {
   type TimeControl,
 } from '../../lib/chessMatch';
 import { useAuth } from './AuthProvider';
+import { Spectators } from './Spectators';
 import { ChessBoard } from './ChessBoard';
 import { ChessChat } from './ChessChat';
 import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
@@ -392,11 +393,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
             <span className="chess-room__tc">⏱ {TIME_CONTROL_LABEL[room.timeControl]}</span>
-            {spectators.length > 0 && (
-              <span className="omok-room__spectators" title={spectators.join(', ')}>
-                👀 관전 {spectators.length}명
-              </span>
-            )}
+            <Spectators names={spectators} />
           </div>
 
           <div className="omok-room__players">
