@@ -17,8 +17,8 @@ type OmokRoomData = {
   id: string;
   roomName: string;
   status: 'waiting' | 'playing' | 'finished';
-  blackId: string;
-  blackName: string;
+  blackId: string | null;
+  blackName: string | null;
   whiteId: string | null;
   whiteName: string | null;
   board: Stone[][];
@@ -38,12 +38,13 @@ const DISCONNECT_CLAIM_DELAY_MS = 60_000;
 
 export function OmokRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { currentUser } = useAuth();
+  const { currentUser, openAuth } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hoverCanvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [sitting, setSitting] = useState(false);
   // 남은 시간 표시를 위해 현재 시각을 짧은 간격으로 갱신합니다. 보드를 다시
   // 그리는 effect는 room에만 의존하므로 이 렌더가 캔버스를 건드리지 않습니다.
   const [now, setNow] = useState(() => Date.now());
@@ -333,6 +334,25 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     router.push('/games/omok');
   }
 
+  // 관전자가 빈 자리에 앉습니다. 대기 중인 방에 들어가는 것과 같은
+  // 엔드포인트를 씁니다(서버가 어느 자리가 비었는지 판단합니다).
+  async function handleSitDown() {
+    if (!currentUser) {
+      openAuth(`/games/omok/${roomId}`);
+      return;
+    }
+    setSitting(true);
+    setMoveError(null);
+    try {
+      await requestJson(`/api/games/omok/rooms/${roomId}/join`, { method: 'POST' });
+      mutate();
+    } catch (err) {
+      setMoveError(getErrorMessage(err, '자리에 앉지 못했어요.'));
+    } finally {
+      setSitting(false);
+    }
+  }
+
   async function handleRematch(action: 'request' | 'accept' | 'decline') {
     setRematchPending(true);
     try {
@@ -447,6 +467,10 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     return <div className="omok-room__state">불러오는 중...</div>;
   }
 
+  const blackLabel = room.blackName ?? '빈 자리';
+  const whiteLabel = room.whiteName ?? '빈 자리';
+  const emptySeat = !room.blackId ? 'black' : !room.whiteId ? 'white' : null;
+
   let statusText: string;
   if (room.status === 'waiting') {
     statusText = '상대를 기다리는 중이에요. 로비에 방이 보이니 곧 들어올 거예요.';
@@ -456,12 +480,18 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     } else if (myColor) {
       statusText = room.winner === myColor ? '🎉 승리했어요!' : '아쉽게 패배했어요.';
     } else {
-      statusText = `${room.winner === 'black' ? room.blackName : room.whiteName}님 승리`;
+      statusText = `${room.winner === 'black' ? blackLabel : whiteLabel}님 승리`;
     }
   } else if (myColor) {
     statusText = isMyTurn ? '🟢 현재 내 턴입니다.' : '🔴 상대방의 턴입니다.';
   } else {
-    statusText = `${room.turn === 'black' ? room.blackName : room.whiteName}님 차례예요`;
+    statusText = `${room.turn === 'black' ? blackLabel : whiteLabel}님 차례예요`;
+  }
+
+  if (room.status === 'finished' && emptySeat) {
+    statusText += myColor
+      ? ' 상대가 나가서 자리가 비었어요. 관전자가 앉으면 다시 둘 수 있어요.'
+      : ' 빈 자리에 앉으면 이어서 둘 수 있어요.';
   }
 
   // 남은 시간은 내 차례든 상대 차례든 똑같이 보여줍니다. 상대가 얼마나
@@ -471,10 +501,11 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const clockUrgent = remainingSec <= 10;
 
   const isParticipant = myColor !== null;
-  const canRematch = room.status === 'finished' && isParticipant && Boolean(room.whiteId);
+  const canRematch =
+    room.status === 'finished' && isParticipant && Boolean(room.blackId) && Boolean(room.whiteId);
   const rematchRequestedByMe = Boolean(room.rematchBy) && room.rematchBy === currentUser?.id;
   const rematchRequestedByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
-  const rematchRequesterName = room.rematchBy === room.blackId ? room.blackName : room.whiteName;
+  const rematchRequesterName = room.rematchBy === room.blackId ? blackLabel : whiteLabel;
 
   return (
     <div className="omok-room-page__layout">
@@ -489,13 +520,13 @@ export function OmokRoom({ roomId }: { roomId: string }) {
             <span
               className={`omok-room__player omok-room__player--black ${room.turn === 'black' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
             >
-              ⚫ {room.blackName}
+              ⚫ {blackLabel}
             </span>
             <span className="omok-room__vs">vs</span>
             <span
               className={`omok-room__player omok-room__player--white ${room.turn === 'white' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}
             >
-              ⚪ {room.whiteName ?? '(대기 중)'}
+              ⚪ {room.status === 'waiting' ? (room.whiteName ?? '(대기 중)') : whiteLabel}
             </span>
           </div>
 
@@ -536,6 +567,16 @@ export function OmokRoom({ roomId }: { roomId: string }) {
           {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
           <div className="omok-room__actions">
+            {emptySeat && !myColor && (
+              <button
+                className="omok-room__restart-btn"
+                disabled={sitting}
+                onClick={handleSitDown}
+                type="button"
+              >
+                {sitting ? '앉는 중...' : `${emptySeat === 'black' ? '⚫ 흑' : '⚪ 백'} 빈 자리에 앉기`}
+              </button>
+            )}
             <button
               className="omok-room__leave-btn"
               disabled={leaving}

@@ -31,8 +31,8 @@ type PongRoomData = {
   id: string;
   roomName: string;
   status: 'waiting' | 'playing' | 'finished';
-  player1Id: string;
-  player1Name: string;
+  player1Id: string | null;
+  player1Name: string | null;
   player2Id: string | null;
   player2Name: string | null;
   score1: number;
@@ -63,6 +63,7 @@ export function PongRoom({ roomId }: { roomId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [sitting, setSitting] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const { data, error, mutate } = useSWR<{ room: PongRoomData }>(
     `/api/games/pong/rooms/${roomId}`,
@@ -430,6 +431,19 @@ export function PongRoom({ roomId }: { roomId: string }) {
     router.push('/games/pong');
   }
 
+  // 관전자가 빈 자리에 앉습니다(대기 중인 방에 들어가는 것과 같은 엔드포인트).
+  async function handleSitDown() {
+    setSitting(true);
+    try {
+      await requestJson(`/api/games/pong/rooms/${roomId}/join`, { method: 'POST' });
+      mutate();
+    } catch {
+      // 실패하면 다음 polling에서 최신 상태가 다시 반영됩니다.
+    } finally {
+      setSitting(false);
+    }
+  }
+
   async function handleRestart() {
     setRestarting(true);
     try {
@@ -464,7 +478,12 @@ export function PongRoom({ roomId }: { roomId: string }) {
   }
 
   const didIWin = role !== 'spectator' && room.winner === role;
-  const canRestart = room.status === 'finished' && role !== 'spectator';
+  const player1Label = room.player1Name ?? '빈 자리';
+  const player2Label = room.player2Name ?? '빈 자리';
+  const emptySeat = !room.player1Id ? 'player1' : !room.player2Id ? 'player2' : null;
+  // 자리가 비면 상대가 없으니 다시 시작할 수 없습니다.
+  const canRestart = room.status === 'finished' && role !== 'spectator' && !emptySeat;
+  const canSitDown = Boolean(emptySeat) && role === 'spectator';
   const ratingDelta = ratingBefore !== null && ratingAfter !== null ? ratingAfter - ratingBefore : null;
   const resultScoreText =
     role === 'spectator'
@@ -483,12 +502,12 @@ export function PongRoom({ roomId }: { roomId: string }) {
           </div>
 
           <div className="pong-room__scoreboard">
-            <span className={role === 'player1' ? 'pong-room__player-label--me' : ''}>{room.player1Name}</span>
+            <span className={role === 'player1' ? 'pong-room__player-label--me' : ''}>{player1Label}</span>
             <span className="pong-room__score">
               {room.score1} : {room.score2}
             </span>
             <span className={role === 'player2' ? 'pong-room__player-label--me' : ''}>
-              {room.player2Name ?? '(대기 중)'}
+              {room.status === 'waiting' ? (room.player2Name ?? '(대기 중)') : player2Label}
             </span>
           </div>
 
@@ -518,7 +537,7 @@ export function PongRoom({ roomId }: { roomId: string }) {
               <div className="pong-room__result">
                 {role === 'spectator' ? (
                   <p className="pong-room__result-title">
-                    {room.winner === 'player1' ? room.player1Name : room.player2Name}님 승리
+                    {room.winner === 'player1' ? player1Label : player2Label}님 승리
                   </p>
                 ) : (
                   <p className="pong-room__result-title">{didIWin ? 'YOU WIN!' : 'YOU LOSE'}</p>
@@ -532,7 +551,19 @@ export function PongRoom({ roomId }: { roomId: string }) {
                     {ratingDelta}
                   </p>
                 )}
+                {emptySeat && (
+                  <p className="pong-room__result-score">
+                    {role === 'spectator'
+                      ? '자리가 하나 비었어요. 앉으면 이어서 할 수 있어요.'
+                      : '상대가 나가서 자리가 비었어요. 관전자가 앉으면 다시 할 수 있어요.'}
+                  </p>
+                )}
                 <div className="pong-room__result-actions">
+                  {canSitDown && (
+                    <button disabled={sitting} onClick={handleSitDown} type="button">
+                      {sitting ? 'SITTING...' : 'TAKE SEAT'}
+                    </button>
+                  )}
                   {canRestart && (
                     <button disabled={restarting} onClick={handleRestart} type="button">
                       {restarting ? '준비 중...' : 'PLAY AGAIN'}
@@ -549,6 +580,11 @@ export function PongRoom({ roomId }: { roomId: string }) {
           <p className="pong-room__hint">W / S 또는 ↑ / ↓ 로 패들을 움직여요. 목표 점수: {TARGET_SCORE}점</p>
 
           <div className="pong-room__actions">
+            {canSitDown && room.status !== 'finished' && (
+              <button className="pong-room__leave-btn" disabled={sitting} onClick={handleSitDown} type="button">
+                {sitting ? '앉는 중...' : '빈 자리에 앉기'}
+              </button>
+            )}
             <button className="pong-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
               {leaving ? '나가는 중...' : '게임 나가기'}
             </button>

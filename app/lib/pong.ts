@@ -1,6 +1,7 @@
 import { getSupabase } from "./supabase";
 import { recordMatchResult } from "./pongRanking";
 import { TARGET_SCORE } from "./pongConstants";
+import { resolveLeave, resolveSit } from "./gameSeats";
 
 export type RoomStatus = "waiting" | "playing" | "finished";
 export type Winner = "player1" | "player2" | null;
@@ -14,8 +15,8 @@ export type PongRoom = {
   id: string;
   roomName: string;
   status: RoomStatus;
-  player1Id: string;
-  player1Name: string;
+  player1Id: string | null;
+  player1Name: string | null;
   player2Id: string | null;
   player2Name: string | null;
   score1: number;
@@ -29,8 +30,8 @@ type PongRoomRow = {
   id: string;
   room_name: string;
   status: RoomStatus;
-  player1_id: string;
-  player1_name: string;
+  player1_id: string | null;
+  player1_name: string | null;
   player2_id: string | null;
   player2_name: string | null;
   score1: number;
@@ -121,6 +122,11 @@ export async function getRoom(roomId: string): Promise<PongRoom | null> {
   return mapRow(data as PongRoomRow);
 }
 
+/**
+ * 빈 자리에 앉습니다. 대기 중인 방이면 2P로 들어가 바로 시작하고, 상대가
+ * 나가 자리가 빈 종료된 방이면 관전자가 그 자리에 앉습니다(다시 시작하기로
+ * 새 판). 규칙은 오목·체스와 공유합니다(app/lib/gameSeats.ts).
+ */
 export async function joinRoom(
   roomId: string,
   userId: string,
@@ -128,30 +134,39 @@ export async function joinRoom(
 ): Promise<PongRoom | null | "full" | "self"> {
   const room = await getRoom(roomId);
   if (!room) return null;
-  if (room.player1Id === userId) return "self";
-  if (room.status !== "waiting" || room.player2Id) return "full";
+
+  const outcome = resolveSit(
+    { status: room.status, hostId: room.player1Id, guestId: room.player2Id },
+    userId,
+  );
+  if (outcome.kind === "self") return "self";
+  if (outcome.kind === "full") return "full";
 
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  const now = new Date().toISOString();
+  const seatColumn = outcome.seat === "host" ? "player1_id" : "player2_id";
+  const seatUpdate =
+    outcome.seat === "host"
+      ? { player1_id: userId, player1_name: userName }
+      : { player2_id: userId, player2_name: userName };
+  const startUpdate = outcome.start ? { status: "playing" as const, started_at: now } : {};
+
   const { data, error } = await supabase
     .from("pong_rooms")
-    .update({
-      player2_id: userId,
-      player2_name: userName,
-      status: "playing",
-      started_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...seatUpdate, ...startUpdate, updated_at: now })
     .eq("id", roomId)
-    .eq("status", "waiting")
+    .eq("status", room.status)
+    .is(seatColumn, null)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error("joinRoom error:", error);
     return null;
   }
+  if (!data) return "full";
   return mapRow(data as PongRoomRow);
 }
 
@@ -177,11 +192,11 @@ async function finishRoomWithWinner(room: PongRoom, winner: "player1" | "player2
 }
 
 /**
- * "게임 나가기" 버튼의 서버 처리입니다. 방 상태에 따라 동작이 달라집니다.
- * - waiting: 방장(player1)이 나가면 방을 삭제합니다.
- * - playing: 나가는 사람이 기권한 것으로 보고 상대가 승리합니다(현재
- *   점수는 그대로 두고 전적만 기록합니다).
- * - finished: 이미 끝난 대국이라 아무 것도 바꾸지 않습니다.
+ * "게임 나가기" 버튼의 서버 처리입니다. 사람이 한 명이라도 남아 있으면 방은
+ * 사라지지 않고, 나간 사람의 자리만 비웁니다(app/lib/gameSeats.ts).
+ * - playing: 기권으로 보고 상대가 승리합니다(점수는 그대로, 전적만 기록).
+ *   그 뒤 자리를 비워 관전자가 앉을 수 있게 합니다.
+ * - waiting/finished: 자리만 비우고, 남은 사람이 없으면 방을 지웁니다.
  */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
@@ -190,25 +205,44 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const room = await getRoom(roomId);
   if (!room) return;
 
-  const isPlayer1 = room.player1Id === userId;
-  const isPlayer2 = room.player2Id === userId;
-  if (!isPlayer1 && !isPlayer2) return;
+  const outcome = resolveLeave(
+    { status: room.status, hostId: room.player1Id, guestId: room.player2Id },
+    userId,
+  );
+  if (outcome.kind === "ignore") return;
 
-  if (room.status === "waiting") {
-    if (!isPlayer1) return;
+  if (outcome.kind === "delete") {
+    const otherColumn = room.player1Id === userId ? "player2_id" : "player1_id";
     const { error } = await supabase
       .from("pong_rooms")
       .delete()
       .eq("id", roomId)
-      .eq("status", "waiting");
+      .eq("status", room.status)
+      .is(otherColumn, null);
     if (error) console.error("leaveRoom(delete) error:", error);
     return;
   }
 
-  if (room.status === "playing") {
-    const winner: "player1" | "player2" = isPlayer1 ? "player2" : "player1";
-    await finishRoomWithWinner(room, winner);
+  // 기권은 자리를 비우기 전에 처리해야 전적에 두 사람 이름이 남습니다. 종료가
+  // 반영되지 않았는데(=아직 playing) 자리를 비우면 남은 사람이 아무것도 할 수
+  // 없는 방이 되므로, 그때는 자리를 그대로 둡니다.
+  if (outcome.kind === "resign") {
+    await finishRoomWithWinner(room, outcome.seat === "host" ? "player2" : "player1");
+    const latest = await getRoom(roomId);
+    if (!latest || latest.status === "playing") return;
   }
+
+  const seatUpdate =
+    outcome.seat === "host"
+      ? { player1_id: null, player1_name: null }
+      : { player2_id: null, player2_name: null };
+  const seatColumn = outcome.seat === "host" ? "player1_id" : "player2_id";
+  const { error } = await supabase
+    .from("pong_rooms")
+    .update({ ...seatUpdate, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq(seatColumn, userId);
+  if (error) console.error("leaveRoom(vacate) error:", error);
 }
 
 /**
@@ -251,7 +285,7 @@ export async function restartRoom(
   if (room.player1Id !== userId && room.player2Id !== userId) {
     return { error: "참여자만 다시 시작할 수 있어요." };
   }
-  if (!room.player2Id) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (!room.player1Id || !room.player2Id) return { error: "상대가 없어서 다시 시작할 수 없어요." };
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };

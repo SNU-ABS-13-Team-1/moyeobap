@@ -59,7 +59,7 @@ export async function recordMatchResult(
   winner: "black" | "white" | "draw",
 ): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase || !room.whiteId || !room.whiteName) return;
+  if (!supabase || !room.blackId || !room.blackName || !room.whiteId || !room.whiteName) return;
 
   const { error: matchError } = await supabase.from("omok_matches").insert({
     room_id: room.id,
