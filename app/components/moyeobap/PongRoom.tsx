@@ -62,6 +62,8 @@ export function PongRoom({ roomId }: { roomId: string }) {
   const { currentUser } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
+  const [resigning, setResigning] = useState(false);
+  const [confirmingResign, setConfirmingResign] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [sitting, setSitting] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -444,6 +446,22 @@ export function PongRoom({ roomId }: { roomId: string }) {
     }
   }
 
+  // 기권은 그 판만 내주고 방에는 그대로 남습니다. 로비로 나가는 것은 대전이
+  // 끝난 뒤 "게임 나가기"가 맡습니다. 실패해도 따로 알리지 않고 최신 상태만
+  // 다시 불러옵니다(화면이 곧 진짜 상태를 보여줍니다).
+  async function handleResign() {
+    setResigning(true);
+    try {
+      await requestJson(`/api/games/pong/rooms/${roomId}/resign`, { method: 'POST' });
+      setConfirmingResign(false);
+    } catch {
+      // 무시하고 새로고침
+    } finally {
+      setResigning(false);
+      mutate();
+    }
+  }
+
   async function handleRestart() {
     setRestarting(true);
     try {
@@ -484,6 +502,8 @@ export function PongRoom({ roomId }: { roomId: string }) {
   // 자리가 비면 상대가 없으니 다시 시작할 수 없습니다.
   const canRestart = room.status === 'finished' && role !== 'spectator' && !emptySeat;
   const canSitDown = Boolean(emptySeat) && role === 'spectator';
+  // 대전 중인 참가자만 기권할 수 있습니다(관전자·대기 중·종료 후는 제외).
+  const canResign = room.status === 'playing' && role !== 'spectator';
   const ratingDelta = ratingBefore !== null && ratingAfter !== null ? ratingAfter - ratingBefore : null;
   const resultScoreText =
     role === 'spectator'
@@ -585,9 +605,25 @@ export function PongRoom({ roomId }: { roomId: string }) {
                 {sitting ? '앉는 중...' : '빈 자리에 앉기'}
               </button>
             )}
-            <button className="pong-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
-              {leaving ? '나가는 중...' : '게임 나가기'}
-            </button>
+            {canResign && confirmingResign ? (
+              <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
+                정말 기권할까요? 상대의 승리로 기록돼요.
+                <button className="rummy__btn rummy__btn--danger" disabled={resigning} onClick={handleResign} type="button">
+                  {resigning ? '처리 중...' : '기권'}
+                </button>
+                <button className="rummy__btn rummy__btn--ghost" disabled={resigning} onClick={() => setConfirmingResign(false)} type="button">
+                  취소
+                </button>
+              </span>
+            ) : canResign ? (
+              <button className="pong-room__leave-btn" onClick={() => setConfirmingResign(true)} type="button">
+                기권하기
+              </button>
+            ) : (
+              <button className="pong-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
+                {leaving ? '나가는 중...' : '게임 나가기'}
+              </button>
+            )}
           </div>
         </div>
       </div>

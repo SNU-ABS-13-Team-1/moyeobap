@@ -251,6 +251,29 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
  * 검증하고, "상대가 일정 시간 부재했다"는 판단은 클라이언트(60초 타이머)를
  * 신뢰합니다. 오목과 동일한 트레이드오프입니다.
  */
+/**
+ * "기권하기": 대전 중인 사람이 그 판을 내줍니다. leaveRoom과 결과는 같지만
+ * 자리를 그대로 둬서, 기권한 사람도 방에 남아 결과와 다시 하기를 봅니다.
+ */
+export async function resign(
+  roomId: string,
+  userId: string,
+): Promise<{ room: PongRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 대전이 아니에요." };
+
+  const isPlayer1 = room.player1Id === userId;
+  const isPlayer2 = room.player2Id === userId;
+  if (!isPlayer1 && !isPlayer2) return { error: "참여자만 기권할 수 있어요." };
+
+  await finishRoomWithWinner(room, isPlayer1 ? "player2" : "player1");
+
+  const updated = await getRoom(roomId);
+  if (!updated) return { error: "방을 찾을 수 없어요." };
+  return { room: updated };
+}
+
 export async function claimDisconnectWin(
   roomId: string,
   userId: string,

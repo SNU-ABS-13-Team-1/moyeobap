@@ -4851,6 +4851,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: var(--text-secondary);
 }
 
+.omok-lobby__status-badge--scoring {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .omok-lobby__join-btn {
   padding: 8px 16px;
   background: var(--primary);
@@ -7345,6 +7350,73 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.9rem;
 }
 
+/* ===== Baduk room extras (레이아웃/보드/채팅은 omok-room__* 그대로 재사용) ===== */
+.baduk-room__captures {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.baduk-room__score-preview {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+  padding: 8px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.baduk-room__final-score {
+  margin: 0 0 var(--space-md);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.baduk-room__pass-btn,
+.baduk-room__resign-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid var(--card-border);
+  background: #fff;
+  color: var(--text-primary, #1a2634);
+}
+
+.baduk-room__resign-btn {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.baduk-room__pass-btn:hover:not(:disabled),
+.baduk-room__resign-btn:hover:not(:disabled) {
+  filter: brightness(0.98);
+}
+
+.baduk-room__pass-btn:disabled,
+.baduk-room__resign-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.baduk-room__opponent-confirmed {
+  width: 100%;
+  margin: 4px 0 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 /* ==========================================================================
    주간 랭킹 · 명예의 전당 (모든 미니게임 공용)
    ========================================================================== */
@@ -7413,4 +7485,3 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-weight: 700;
   white-space: nowrap;
 }
-
