@@ -7402,3 +7402,15 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   white-space: nowrap;
 }
 
+.hall__streak {
+  margin-left: 5px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
