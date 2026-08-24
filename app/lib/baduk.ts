@@ -486,11 +486,18 @@ export async function submitPass(roomId: string, userId: string): Promise<{ room
   const nextPassCount = room.passCount + 1;
   const enterScoring = nextPassCount >= 2;
 
+  // move_count는 "놓인 돌의 개수"이면서, 낙관적 동시성 제어용 버전
+  // 토큰이기도 합니다. 패스는 돌을 놓지 않지만 방 상태를 바꾸는 행동이라
+  // 여기서도 반드시 올려야, 아래 CAS 가드가 실제로 동시 요청을 막습니다
+  // (안 올리면 이 함수가 쓰는 필드끼리는 서로 경쟁 상태를 막을 방법이
+  // 없습니다 — markDeadGroup/confirmScore/resumePlay도 동일한 이유로
+  // move_count를 올립니다).
   const { data, error } = await supabase
     .from("baduk_rooms")
     .update({
       status: enterScoring ? "scoring" : "playing",
       turn: myColor === "black" ? "white" : "black",
+      move_count: room.moveCount + 1,
       pass_count: nextPassCount,
       dead_stones: enterScoring ? [] : room.deadStones,
       black_confirmed_score: false,
@@ -530,16 +537,23 @@ export async function markDeadGroup(
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
 
+  // 계가 중엔 참가자 둘 다 죽은 돌을 표시할 수 있어서, move_count를 CAS
+  // 가드로 함께 걸어야 합니다 — 안 그러면 두 사람이 거의 동시에 서로 다른
+  // 그룹을 표시했을 때 나중 요청이 먼저 요청의 결과를 통째로 덮어써 버릴
+  // 수 있습니다(둘 다 전체 dead_stones 배열을 자기가 읽은 시점 기준으로
+  // 다시 쓰기 때문).
   const { data, error } = await supabase
     .from("baduk_rooms")
     .update({
       dead_stones: nextDeadStones,
+      move_count: room.moveCount + 1,
       black_confirmed_score: false,
       white_confirmed_score: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
     .eq("status", "scoring")
+    .eq("move_count", room.moveCount)
     .select()
     .maybeSingle();
 
@@ -547,7 +561,7 @@ export async function markDeadGroup(
     console.error("markDeadGroup error:", error);
     return { error: "표시하지 못했어요." };
   }
-  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  if (!data) return { error: "다른 표시가 먼저 처리됐어요. 다시 시도해주세요." };
 
   return { room: mapRow(data as BadukRoomRow) };
 }
@@ -576,10 +590,12 @@ export async function confirmScore(roomId: string, userId: string): Promise<{ ro
       .update({
         black_confirmed_score: blackConfirmed,
         white_confirmed_score: whiteConfirmed,
+        move_count: room.moveCount + 1,
         updated_at: new Date().toISOString(),
       })
       .eq("id", roomId)
       .eq("status", "scoring")
+      .eq("move_count", room.moveCount)
       .select()
       .maybeSingle();
 
@@ -587,7 +603,7 @@ export async function confirmScore(roomId: string, userId: string): Promise<{ ro
       console.error("confirmScore error:", error);
       return { error: "동의를 저장하지 못했어요." };
     }
-    if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+    if (!data) return { error: "다른 변경이 먼저 처리됐어요. 다시 시도해주세요." };
     return { room: mapRow(data as BadukRoomRow) };
   }
 
@@ -602,12 +618,14 @@ export async function confirmScore(roomId: string, userId: string): Promise<{ ro
       final_white_score: score.whiteScore,
       black_confirmed_score: true,
       white_confirmed_score: true,
+      move_count: room.moveCount + 1,
       turn_started_at: null,
       rematch_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
     .eq("status", "scoring")
+    .eq("move_count", room.moveCount)
     .select()
     .maybeSingle();
 
@@ -615,7 +633,7 @@ export async function confirmScore(roomId: string, userId: string): Promise<{ ro
     console.error("confirmScore(finish) error:", error);
     return { error: "계가를 확정하지 못했어요." };
   }
-  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  if (!data) return { error: "다른 변경이 먼저 처리됐어요. 다시 시도해주세요." };
 
   const finishedRoom = mapRow(data as BadukRoomRow);
   await recordMatchResult(finishedRoom, score.winner);
@@ -640,11 +658,13 @@ export async function resumePlay(roomId: string, userId: string): Promise<{ room
       dead_stones: [],
       black_confirmed_score: false,
       white_confirmed_score: false,
+      move_count: room.moveCount + 1,
       turn_started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
     .eq("status", "scoring")
+    .eq("move_count", room.moveCount)
     .select()
     .maybeSingle();
 
@@ -652,7 +672,7 @@ export async function resumePlay(roomId: string, userId: string): Promise<{ room
     console.error("resumePlay error:", error);
     return { error: "다시 두기로 돌아가지 못했어요." };
   }
-  if (!data) return { error: "이미 다른 상태로 바뀌었어요." };
+  if (!data) return { error: "다른 변경이 먼저 처리됐어요. 다시 시도해주세요." };
 
   return { room: mapRow(data as BadukRoomRow) };
 }
