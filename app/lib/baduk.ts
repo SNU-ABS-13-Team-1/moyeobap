@@ -203,6 +203,11 @@ async function finishRoomWithWinner(
       winner: winnerColor,
       final_black_score: scores?.black ?? null,
       final_white_score: scores?.white ?? null,
+      // move_count를 여기서도 올려야 합니다 — 안 그러면 상대의 기권/시간초과
+      // 처리와 동시에 날아온 낡은 submitMove 요청이 이 write 이후에도 여전히
+      // 같은 move_count로 CAS를 통과해, 이미 끝난 방에 수를 하나 더
+      // 반영해버릴 수 있습니다(방이 다시 playing처럼 보이게 됨).
+      move_count: room.moveCount + 1,
       turn_started_at: null,
       rematch_by: null,
       updated_at: new Date().toISOString(),
