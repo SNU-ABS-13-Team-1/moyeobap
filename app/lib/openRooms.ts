@@ -28,7 +28,8 @@ export type OpenRoom = {
   playerCount: number;
   maxPlayers: number;
   hasOpenSeat: boolean;
-  hostId: string;
+  /** 방을 만든 사람. 그 사람이 나가 자리가 비면 null이 됩니다. */
+  hostId: string | null;
   /** 이미 이 방에 들어가 있는 사람들. 화면에서 "입장하기" 표시에 씁니다. */
   memberIds: string[];
   /** 목록에 덧붙일 게임별 설정 한 줄(예: 턴당 90초). */
@@ -67,7 +68,7 @@ type OmokLike = {
   id: string;
   roomName: string;
   status: string;
-  blackId: string;
+  blackId: string | null;
   whiteId: string | null;
   createdAt: string;
 };
@@ -76,7 +77,7 @@ type ChessLike = {
   id: string;
   roomName: string;
   status: string;
-  whiteId: string;
+  whiteId: string | null;
   blackId: string | null;
   timeControl: string;
   createdAt: string;
@@ -126,7 +127,7 @@ export function fromOmok(room: OmokLike): OpenRoom {
     status: room.status as OpenRoomStatus,
     playerCount: seated.length,
     maxPlayers: 2,
-    hasOpenSeat: room.status === "waiting" && !room.whiteId,
+    hasOpenSeat: room.status === "waiting" && seated.length < 2,
     hostId: room.blackId,
     memberIds: seated,
     meta: null,
@@ -147,7 +148,7 @@ export function fromChess(room: ChessLike, timeControlLabel?: string | null): Op
     status: room.status as OpenRoomStatus,
     playerCount: seated.length,
     maxPlayers: 2,
-    hasOpenSeat: room.status === "waiting" && !room.blackId,
+    hasOpenSeat: room.status === "waiting" && seated.length < 2,
     hostId: room.whiteId,
     memberIds: seated,
     meta: timeControlLabel ?? null,

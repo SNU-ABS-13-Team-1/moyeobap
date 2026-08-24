@@ -132,6 +132,21 @@ test("빈 자리는 대기중일 때만 생긴다", () => {
   assert.equal(fromPhone(phoneRoom({ status: "playing" })).hasOpenSeat, false);
 });
 
+test("방장이 나가 자리가 비어도 빈 자리로 센다", () => {
+  // 한 사람이 나가도 방이 남으므로(20260903 마이그레이션) 방장 자리도 빌 수
+  // 있습니다. 관전자가 그 자리에 앉을 수 있어야 목록에서도 "참여"로 보입니다.
+  const omokHostLeft = fromOmok(omokRoom({ blackId: null, whiteId: "u2" }));
+  assert.equal(omokHostLeft.hasOpenSeat, true);
+  assert.equal(omokHostLeft.hostId, null);
+  assert.deepEqual(omokHostLeft.memberIds, ["u2"]);
+  assert.equal(omokHostLeft.playerCount, 1);
+
+  const chessHostLeft = fromChess(chessRoom({ whiteId: null, blackId: "u2" }));
+  assert.equal(chessHostLeft.hasOpenSeat, true);
+  assert.equal(chessHostLeft.hostId, null);
+  assert.deepEqual(chessHostLeft.memberIds, ["u2"]);
+});
+
 test("루미큐브는 4명, 갈틱폰은 10명이 차면 빈 자리가 없다", () => {
   assert.equal(fromRummy(rummyRoom({ players: seats(3) })).hasOpenSeat, true);
   assert.equal(fromRummy(rummyRoom({ players: seats(4) })).hasOpenSeat, false);

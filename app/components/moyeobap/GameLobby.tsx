@@ -26,7 +26,7 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   /** 랭킹 페이지. 없는 게임(갈틱폰)은 비워 둡니다. */
   rankingPath?: string;
   namePlaceholder: string;
-  hostId: (room: Room) => string;
+  hostId: (room: Room) => string | null;
   hasOpenSeat: (room: Room) => boolean;
   /** 현재 참여 인원(기본: 빈 자리가 있으면 1명, 없으면 2명). */
   playerCount?: (room: Room) => number;
