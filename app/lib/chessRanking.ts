@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase";
+import { currentWeekKey } from "./gameWeek";
 import type { ChessRoom } from "./chessOnline";
 
 // 오목(omokRanking.ts)과 같은 K=32 ELO입니다. 테이블만 chess_*를 씁니다.
@@ -41,6 +42,7 @@ async function getOrDefaultRating(userId: string, userName: string): Promise<Rat
   const { data } = await supabase
     .from("chess_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
+    .eq("week_key", currentWeekKey())
     .eq("user_id", userId)
     .maybeSingle<RatingRow>();
   return data ?? fallback;
@@ -79,6 +81,7 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
 
   const { error: ratingError } = await supabase.from("chess_ratings").upsert([
     {
+      week_key: currentWeekKey(),
       user_id: room.whiteId,
       user_name: room.whiteName,
       rating: nextWhite,
@@ -88,6 +91,7 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
       updated_at: now,
     },
     {
+      week_key: currentWeekKey(),
       user_id: room.blackId,
       user_name: room.blackName,
       rating: nextBlack,
@@ -96,17 +100,18 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
       draws: black.draws + (winner === "draw" ? 1 : 0),
       updated_at: now,
     },
-  ]);
+  ], { onConflict: "user_id,week_key" });
   if (ratingError) console.error("recordChessMatchResult(rating) error:", ratingError);
 }
 
-export async function getChessRanking(limit = 20): Promise<ChessRankingEntry[]> {
+export async function getChessRanking(limit = 20, weekKey = currentWeekKey()): Promise<ChessRankingEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("chess_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
+    .eq("week_key", weekKey)
     .order("rating", { ascending: false })
     .limit(limit);
 

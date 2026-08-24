@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 
@@ -10,7 +11,7 @@ const GAME_KEY = 'snake';
 const LEADERBOARD_URL = `/api/games/${GAME_KEY}/scores`;
 
 type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null };
+type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: { key: string; label: string }; hall?: HallWeek[] };
 
 const GRID_SIZE = 20;
 const CELL_SIZE = 20;
@@ -191,7 +192,7 @@ export function SnakeGame() {
       </div>
 
       <div className="snake__leaderboard">
-        <p className="snake__leaderboard-title">🏆 랭킹 (최고 점수)</p>
+        <p className="snake__leaderboard-title">🏆 이번 주 랭킹 (최고 점수){leaderboardData?.week ? ` · ${leaderboardData.week.label}` : ''}</p>
         {!currentUser && (
           <p className="snake__leaderboard-note">로그인하면 내 최고 점수가 랭킹에 기록돼요.</p>
         )}
@@ -212,6 +213,7 @@ export function SnakeGame() {
             ))}
           </ol>
         )}
+        <HallOfFame hall={leaderboardData?.hall} unit="점" />
       </div>
     </div>
   );

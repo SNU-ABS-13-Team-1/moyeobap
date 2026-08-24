@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { getLeaderboard, submitGameScore } from "@/app/lib/gameScores";
+import { getHall } from "@/app/lib/gameHall";
+import { currentWeekInfo } from "@/app/lib/gameWeek";
 
 const MAX_SCORE = 1_000_000;
 
@@ -11,9 +13,12 @@ export async function GET(
   const { game } = await context.params;
   const user = await getSession();
   const leaderboard = await getLeaderboard(game);
+  const hall = await getHall(game);
 
   return NextResponse.json({
     leaderboard,
+    hall,
+    week: currentWeekInfo(),
     myRank: user ? leaderboard.findIndex((entry) => entry.userId === user.id) + 1 || null : null,
   });
 }
@@ -43,6 +48,7 @@ export async function POST(
   const leaderboard = await getLeaderboard(game);
   return NextResponse.json({
     leaderboard,
+    week: currentWeekInfo(),
     myRank: leaderboard.findIndex((entry) => entry.userId === user.id) + 1 || null,
   });
 }

@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase";
+import { currentWeekKey } from "./gameWeek";
 import type { OmokRoom } from "./omok";
 
 const K_FACTOR = 32;
@@ -37,6 +38,7 @@ async function getOrDefaultRating(userId: string, userName: string): Promise<Rat
   const { data } = await supabase
     .from("omok_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
+    .eq("week_key", currentWeekKey())
     .eq("user_id", userId)
     .maybeSingle<RatingRow>();
 
@@ -84,6 +86,7 @@ export async function recordMatchResult(
 
   const { error: ratingError } = await supabase.from("omok_ratings").upsert([
     {
+      week_key: currentWeekKey(),
       user_id: room.blackId,
       user_name: room.blackName,
       rating: nextBlackRating,
@@ -93,6 +96,7 @@ export async function recordMatchResult(
       updated_at: new Date().toISOString(),
     },
     {
+      week_key: currentWeekKey(),
       user_id: room.whiteId,
       user_name: room.whiteName,
       rating: nextWhiteRating,
@@ -101,17 +105,18 @@ export async function recordMatchResult(
       draws: white.draws + (winner === "draw" ? 1 : 0),
       updated_at: new Date().toISOString(),
     },
-  ]);
+  ], { onConflict: "user_id,week_key" });
   if (ratingError) console.error("recordMatchResult(rating) error:", ratingError);
 }
 
-export async function getRanking(limit = 20): Promise<RankingEntry[]> {
+export async function getRanking(limit = 20, weekKey = currentWeekKey()): Promise<RankingEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("omok_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
+    .eq("week_key", weekKey)
     .order("rating", { ascending: false })
     .limit(limit);
 

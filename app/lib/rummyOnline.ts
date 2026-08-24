@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabase";
+import { currentWeekKey } from "./gameWeek";
 import { HAND_SIZE, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from "./rummy";
 import {
   MAX_PLAYERS,
@@ -470,16 +471,18 @@ async function finishGame(room: RummyRoom, winnerId: string | null, reason: NonN
     const { data: rating } = await supabase
       .from("rummy_ratings")
       .select("games, wins, points")
+      .eq("week_key", currentWeekKey())
       .eq("user_id", p.id)
       .maybeSingle<{ games: number; wins: number; points: number }>();
     const { error } = await supabase.from("rummy_ratings").upsert({
+      week_key: currentWeekKey(),
       user_id: p.id,
       user_name: p.name,
       games: (rating?.games ?? 0) + 1,
       wins: (rating?.wins ?? 0) + (p.id === winner ? 1 : 0),
       points: (rating?.points ?? 0) + (p.score ?? 0),
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "user_id,week_key" });
     if (error) console.error("rummy rating upsert error:", error);
   }
 
@@ -488,12 +491,13 @@ async function finishGame(room: RummyRoom, winnerId: string | null, reason: NonN
 
 export type RummyRankingEntry = { userId: string; userName: string; games: number; wins: number; points: number };
 
-export async function getRanking(limit = 20): Promise<RummyRankingEntry[]> {
+export async function getRanking(limit = 20, weekKey = currentWeekKey()): Promise<RummyRankingEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("rummy_ratings")
     .select("user_id, user_name, games, wins, points")
+    .eq("week_key", weekKey)
     .order("points", { ascending: false })
     .limit(limit);
   if (error || !data) return [];
