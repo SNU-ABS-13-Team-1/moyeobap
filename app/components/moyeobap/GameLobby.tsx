@@ -14,7 +14,7 @@ import { useAuth } from './AuthProvider';
 export type LobbyRoomBase = {
   id: string;
   roomName: string;
-  status: 'waiting' | 'playing' | 'presenting' | 'finished';
+  status: 'waiting' | 'playing' | 'scoring' | 'presenting' | 'finished';
   createdAt: string;
 };
 
@@ -47,6 +47,7 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
 const STATUS_LABEL: Record<LobbyRoomBase['status'], string> = {
   waiting: '대기중',
   playing: '게임중',
+  scoring: '계가중',
   presenting: '앨범 공개 중',
   finished: '종료',
 };

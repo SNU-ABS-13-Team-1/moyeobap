@@ -62,7 +62,8 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [leaving, setLeaving] = useState(false);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingResign, setConfirmingResign] = useState(false);
+  const [resigning, setResigning] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
   const [drawPending, setDrawPending] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -239,14 +240,10 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, now, myColor, roomId, mutate]);
 
-  // 대국 중 기권은 브라우저 확인창(confirm) 대신 화면 안에서 한 번 더 묻습니다.
-  // (일부 내장 브라우저는 confirm 창을 막아 버튼이 먹지 않는 것처럼 보입니다.)
-  const needsResignConfirm = room?.status === 'playing' && Boolean(myColor);
+  // 대국 중인 참가자만 기권할 수 있습니다(관전자·대기 중·종료 후는 제외).
+  const canResign = room?.status === 'playing' && Boolean(myColor);
+
   async function handleLeaveRoom() {
-    if (needsResignConfirm && !confirmingLeave) {
-      setConfirmingLeave(true);
-      return;
-    }
     setLeaving(true);
     try {
       await requestJson(`/api/games/chess/rooms/${roomId}/leave`, { method: 'POST' });
@@ -254,6 +251,23 @@ export function ChessRoom({ roomId }: { roomId: string }) {
       // 무시하고 로비로
     }
     router.push('/games/chess/online');
+  }
+
+  // 기권은 그 판만 내주고 방에는 그대로 남습니다. 로비로 나가는 것은 대국이
+  // 끝난 뒤 "게임 나가기"가 맡습니다. 확인은 브라우저 confirm 대신 화면 안에서
+  // 한 번 더 묻습니다(일부 내장 브라우저가 confirm 창을 막습니다).
+  async function handleResign() {
+    setResigning(true);
+    try {
+      await requestJson(`/api/games/chess/rooms/${roomId}/resign`, { method: 'POST' });
+      setConfirmingResign(false);
+      setMoveError(null);
+    } catch (err) {
+      setMoveError(getErrorMessage(err, '기권하지 못했어요.'));
+    } finally {
+      setResigning(false);
+      mutate();
+    }
   }
 
   async function postAction(path: 'rematch' | 'draw', action: string, setPending: (v: boolean) => void, fallback: string) {
@@ -462,19 +476,23 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
           <div className="omok-room__actions">
-            {needsResignConfirm && confirmingLeave ? (
+            {canResign && confirmingResign ? (
               <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
                 정말 기권할까요? 상대의 승리로 기록돼요.
-                <button className="rummy__btn rummy__btn--danger" disabled={leaving} onClick={handleLeaveRoom} type="button">
-                  {leaving ? '나가는 중...' : '기권'}
+                <button className="rummy__btn rummy__btn--danger" disabled={resigning} onClick={handleResign} type="button">
+                  {resigning ? '처리 중...' : '기권'}
                 </button>
-                <button className="rummy__btn rummy__btn--ghost" disabled={leaving} onClick={() => setConfirmingLeave(false)} type="button">
+                <button className="rummy__btn rummy__btn--ghost" disabled={resigning} onClick={() => setConfirmingResign(false)} type="button">
                   취소
                 </button>
               </span>
+            ) : canResign ? (
+              <button className="omok-room__leave-btn" onClick={() => setConfirmingResign(true)} type="button">
+                기권하기
+              </button>
             ) : (
               <button className="omok-room__leave-btn" disabled={leaving} onClick={handleLeaveRoom} type="button">
-                {leaving ? '나가는 중...' : needsResignConfirm ? '기권하고 나가기' : '게임 나가기'}
+                {leaving ? '나가는 중...' : '게임 나가기'}
               </button>
             )}
             {canOfferDraw && !room.drawOfferBy && (
