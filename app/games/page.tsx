@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { OpenRoomsPanel } from '../components/moyeobap/OpenRoomsPanel';
 
 const GAMES = [
   {
@@ -60,6 +61,8 @@ export default function GamesPage() {
           </Link>
         ))}
       </div>
+
+      <OpenRoomsPanel />
     </main>
   );
 }
