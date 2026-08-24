@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { INITIAL_MELD, type Tile } from '../../lib/rummy';
 import { END_REASON_LABEL, MAX_PLAYERS, MAX_TIMEOUT_STRIKES, MIN_PLAYERS, TURN_GRACE_MS, type EndReason, type RoomPlayer, type RoomStatus } from '../../lib/rummyMatch';
 import { useAuth } from './AuthProvider';
+import { Spectators } from './Spectators';
 import { GameChat, type GameChatConfig } from './GameChat';
 import { RummyBoard, applyMove, type MoveTarget, type Selection } from './RummyBoard';
 
@@ -138,10 +139,12 @@ export function RummyRoom({ roomId }: { roomId: string }) {
   const remainingMs = room && turnStarted ? Math.max(0, room.turnLimitSec * 1000 - (now - turnStarted)) : null;
 
   // 시간 초과를 서버에 알립니다(참여자 누구나; 판정은 서버가 다시 함).
+  // 전원이 같은 순간에 신고해 요청이 겹치지 않게 자리 순서대로 0.4초씩 시차를 둡니다.
   const reportedRef = useRef<string | null>(null);
+  const mySeatIndex = room && currentUser ? Math.max(0, room.players.findIndex((p) => p.id === currentUser.id)) : 0;
   useEffect(() => {
     if (!room || room.status !== 'playing' || !isPlayer || !room.turnStartedAt || turnStarted === null) return undefined;
-    if (now - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS) return undefined;
+    if (now - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeatIndex * 400) return undefined;
     if (reportedRef.current === room.turnStartedAt) return undefined;
     reportedRef.current = room.turnStartedAt;
     requestJson(`/api/games/rummy/rooms/${roomId}/timeout`, { method: 'POST' })
@@ -150,7 +153,7 @@ export function RummyRoom({ roomId }: { roomId: string }) {
         reportedRef.current = null;
       });
     return undefined;
-  }, [room, now, isPlayer, roomId, mutate, turnStarted]);
+  }, [room, now, isPlayer, roomId, mutate, turnStarted, mySeatIndex]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -253,11 +256,7 @@ export function RummyRoom({ roomId }: { roomId: string }) {
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
             <span className="chess-room__tc">⏱ 턴당 {room.turnLimitSec}초</span>
-            {spectators.length > 0 && (
-              <span className="omok-room__spectators" title={spectators.join(', ')}>
-                👀 관전 {spectators.length}명
-              </span>
-            )}
+            <Spectators names={spectators} />
           </div>
 
           <div className="rummy__players">

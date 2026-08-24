@@ -18,8 +18,10 @@ import {
 
 export const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-/** 끝난 방은 로비에 안 보이지만 DB에 쌓이므로 하루 지나면 정리합니다(전적·랭킹은 별도 표라 남습니다). */
-const FINISHED_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+/** 하루 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(전적·랭킹은 별도 표라 남습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 수마다 updated_at이 갱신되므로,
+ * 24시간 멈춘 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type RoomStatus = "waiting" | "playing" | "finished";
 
@@ -152,12 +154,12 @@ export async function createRoom(
   return mapRow(data as ChessRoomRow);
 }
 
-async function cleanupOldFinishedRooms(): Promise<void> {
+async function cleanupStaleRooms(): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
-  const cutoff = new Date(Date.now() - FINISHED_ROOM_TTL_MS).toISOString();
-  const { error } = await supabase.from("chess_rooms").delete().eq("status", "finished").lt("updated_at", cutoff);
-  if (error) console.error("chess cleanupOldFinishedRooms error:", error);
+  const cutoff = new Date(Date.now() - STALE_ROOM_TTL_MS).toISOString();
+  const { error } = await supabase.from("chess_rooms").delete().lt("updated_at", cutoff);
+  if (error) console.error("chess cleanupStaleRooms error:", error);
 }
 
 export async function listRooms(): Promise<ChessRoom[]> {
@@ -165,7 +167,7 @@ export async function listRooms(): Promise<ChessRoom[]> {
   if (!supabase) return [];
 
   // 로비를 열 때마다 가볍게 청소합니다(조건에 맞는 행이 없으면 바로 끝).
-  await cleanupOldFinishedRooms();
+  await cleanupStaleRooms();
 
   const { data, error } = await supabase
     .from("chess_rooms")

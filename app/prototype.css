@@ -4735,12 +4735,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-lobby__toolbar {
   display: flex;
+  flex-wrap: wrap; /* 좁은 화면에서 시간 선택·버튼이 카드 밖으로 나가지 않게 줄바꿈 */
   gap: 8px;
   margin-bottom: var(--space-sm);
 }
 
 .omok-lobby__name-input {
   flex: 1;
+  min-width: 160px;
   padding: 12px 14px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
@@ -4820,10 +4822,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-lobby__row-name {
   font-weight: 600;
+  /* 띄어쓰기 없는 긴 방 이름(영문 연속 등)이 표를 카드 밖으로 밀어내지 않게 아무 데서나 줄바꿈 */
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .omok-lobby__status-badge {
   display: inline-block;
+  white-space: nowrap;
   padding: 3px 10px;
   border-radius: var(--radius-full);
   font-size: 0.78rem;
@@ -4942,6 +4948,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-room__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
   gap: 10px;
@@ -4952,6 +4959,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   margin: 0;
   font-size: 1.1rem;
   color: var(--text-primary);
+  /* 긴 방 이름 줄바꿈(방 화면 상단) */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  text-align: center;
 }
 
 .omok-room__spectators {
@@ -6403,6 +6415,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 /* ---------- 로비: 시간제 선택·방 정보 ---------- */
 .omok-lobby__select {
+  max-width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
@@ -7402,4 +7415,73 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   text-align: center;
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   주간 랭킹 · 명예의 전당 (모든 미니게임 공용)
+   ========================================================================== */
+
+.week-note {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.hall {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.hall__title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.hall__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hall__week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  font-size: 0.88rem;
+}
+
+.hall__week-label {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hall__winners {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.hall__winner {
+  white-space: nowrap;
+}
+
+.hall__streak {
+  margin-left: 5px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }

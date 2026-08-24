@@ -24,6 +24,7 @@ import {
   TARGET_SCORE,
 } from '../../lib/pongConstants';
 import { useAuth } from './AuthProvider';
+import { Spectators } from './Spectators';
 import { PongChat } from './PongChat';
 
 type PongRoomData = {
@@ -99,7 +100,7 @@ export function PongRoom({ roomId }: { roomId: string }) {
   // Presence: 접속 중인 사람(관전자 수, 상대 온라인 여부) 추적. room 전체가
   // 아니라 player1Id/player2Id가 바뀔 때만 재구독하도록 의존성을 좁혔습니다.
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
-  const [spectatorCount, setSpectatorCount] = useState(0);
+  const [spectators, setSpectators] = useState<string[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   // 호스트가 보내는 공/패들 상태(player2·관전자용)와, player2가 보내는
@@ -129,17 +130,17 @@ export function PongRoom({ roomId }: { roomId: string }) {
     channelRef.current = channel;
 
     channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<{ userId: string; role: string }>();
+      const state = channel.presenceState<{ userId: string; name: string; role: string }>();
       const ids = new Set<string>();
-      let spectators = 0;
+      const names: string[] = [];
       Object.values(state).forEach((metas) => {
         metas.forEach((meta) => {
           ids.add(meta.userId);
-          if (meta.role === 'spectator') spectators += 1;
+          if (meta.role === 'spectator' && !names.includes(meta.name)) names.push(meta.name);
         });
       });
       setOnlineUserIds(ids);
-      setSpectatorCount(spectators);
+      setSpectators(names);
     });
 
     channel.on('broadcast', { event: 'state' }, ({ payload }) => {
@@ -478,7 +479,7 @@ export function PongRoom({ roomId }: { roomId: string }) {
         <div className="pong-room">
           <div className="pong-room__header">
             <h2 className="pong-room__name">{room.roomName}</h2>
-            {spectatorCount > 0 && <span className="pong-room__spectators">👀 관전 {spectatorCount}명</span>}
+            <Spectators className="pong-room__spectators" names={spectators} />
           </div>
 
           <div className="pong-room__scoreboard">

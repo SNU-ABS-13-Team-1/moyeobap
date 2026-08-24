@@ -21,6 +21,7 @@ import {
 } from '../../lib/phoneMatch';
 import type { AlbumSummary, PlayerTask } from '../../lib/phoneOnline';
 import { useAuth } from './AuthProvider';
+import { Spectators } from './Spectators';
 import { DrawingCanvas, type DrawingCanvasHandle } from './DrawingCanvas';
 import { GameChat, type GameChatConfig } from './GameChat';
 
@@ -79,8 +80,9 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
     };
   }, [roomId, mutate]);
 
-  // Presence: 접속 표시
+  // Presence: 접속 표시 + 관전자(자리에 앉지 않은 접속자) 이름
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
+  const [spectators, setSpectators] = useState<string[]>([]);
   const playerIdsKey = room?.players.map((p) => p.id).join(',') ?? '';
   useEffect(() => {
     if (!currentUser || !room) return undefined;
@@ -90,15 +92,23 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
     } catch {
       return undefined;
     }
+    const myRole = room.players.some((p) => p.id === currentUser.id && !p.left) ? 'player' : 'spectator';
     const channel = supabase.channel(`phone-presence-${roomId}`, { config: { presence: { key: currentUser.id } } });
     channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<{ userId: string }>();
+      const state = channel.presenceState<{ userId: string; name: string; role: string }>();
       const ids = new Set<string>();
-      Object.values(state).forEach((metas) => metas.forEach((m) => ids.add(m.userId)));
+      const names: string[] = [];
+      Object.values(state).forEach((metas) =>
+        metas.forEach((m) => {
+          ids.add(m.userId);
+          if (m.role === 'spectator' && !names.includes(m.name)) names.push(m.name);
+        }),
+      );
       setOnlineIds(ids);
+      setSpectators(names);
     });
     channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') await channel.track({ userId: currentUser.id });
+      if (status === 'SUBSCRIBED') await channel.track({ userId: currentUser.id, name: currentUser.name, role: myRole });
     });
     return () => {
       supabase.removeChannel(channel);
@@ -166,6 +176,7 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
     <div className="omok-room__header">
       <h2 className="omok-room__name">{room.roomName}</h2>
       <span className="chess-room__tc">⏱ 글 {room.settings.writeSec}초 · 그림 {room.settings.drawSec}초</span>
+      <Spectators names={spectators} />
     </div>
   );
 

@@ -6,6 +6,11 @@ import { isTurnExpired, swappedColors } from "./omokMatch";
 export const BOARD_SIZE = 15;
 const WIN_LENGTH = 5;
 
+/** 하루 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(전적·랭킹은 별도 표라 남습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 수마다 updated_at이 갱신되므로,
+ * 24시간 멈춘 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+
 export type Stone = "black" | "white" | null;
 export type RoomStatus = "waiting" | "playing" | "finished";
 export type Winner = "black" | "white" | "draw" | null;
@@ -129,12 +134,23 @@ export async function createRoom(
   return mapRow(data as OmokRoomRow);
 }
 
+async function cleanupStaleRooms(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const cutoff = new Date(Date.now() - STALE_ROOM_TTL_MS).toISOString();
+  const { error } = await supabase.from("omok_rooms").delete().lt("updated_at", cutoff);
+  if (error) console.error("omok cleanupStaleRooms error:", error);
+}
+
 // 로비 목록: 대기 중이거나 이미 진행 중인 방을 모두 보여줘서, 빈 자리가
 // 있으면 참여하고 없으면 관전으로 들어갈 수 있게 합니다. 종료된 방은
 // 로비를 어지럽히지 않도록 제외합니다.
 export async function listRooms(): Promise<OmokRoom[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
+
+  // 로비를 열 때마다 가볍게 청소합니다(조건에 맞는 행이 없으면 바로 끝).
+  await cleanupStaleRooms();
 
   const { data, error } = await supabase
     .from("omok_rooms")
