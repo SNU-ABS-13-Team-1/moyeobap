@@ -9,7 +9,7 @@ type RummyLobbyRoom = LobbyRoomBase & {
   turnLimitSec: number;
 };
 
-const TURN_LIMITS = [60, 90, 120, 180] as const;
+const TURN_LIMITS = [30, 60, 90, 120, 180] as const;
 
 // 루미큐브 온라인 로비. 최대 4명, 대기 중인 방에만 참여할 수 있고 시작된 방은 관전합니다.
 export function RummyLobby() {

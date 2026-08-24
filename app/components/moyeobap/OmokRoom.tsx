@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { isForbiddenMove } from '../../lib/omokForbidden';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
+import { Spectators } from './Spectators';
 import { OmokChat } from './OmokChat';
 
 type Stone = 'black' | 'white' | null;
@@ -87,7 +88,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   // 재구독되므로, 사람이 바뀔 때만 갱신되는 blackId/whiteId만 의존성으로
   // 둡니다.
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
-  const [spectatorCount, setSpectatorCount] = useState(0);
+  const [spectators, setSpectators] = useState<string[]>([]);
 
   useEffect(() => {
     if (!currentUser || !room) return undefined;
@@ -104,17 +105,17 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     });
 
     channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState<{ userId: string; role: string }>();
+      const state = channel.presenceState<{ userId: string; name: string; role: string }>();
       const ids = new Set<string>();
-      let spectators = 0;
+      const names: string[] = [];
       Object.values(state).forEach((metas) => {
         metas.forEach((meta) => {
           ids.add(meta.userId);
-          if (meta.role === 'spectator') spectators += 1;
+          if (meta.role === 'spectator' && !names.includes(meta.name)) names.push(meta.name);
         });
       });
       setOnlineUserIds(ids);
-      setSpectatorCount(spectators);
+      setSpectators(names);
     });
 
     channel.subscribe(async (status) => {
@@ -481,9 +482,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
         <div className="omok-room">
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
-            {spectatorCount > 0 && (
-              <span className="omok-room__spectators">👀 관전 {spectatorCount}명</span>
-            )}
+            <Spectators names={spectators} />
           </div>
 
           <div className="omok-room__players">
