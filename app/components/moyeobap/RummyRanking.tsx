@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 
 type Entry = { userId: string; userName: string; games: number; wins: number; points: number };
 
@@ -15,7 +15,6 @@ export function RummyRanking() {
   if (data && ranking.length === 0) {
     return (
       <>
-        <WeekNote week={data.week} />
         <p className="omok-ranking__empty">이번 주 기록이 아직 없어요. 첫 판을 만들어보세요!</p>
         <HallOfFame hall={data.hall} unit="점" />
       </>
@@ -24,7 +23,6 @@ export function RummyRanking() {
 
   return (
     <>
-      <WeekNote week={data?.week} />
       <table className="omok-ranking__table">
       <thead>
         <tr>

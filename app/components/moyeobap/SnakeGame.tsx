@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 
@@ -192,7 +192,7 @@ export function SnakeGame() {
       </div>
 
       <div className="snake__leaderboard">
-        <p className="snake__leaderboard-title">🏆 이번 주 랭킹 (최고 점수){leaderboardData?.week ? ` · ${leaderboardData.week.label}` : ''}</p>
+        <p className="snake__leaderboard-title">🏆 이번 주 랭킹 (최고 점수)</p>
         {!currentUser && (
           <p className="snake__leaderboard-note">로그인하면 내 최고 점수가 랭킹에 기록돼요.</p>
         )}

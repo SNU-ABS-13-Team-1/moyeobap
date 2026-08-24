@@ -30,9 +30,3 @@ export function HallOfFame({ hall, unit = '점' }: { hall: HallWeek[] | undefine
     </div>
   );
 }
-
-/** 랭킹 표 위에 붙는 "이번 주" 안내 한 줄. */
-export function WeekNote({ week }: { week: { key: string; label: string } | undefined }) {
-  if (!week) return null;
-  return <p className="hall__week-note">📅 {week.label} — 랭킹은 매주 월요일에 새로 시작해요.</p>;
-}

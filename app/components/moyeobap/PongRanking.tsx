@@ -2,7 +2,7 @@
 
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 
 type RankingEntry = {
   userId: string;
@@ -25,7 +25,6 @@ export function PongRanking() {
   if (data && ranking.length === 0) {
     return (
       <>
-        <WeekNote week={data.week} />
         <p className="pong-ranking__empty">이번 주 기록이 아직 없어요. 첫 대전을 만들어보세요!</p>
         <HallOfFame hall={data.hall} unit="점" />
       </>
@@ -34,7 +33,6 @@ export function PongRanking() {
 
   return (
     <>
-      <WeekNote week={data?.week} />
       <table className="pong-ranking__table">
       <thead>
         <tr>

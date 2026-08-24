@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 import { requestJson } from '../../lib/api-client';
 import { HAND_SIZE, INITIAL_MELD, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from '../../lib/rummy';
 import { RUMMY_DIFFICULTY_LABEL, findCpuMoveByLevel, type RummyDifficulty } from '../../lib/rummyAi';
@@ -281,7 +281,7 @@ export function RummyGame() {
       )}
 
       <div className="rummy__leaderboard">
-        <p className="rummy__leaderboard-title">🏆 {RUMMY_DIFFICULTY_LABEL[level]} 이번 주 랭킹{leaderboardData?.week ? ` · ${leaderboardData.week.label}` : ''}</p>
+        <p className="rummy__leaderboard-title">🏆 {RUMMY_DIFFICULTY_LABEL[level]} 이번 주 랭킹 (최고 점수)</p>
         {!currentUser && <p className="rummy__leaderboard-note">로그인하면 이겼을 때 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && <p className="rummy__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (

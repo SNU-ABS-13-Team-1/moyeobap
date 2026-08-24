@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 import { requestJson } from '../../lib/api-client';
 import {
   BIRD_COLLISION_RADIUS,
@@ -364,7 +364,7 @@ export function FlappyGame() {
       </div>
 
       <div className="flappy__leaderboard">
-        <p className="flappy__leaderboard-title">🏆 이번 주 랭킹 (최고 점수 Top 10){leaderboardData?.week ? ` · ${leaderboardData.week.label}` : ''}</p>
+        <p className="flappy__leaderboard-title">🏆 이번 주 랭킹 (최고 점수 Top 10)</p>
         {!currentUser && <p className="flappy__leaderboard-note">로그인하면 내 최고 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
           <p className="flappy__leaderboard-note">아직 기록이 없어요. 첫 기록을 남겨보세요!</p>

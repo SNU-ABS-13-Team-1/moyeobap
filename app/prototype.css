@@ -7383,8 +7383,3 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   white-space: nowrap;
 }
 
-.hall__week-note {
-  margin: 0 0 10px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}

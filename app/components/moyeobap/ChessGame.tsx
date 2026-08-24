@@ -6,7 +6,7 @@ import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'che
 import { DIFFICULTY_LABEL, pickCpuMove, type Difficulty } from '../../lib/chessAi';
 import type { ChessAiRequest, ChessAiResponse } from '../../lib/chessAi.worker';
 import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, WeekNote, type HallWeek } from './HallOfFame';
+import { HallOfFame, type HallWeek } from './HallOfFame';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 import { ChessBoard } from './ChessBoard';
@@ -297,7 +297,7 @@ export function ChessGame() {
       )}
 
       <div className="chess__leaderboard">
-        <p className="chess__leaderboard-title">🏆 {DIFFICULTY_LABEL[difficulty]} 이번 주 랭킹{leaderboardData?.week ? ` · ${leaderboardData.week.label}` : ''}</p>
+        <p className="chess__leaderboard-title">🏆 {DIFFICULTY_LABEL[difficulty]} 이번 주 랭킹 (최고 점수)</p>
         {!currentUser && <p className="chess__leaderboard-note">로그인하면 컴퓨터를 이겼을 때 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
           <p className="chess__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>
