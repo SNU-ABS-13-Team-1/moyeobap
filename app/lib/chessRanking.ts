@@ -54,7 +54,7 @@ function expectedScore(ratingA: number, ratingB: number): number {
 
 export async function recordChessMatchResult(room: ChessRoom, winner: "white" | "black" | "draw"): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase || !room.blackId || !room.blackName) return;
+  if (!supabase || !room.whiteId || !room.whiteName || !room.blackId || !room.blackName) return;
 
   const { error: matchError } = await supabase.from("chess_matches").insert({
     room_id: room.id,

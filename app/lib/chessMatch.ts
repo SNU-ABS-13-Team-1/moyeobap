@@ -232,12 +232,12 @@ export function banksAfterMove(state: ClockState, now: number): { white_time_ms:
 
 /** 재대국 때 백/흑을 통째로 맞바꾼 DB 컬럼 값. */
 export function swappedColors(room: {
-  whiteId: string;
-  whiteName: string;
+  whiteId: string | null;
+  whiteName: string | null;
   blackId: string | null;
   blackName: string | null;
 }): { white_id: string; white_name: string; black_id: string; black_name: string } {
-  if (!room.blackId || !room.blackName) {
+  if (!room.whiteId || !room.whiteName || !room.blackId || !room.blackName) {
     throw new Error("상대가 없는 방은 백흑을 교대할 수 없습니다.");
   }
   return {

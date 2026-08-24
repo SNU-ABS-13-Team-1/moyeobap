@@ -56,7 +56,7 @@ export async function recordMatchResult(
   winner: "player1" | "player2",
 ): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase || !room.player2Id || !room.player2Name) return;
+  if (!supabase || !room.player1Id || !room.player1Name || !room.player2Id || !room.player2Name) return;
 
   const { error: matchError } = await supabase.from("pong_matches").insert({
     room_id: room.id,

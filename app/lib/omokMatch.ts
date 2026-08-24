@@ -54,12 +54,12 @@ export function remainingTurnMs(turnStartedAt: string | null, now: number): numb
  * 짝을 잃지 않도록 한 곳에서만 처리합니다.
  */
 export function swappedColors(room: {
-  blackId: string;
-  blackName: string;
+  blackId: string | null;
+  blackName: string | null;
   whiteId: string | null;
   whiteName: string | null;
 }): { black_id: string; black_name: string; white_id: string; white_name: string } {
-  if (!room.whiteId || !room.whiteName) {
+  if (!room.blackId || !room.blackName || !room.whiteId || !room.whiteName) {
     throw new Error("상대가 없는 방은 흑백을 교대할 수 없습니다.");
   }
   return {

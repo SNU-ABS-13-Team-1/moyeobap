@@ -2,6 +2,7 @@ import { getSupabase } from "./supabase";
 import { recordMatchResult } from "./omokRanking";
 import { FORBIDDEN_MOVE_MESSAGES, isForbiddenMove } from "./omokForbidden";
 import { isTurnExpired, swappedColors } from "./omokMatch";
+import { resolveLeave, resolveSit } from "./gameSeats";
 
 export const BOARD_SIZE = 15;
 const WIN_LENGTH = 5;
@@ -19,8 +20,8 @@ export type OmokRoom = {
   id: string;
   status: RoomStatus;
   roomName: string;
-  blackId: string;
-  blackName: string;
+  blackId: string | null;
+  blackName: string | null;
   whiteId: string | null;
   whiteName: string | null;
   board: Stone[][];
@@ -39,8 +40,8 @@ type OmokRoomRow = {
   id: string;
   status: RoomStatus;
   room_name: string;
-  black_id: string;
-  black_name: string;
+  black_id: string | null;
+  black_name: string | null;
   white_id: string | null;
   white_name: string | null;
   board: Stone[][];
@@ -172,6 +173,13 @@ export async function getRoom(roomId: string): Promise<OmokRoom | null> {
   return mapRow(data as OmokRoomRow);
 }
 
+/**
+ * 빈 자리에 앉습니다. 두 갈래를 하나로 처리합니다.
+ * - 대기 중인 방에 들어가면 백을 잡고 바로 대국이 시작됩니다(기존 동작).
+ * - 상대가 나가 자리가 빈 종료된 방이면, 관전자가 그 자리에 앉습니다.
+ *   승부 기록은 그대로 두고 status도 finished로 남겨, 두 사람이 재대국을
+ *   신청·수락해 새 판을 시작합니다.
+ */
 export async function joinRoom(
   roomId: string,
   userId: string,
@@ -179,31 +187,43 @@ export async function joinRoom(
 ): Promise<OmokRoom | null | "full" | "self"> {
   const room = await getRoom(roomId);
   if (!room) return null;
-  if (room.blackId === userId) return "self";
-  if (room.status !== "waiting" || room.whiteId) return "full";
+
+  const outcome = resolveSit(
+    { status: room.status, hostId: room.blackId, guestId: room.whiteId },
+    userId,
+  );
+  if (outcome.kind === "self") return "self";
+  if (outcome.kind === "full") return "full";
 
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  const now = new Date().toISOString();
+  const seatColumn = outcome.seat === "host" ? "black_id" : "white_id";
+  const seatUpdate =
+    outcome.seat === "host"
+      ? { black_id: userId, black_name: userName }
+      : { white_id: userId, white_name: userName };
+  const startUpdate = outcome.start
+    ? { status: "playing" as const, started_at: now, turn_started_at: now }
+    : {};
+
+  // 그 사이 다른 사람이 먼저 앉았다면(자리가 null이 아니게 됨) 0행에 매치돼
+  // 조용히 실패합니다.
   const { data, error } = await supabase
     .from("omok_rooms")
-    .update({
-      white_id: userId,
-      white_name: userName,
-      status: "playing",
-      started_at: new Date().toISOString(),
-      turn_started_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update({ ...seatUpdate, ...startUpdate, updated_at: now })
     .eq("id", roomId)
-    .eq("status", "waiting")
+    .eq("status", room.status)
+    .is(seatColumn, null)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error("joinRoom error:", error);
     return null;
   }
+  if (!data) return "full";
   return mapRow(data as OmokRoomRow);
 }
 
@@ -247,14 +267,11 @@ async function finishRoomWithWinner(room: OmokRoom, winnerColor: "black" | "whit
 }
 
 /**
- * "게임 나가기" 버튼의 서버 처리입니다. 방 상태에 따라 동작이 달라집니다.
- * - waiting: 방장(흑)이 나가면 방을 삭제합니다. 아직 시작 전이라 잃을 게
- *   없습니다.
- * - playing: 나가는 사람이 기권한 것으로 보고 상대가 승리합니다. 전적도
- *   함께 기록합니다.
- * - finished: 승부는 그대로 두고, 남아 있던 재대국 신청만 정리합니다.
- *   재대국은 상대가 수락해야 시작되므로(requestRematch/acceptRematch),
- *   여기서 방이 playing으로 되돌아가 있는 일은 없습니다.
+ * "게임 나가기" 버튼의 서버 처리입니다. 방은 사람이 한 명이라도 남아 있는
+ * 한 사라지지 않고, 나간 사람의 자리만 비웁니다(규칙은 app/lib/gameSeats.ts).
+ * - playing: 나가는 사람이 기권한 것으로 보고 상대가 승리합니다. 전적을
+ *   기록한 뒤 그 자리를 비워, 관전자가 앉아 재대국할 수 있게 합니다.
+ * - waiting/finished: 자리만 비웁니다. 남은 사람이 없으면 그때 방을 지웁니다.
  */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
@@ -263,36 +280,66 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const room = await getRoom(roomId);
   if (!room) return;
 
-  const isBlack = room.blackId === userId;
-  const isWhite = room.whiteId === userId;
-  if (!isBlack && !isWhite) return;
+  const outcome = resolveLeave(
+    { status: room.status, hostId: room.blackId, guestId: room.whiteId },
+    userId,
+  );
+  if (outcome.kind === "ignore") return;
 
-  if (room.status === "waiting") {
-    if (!isBlack) return;
+  if (outcome.kind === "delete") {
+    // 상대 자리가 그 사이 채워졌다면(관전자가 앉음) 지우면 안 되므로 조건에
+    // 함께 겁니다.
+    const otherColumn = room.blackId === userId ? "white_id" : "black_id";
     const { error } = await supabase
       .from("omok_rooms")
       .delete()
       .eq("id", roomId)
-      .eq("status", "waiting");
+      .eq("status", room.status)
+      .is(otherColumn, null);
     if (error) console.error("leaveRoom(delete) error:", error);
     return;
   }
 
-  if (room.status === "playing") {
-    const winnerColor: "black" | "white" = isBlack ? "white" : "black";
-    await finishRoomWithWinner(room, winnerColor);
-    return;
+  // 기권은 자리를 비우기 전에 처리해야 전적에 두 사람 이름이 그대로 남습니다.
+  // finishRoomWithWinner는 move_count가 그 사이 바뀌면 아무것도 하지 않으므로
+  // (상대의 착수가 먼저 처리된 경우) 최신 상태로 한 번 더 시도합니다. 그래도
+  // playing이면 자리를 비우지 않습니다 — 진행 중인데 한 자리가 빈 방이 남으면
+  // 남은 사람이 아무것도 할 수 없게 됩니다(그 경우는 상대가 몰수승 처리하거나
+  // 24시간 뒤 방 청소로 정리됩니다).
+  if (outcome.kind === "resign") {
+    const winnerColor: "black" | "white" = outcome.seat === "host" ? "white" : "black";
+    let current: OmokRoom | null = room;
+    for (let attempt = 0; attempt < 2 && current?.status === "playing"; attempt += 1) {
+      await finishRoomWithWinner(current, winnerColor);
+      current = await getRoom(roomId);
+    }
+    if (current?.status === "playing") return;
   }
 
-  // 나간 사람이 걸어둔 재대국 신청이 남아 있으면, 남은 사람이 이미 자리를
-  // 뜬 상대에게 "수락" 버튼을 보게 되므로 지웁니다.
-  if (room.status === "finished" && room.rematchBy) {
-    const { error } = await supabase
-      .from("omok_rooms")
-      .update({ rematch_by: null, updated_at: new Date().toISOString() })
-      .eq("id", roomId);
-    if (error) console.error("leaveRoom(clear rematch) error:", error);
-  }
+  await vacateSeat(roomId, userId, outcome.seat);
+}
+
+/**
+ * 나간 사람의 자리를 비웁니다. 남아 있던 재대국 신청도 함께 지웁니다 —
+ * 신청을 건 사람이 떠났거나, 남은 사람이 이미 자리를 뜬 상대에게 "수락"
+ * 버튼을 보게 되기 때문입니다.
+ */
+async function vacateSeat(roomId: string, userId: string, seat: "host" | "guest"): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  const seatUpdate =
+    seat === "host"
+      ? { black_id: null, black_name: null }
+      : { white_id: null, white_name: null };
+  const seatColumn = seat === "host" ? "black_id" : "white_id";
+
+  const { error } = await supabase
+    .from("omok_rooms")
+    .update({ ...seatUpdate, rematch_by: null, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq(seatColumn, userId);
+  if (error) console.error("leaveRoom(vacate) error:", error);
 }
 
 /**
@@ -364,7 +411,7 @@ export async function requestRematch(
   if (room.blackId !== userId && room.whiteId !== userId) {
     return { error: "참여자만 재대국을 신청할 수 있어요." };
   }
-  if (!room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (!room.blackId || !room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
   if (room.rematchBy === userId) return { error: "이미 재대국을 신청했어요." };
 
   const supabase = getSupabase();
@@ -403,7 +450,7 @@ export async function acceptRematch(
   }
   if (!room.rematchBy) return { error: "재대국 신청이 없어요." };
   if (room.rematchBy === userId) return { error: "상대의 수락을 기다리는 중이에요." };
-  if (!room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (!room.blackId || !room.whiteId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };

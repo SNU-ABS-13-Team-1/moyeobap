@@ -12,6 +12,7 @@ import {
   type ClockState,
   type TimeControl,
 } from "./chessMatch";
+import { resolveLeave, resolveSit } from "./gameSeats";
 
 // 실시간 체스 대전의 서버 로직입니다. 오목(app/lib/omok.ts)과 같은 흐름이고,
 // 보드 대신 FEN + 수순(SAN 배열)을 저장합니다. 방장 = 백(선수), 참여자 = 흑.
@@ -29,8 +30,8 @@ export type ChessRoom = {
   id: string;
   status: RoomStatus;
   roomName: string;
-  whiteId: string;
-  whiteName: string;
+  whiteId: string | null;
+  whiteName: string | null;
   blackId: string | null;
   blackName: string | null;
   fen: string;
@@ -55,8 +56,8 @@ type ChessRoomRow = {
   id: string;
   status: RoomStatus;
   room_name: string;
-  white_id: string;
-  white_name: string;
+  white_id: string | null;
+  white_name: string | null;
   black_id: string | null;
   black_name: string | null;
   fen: string;
@@ -189,6 +190,11 @@ export async function getRoom(roomId: string): Promise<ChessRoom | null> {
   return mapRow(data as ChessRoomRow);
 }
 
+/**
+ * 빈 자리에 앉습니다. 대기 중인 방이면 흑을 잡고 바로 시작하고, 상대가 나가
+ * 자리가 빈 종료된 방이면 관전자가 그 자리에 앉습니다(재대국으로 새 판).
+ * 규칙은 오목·퐁과 공유합니다(app/lib/gameSeats.ts).
+ */
 export async function joinRoom(
   roomId: string,
   userId: string,
@@ -196,32 +202,41 @@ export async function joinRoom(
 ): Promise<ChessRoom | null | "full" | "self"> {
   const room = await getRoom(roomId);
   if (!room) return null;
-  if (room.whiteId === userId) return "self";
-  if (room.status !== "waiting" || room.blackId) return "full";
+
+  const outcome = resolveSit(
+    { status: room.status, hostId: room.whiteId, guestId: room.blackId },
+    userId,
+  );
+  if (outcome.kind === "self") return "self";
+  if (outcome.kind === "full") return "full";
 
   const supabase = getSupabase();
   if (!supabase) return null;
 
   const now = new Date().toISOString();
+  const seatColumn = outcome.seat === "host" ? "white_id" : "black_id";
+  const seatUpdate =
+    outcome.seat === "host"
+      ? { white_id: userId, white_name: userName }
+      : { black_id: userId, black_name: userName };
+  const startUpdate = outcome.start
+    ? { status: "playing" as const, started_at: now, turn_started_at: now }
+    : {};
+
   const { data, error } = await supabase
     .from("chess_rooms")
-    .update({
-      black_id: userId,
-      black_name: userName,
-      status: "playing",
-      started_at: now,
-      turn_started_at: now,
-      updated_at: now,
-    })
+    .update({ ...seatUpdate, ...startUpdate, updated_at: now })
     .eq("id", roomId)
-    .eq("status", "waiting")
+    .eq("status", room.status)
+    .is(seatColumn, null)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     console.error("chess joinRoom error:", error);
     return null;
   }
+  if (!data) return "full";
   return mapRow(data as ChessRoomRow);
 }
 
@@ -260,7 +275,11 @@ async function finishRoom(
   return finished;
 }
 
-/** "게임 나가기": 대기 중이면 방 삭제, 대국 중이면 기권(상대 승), 종료 후엔 신청만 정리. */
+/**
+ * "게임 나가기": 사람이 한 명이라도 남아 있으면 방은 사라지지 않고, 나간
+ * 사람의 자리만 비웁니다. 대국 중이면 기권(상대 승)으로 기록한 뒤 비웁니다.
+ * 마지막 한 사람까지 나가면 그때 방을 지웁니다(app/lib/gameSeats.ts).
+ */
 export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -268,28 +287,51 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const room = await getRoom(roomId);
   if (!room) return;
 
-  const myColor = colorOf(room, userId);
-  if (!myColor) return;
+  const outcome = resolveLeave(
+    { status: room.status, hostId: room.whiteId, guestId: room.blackId },
+    userId,
+  );
+  if (outcome.kind === "ignore") return;
 
-  if (room.status === "waiting") {
-    if (myColor !== "white") return;
-    const { error } = await supabase.from("chess_rooms").delete().eq("id", roomId).eq("status", "waiting");
+  if (outcome.kind === "delete") {
+    const otherColumn = room.whiteId === userId ? "black_id" : "white_id";
+    const { error } = await supabase
+      .from("chess_rooms")
+      .delete()
+      .eq("id", roomId)
+      .eq("status", room.status)
+      .is(otherColumn, null);
     if (error) console.error("chess leaveRoom(delete) error:", error);
     return;
   }
 
-  if (room.status === "playing") {
-    await finishRoom(room, myColor === "white" ? "black" : "white", "resign");
-    return;
+  // 기권은 자리를 비우기 전에 처리해야 전적에 두 사람 이름이 남습니다. 종료에
+  // 실패했는데(=아직 playing) 자리를 비우면 남은 사람이 아무것도 할 수 없는
+  // 방이 되므로, 그때는 자리를 그대로 둡니다.
+  if (outcome.kind === "resign") {
+    const finished = await finishRoom(room, outcome.seat === "host" ? "black" : "white", "resign");
+    if (!finished) {
+      const latest = await getRoom(roomId);
+      if (!latest || latest.status === "playing") return;
+    }
   }
 
-  if (room.status === "finished" && room.rematchBy) {
-    const { error } = await supabase
-      .from("chess_rooms")
-      .update({ rematch_by: null, updated_at: new Date().toISOString() })
-      .eq("id", roomId);
-    if (error) console.error("chess leaveRoom(clear rematch) error:", error);
-  }
+  const seatUpdate =
+    outcome.seat === "host"
+      ? { white_id: null, white_name: null }
+      : { black_id: null, black_name: null };
+  const seatColumn = outcome.seat === "host" ? "white_id" : "black_id";
+  const { error } = await supabase
+    .from("chess_rooms")
+    .update({
+      ...seatUpdate,
+      rematch_by: null,
+      draw_offer_by: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", roomId)
+    .eq(seatColumn, userId);
+  if (error) console.error("chess leaveRoom(vacate) error:", error);
 }
 
 /**
@@ -400,7 +442,7 @@ export async function requestRematch(roomId: string, userId: string): Promise<Ch
   if (!room) return { error: "존재하지 않는 방이에요." };
   if (room.status !== "finished") return { error: "종료된 대국만 다시 시작할 수 있어요." };
   if (!colorOf(room, userId)) return { error: "참여자만 재대국을 신청할 수 있어요." };
-  if (!room.blackId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (!room.whiteId || !room.blackId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
   if (room.rematchBy === userId) return { error: "이미 재대국을 신청했어요." };
 
   const supabase = getSupabase();
@@ -430,7 +472,7 @@ export async function acceptRematch(roomId: string, userId: string): Promise<Che
   if (!colorOf(room, userId)) return { error: "참여자만 수락할 수 있어요." };
   if (!room.rematchBy) return { error: "재대국 신청이 없어요." };
   if (room.rematchBy === userId) return { error: "상대의 수락을 기다리는 중이에요." };
-  if (!room.blackId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
+  if (!room.whiteId || !room.blackId) return { error: "상대가 없어서 다시 시작할 수 없어요." };
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };

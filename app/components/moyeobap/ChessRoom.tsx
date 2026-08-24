@@ -27,8 +27,8 @@ type ChessRoomData = {
   id: string;
   roomName: string;
   status: 'waiting' | 'playing' | 'finished';
-  whiteId: string;
-  whiteName: string;
+  whiteId: string | null;
+  whiteName: string | null;
   blackId: string | null;
   blackName: string | null;
   fen: string;
@@ -60,8 +60,9 @@ function formatClock(ms: number): string {
 // 담당하고, 실제 착수 검증은 서버(app/lib/chessOnline.ts)가 다시 합니다.
 export function ChessRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
-  const { currentUser } = useAuth();
+  const { currentUser, openAuth } = useAuth();
   const [leaving, setLeaving] = useState(false);
+  const [sitting, setSitting] = useState(false);
   const [confirmingResign, setConfirmingResign] = useState(false);
   const [resigning, setResigning] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
@@ -242,6 +243,23 @@ export function ChessRoom({ roomId }: { roomId: string }) {
 
   // 대국 중인 참가자만 기권할 수 있습니다(관전자·대기 중·종료 후는 제외).
   const canResign = room?.status === 'playing' && Boolean(myColor);
+  // 관전자가 빈 자리에 앉습니다(대기 중인 방에 들어가는 것과 같은 엔드포인트).
+  async function handleSitDown() {
+    if (!currentUser) {
+      openAuth(`/games/chess/${roomId}`);
+      return;
+    }
+    setSitting(true);
+    setMoveError(null);
+    try {
+      await requestJson(`/api/games/chess/rooms/${roomId}/join`, { method: 'POST' });
+      mutate();
+    } catch (err) {
+      setMoveError(getErrorMessage(err, '자리에 앉지 못했어요.'));
+    } finally {
+      setSitting(false);
+    }
+  }
 
   async function handleLeaveRoom() {
     setLeaving(true);
@@ -358,6 +376,10 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   if (error) return <div className="omok-room__state">방을 불러오지 못했어요.</div>;
   if (!room || !clock) return <div className="omok-room__state">불러오는 중...</div>;
 
+  const whiteLabel = room.whiteName ?? '빈 자리';
+  const blackLabel = room.blackName ?? '빈 자리';
+  const emptySeat = !room.whiteId ? 'white' : !room.blackId ? 'black' : null;
+
   let statusText: string;
   const reasonText = room.endReason ? ` (${END_REASON_LABEL[room.endReason]})` : '';
   if (room.status === 'waiting') {
@@ -367,13 +389,19 @@ export function ChessRoom({ roomId }: { roomId: string }) {
     else if (myColor) {
       const iWon = (room.winner === 'white' && myColor === 'w') || (room.winner === 'black' && myColor === 'b');
       statusText = iWon ? `🎉 승리했어요!${reasonText}` : `아쉽게 패배했어요${reasonText}`;
-    } else statusText = `${room.winner === 'white' ? room.whiteName : room.blackName}님 승리${reasonText}`;
+    } else statusText = `${room.winner === 'white' ? whiteLabel : blackLabel}님 승리${reasonText}`;
   } else if (pendingPromotion) {
     statusText = '승격할 기물을 고르세요';
   } else if (myColor) {
     statusText = isMyTurn ? (inCheck ? '🟢 내 턴 — 체크!' : '🟢 현재 내 턴입니다.') : '🔴 상대방의 턴입니다.';
   } else {
-    statusText = `${room.turn === 'w' ? room.whiteName : room.blackName}님 차례예요${inCheck ? ' (체크)' : ''}`;
+    statusText = `${room.turn === 'w' ? whiteLabel : blackLabel}님 차례예요${inCheck ? ' (체크)' : ''}`;
+  }
+
+  if (room.status === 'finished' && emptySeat) {
+    statusText += myColor
+      ? ' 상대가 나가서 자리가 비었어요. 관전자가 앉으면 다시 둘 수 있어요.'
+      : ' 빈 자리에 앉으면 이어서 둘 수 있어요.';
   }
 
   const showClocks = room.status === 'playing' && room.timeControl !== 'none';
@@ -382,15 +410,16 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const isTotal = room.timeControl.startsWith('total');
 
   const isParticipant = myColor !== null;
-  const canRematch = room.status === 'finished' && isParticipant && Boolean(room.blackId);
+  const canRematch =
+    room.status === 'finished' && isParticipant && Boolean(room.whiteId) && Boolean(room.blackId);
   const rematchByMe = Boolean(room.rematchBy) && room.rematchBy === currentUser?.id;
   const rematchByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
-  const rematchRequesterName = room.rematchBy === room.whiteId ? room.whiteName : room.blackName;
+  const rematchRequesterName = room.rematchBy === room.whiteId ? whiteLabel : blackLabel;
 
   const canOfferDraw = room.status === 'playing' && isParticipant;
   const drawByMe = Boolean(room.drawOfferBy) && room.drawOfferBy === currentUser?.id;
   const drawByOpponent = Boolean(room.drawOfferBy) && room.drawOfferBy !== currentUser?.id;
-  const drawOffererName = room.drawOfferBy === room.whiteId ? room.whiteName : room.blackName;
+  const drawOffererName = room.drawOfferBy === room.whiteId ? whiteLabel : blackLabel;
 
   const lastMove = room.lastFrom && room.lastTo ? { from: room.lastFrom, to: room.lastTo } : null;
 
@@ -412,12 +441,12 @@ export function ChessRoom({ roomId }: { roomId: string }) {
 
           <div className="omok-room__players">
             <span className={`omok-room__player omok-room__player--white ${room.turn === 'w' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}>
-              ♔ {room.whiteName}
+              ♔ {whiteLabel}
               {showClocks && (isTotal || room.turn === 'w') ? renderClock(whiteRemaining, room.turn === 'w') : null}
             </span>
             <span className="omok-room__vs">vs</span>
             <span className={`omok-room__player omok-room__player--black ${room.turn === 'b' && room.status === 'playing' ? 'omok-room__player--active' : ''}`}>
-              ♚ {room.blackName ?? '(대기 중)'}
+              ♚ {room.status === 'waiting' ? (room.blackName ?? '(대기 중)') : blackLabel}
               {showClocks && (isTotal || room.turn === 'b') ? renderClock(blackRemaining, room.turn === 'b') : null}
             </span>
           </div>
@@ -476,6 +505,11 @@ export function ChessRoom({ roomId }: { roomId: string }) {
           {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
           <div className="omok-room__actions">
+            {emptySeat && !myColor && (
+              <button className="omok-room__restart-btn" disabled={sitting} onClick={handleSitDown} type="button">
+                {sitting ? '앉는 중...' : `${emptySeat === 'white' ? '♔ 백' : '♚ 흑'} 빈 자리에 앉기`}
+              </button>
+            )}
             {canResign && confirmingResign ? (
               <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
                 정말 기권할까요? 상대의 승리로 기록돼요.
