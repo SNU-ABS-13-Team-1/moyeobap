@@ -23,7 +23,9 @@ import {
 export { MIN_PLAYERS, MAX_PLAYERS } from "./phoneMatch";
 export type { PhoneRoom, RoomPlayer, AlbumEntry } from "./phoneMatch";
 
-/** 끝난(공개 단계) 방과 버려진 대기 방은 하루 지나면 정리합니다(그림이 DB에 있어 오래 두지 않습니다). */
+/** 하루 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(그림이 DB에 있어 오래 두지 않습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 턴 updated_at이 갱신되므로,
+ * 24시간 멈춘 playing 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
 const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 
 type RoomRow = {
@@ -85,7 +87,7 @@ async function cleanupStaleRooms(): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
   const cutoff = new Date(Date.now() - STALE_ROOM_TTL_MS).toISOString();
-  const { error } = await supabase.from("phone_rooms").delete().in("status", ["presenting", "waiting"]).lt("updated_at", cutoff);
+  const { error } = await supabase.from("phone_rooms").delete().lt("updated_at", cutoff);
   if (error) console.error("phone cleanup error:", error);
 }
 
@@ -410,6 +412,13 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   const players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p));
   const remaining = players.filter((p) => !p.left);
   const hostId = room.hostId === userId && remaining.length > 0 ? remaining[0].id : room.hostId;
+
+  // 마지막 앉은 사람이 나가면 방을 바로 지웁니다 — 아무도 안 남은 앨범은 다시 볼 사람도 없습니다.
+  // (탭을 그냥 닫은 사람은 감지할 수 없으므로, 그런 방은 위의 24시간 청소가 처리합니다.)
+  if (remaining.length === 0) {
+    await supabase.from("phone_rooms").delete().eq("id", roomId);
+    return;
+  }
 
   if (room.status === "presenting") {
     await updateRoom(room, { players, host_id: hostId });
