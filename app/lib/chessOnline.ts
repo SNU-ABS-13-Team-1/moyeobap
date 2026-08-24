@@ -290,6 +290,28 @@ export async function leaveRoom(roomId: string, userId: string): Promise<void> {
   }
 }
 
+/**
+ * "기권하기": 대국 중인 사람이 그 판을 내줍니다. leaveRoom과 결과는 같지만
+ * 자리를 그대로 둬서, 기권한 사람도 방에 남아 결과와 재대국 신청을 봅니다.
+ */
+export async function resign(
+  roomId: string,
+  userId: string,
+): Promise<{ room: ChessRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+  if (room.status !== "playing") return { error: "진행 중인 대국이 아니에요." };
+
+  const myColor = colorOf(room, userId);
+  if (!myColor) return { error: "참여자만 기권할 수 있어요." };
+
+  await finishRoom(room, myColor === "white" ? "black" : "white", "resign");
+
+  const updated = await getRoom(roomId);
+  if (!updated) return { error: "방을 찾을 수 없어요." };
+  return { room: updated };
+}
+
 export async function claimDisconnectWin(
   roomId: string,
   userId: string,

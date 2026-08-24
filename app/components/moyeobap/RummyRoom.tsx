@@ -54,7 +54,7 @@ export function RummyRoom({ roomId }: { roomId: string }) {
   const [sortBy, setSortBy] = useState<'color' | 'num'>('color');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingResign, setConfirmingResign] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -208,16 +208,20 @@ export function RummyRoom({ roomId }: { roomId: string }) {
     await post('turn', { table: table.map((set) => set.map((t) => t.id)) }, '턴을 마치지 못했어요.');
   }
 
-  // 게임 중 기권은 브라우저 확인창(confirm) 대신 화면 안에서 한 번 더 묻습니다.
-  // (일부 내장 브라우저는 confirm 창을 막아 버튼이 먹지 않는 것처럼 보입니다.)
-  const needsResignConfirm = room?.status === 'playing' && isPlayer;
+  // 게임 중인 참가자만 기권할 수 있습니다(관전자·대기 중·종료 후는 제외).
+  const canResign = room?.status === 'playing' && isPlayer;
+
   async function handleLeave() {
-    if (needsResignConfirm && !confirmingLeave) {
-      setConfirmingLeave(true);
-      return;
-    }
     await post('leave');
     router.push('/games/rummy/online');
+  }
+
+  // 기권은 자리만 비우고(남은 타일은 벌점으로 정산) 방에는 관전자로 남습니다.
+  // 로비로 나가는 것은 그 뒤 "로비로"가 맡습니다. 확인은 브라우저 confirm 대신
+  // 화면 안에서 한 번 더 묻습니다(일부 내장 브라우저가 confirm 창을 막습니다).
+  async function handleResign() {
+    await post('leave', undefined, '기권하지 못했어요.');
+    setConfirmingResign(false);
   }
 
   if (error) return <div className="omok-room__state">방을 불러오지 못했어요.</div>;
@@ -362,19 +366,23 @@ export function RummyRoom({ roomId }: { roomId: string }) {
                     같은 멤버로 다시 하기
                   </button>
                 )}
-                {needsResignConfirm && confirmingLeave ? (
+                {canResign && confirmingResign ? (
                   <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
                     정말 기권할까요? 남은 타일의 벌점만큼 점수를 잃어요.
-                    <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={handleLeave} type="button">
+                    <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={handleResign} type="button">
                       기권
                     </button>
-                    <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingLeave(false)} type="button">
+                    <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingResign(false)} type="button">
                       취소
                     </button>
                   </span>
+                ) : canResign ? (
+                  <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingResign(true)} type="button">
+                    기권하기
+                  </button>
                 ) : (
                   <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={handleLeave} type="button">
-                    {needsResignConfirm ? '기권하고 나가기' : '나가기'}
+                    {isPlayer ? '나가기' : '로비로'}
                   </button>
                 )}
               </div>
