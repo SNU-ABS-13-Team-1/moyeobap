@@ -3,6 +3,7 @@
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { WeekNote, type WeekInfo } from './WeekNote';
 
 type RankingEntry = {
   userId: string;
@@ -13,7 +14,7 @@ type RankingEntry = {
 };
 
 export function PongRanking() {
-  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: { key: string; label: string } }>('/api/games/pong/ranking', fetcher, {
+  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>('/api/games/pong/ranking', fetcher, {
     refreshInterval: 10000,
   });
   const ranking = data?.ranking ?? [];
@@ -25,6 +26,7 @@ export function PongRanking() {
   if (data && ranking.length === 0) {
     return (
       <>
+        <WeekNote week={data.week} />
         <p className="pong-ranking__empty">이번 주 기록이 아직 없어요. 첫 대전을 만들어보세요!</p>
         <HallOfFame hall={data.hall} unit="점" />
       </>
@@ -33,6 +35,7 @@ export function PongRanking() {
 
   return (
     <>
+      <WeekNote week={data?.week} />
       <table className="pong-ranking__table">
       <thead>
         <tr>

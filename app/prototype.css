@@ -7349,6 +7349,12 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
    주간 랭킹 · 명예의 전당 (모든 미니게임 공용)
    ========================================================================== */
 
+.week-note {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .hall {
   margin-top: 14px;
   padding: 12px 14px;

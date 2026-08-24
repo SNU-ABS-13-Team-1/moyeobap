@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import {
   BIRD_COLLISION_RADIUS,
@@ -26,7 +27,7 @@ const GAME_KEY = 'flappy';
 const LEADERBOARD_URL = `/api/games/${GAME_KEY}/scores`;
 
 type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: { key: string; label: string }; hall?: HallWeek[] };
+type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 type Status = 'idle' | 'playing' | 'over';
 
 type Effect = { id: number; x: number; y: number; text: string; perfect: boolean; createdAt: number };
@@ -365,6 +366,7 @@ export function FlappyGame() {
 
       <div className="flappy__leaderboard">
         <p className="flappy__leaderboard-title">🏆 이번 주 랭킹 (최고 점수 Top 10)</p>
+        <WeekNote week={leaderboardData?.week} />
         {!currentUser && <p className="flappy__leaderboard-note">로그인하면 내 최고 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
           <p className="flappy__leaderboard-note">아직 기록이 없어요. 첫 기록을 남겨보세요!</p>
