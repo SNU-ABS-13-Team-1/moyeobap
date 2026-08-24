@@ -5,8 +5,8 @@ import { TIME_CONTROL_LABEL, TIME_CONTROL_OPTIONS, type TimeControl } from '../.
 import { GameLobby, type GameLobbyConfig, type LobbyRoomBase } from './GameLobby';
 
 type ChessLobbyRoom = LobbyRoomBase & {
-  whiteId: string;
-  whiteName: string;
+  whiteId: string | null;
+  whiteName: string | null;
   blackId: string | null;
   blackName: string | null;
   timeControl: TimeControl;
@@ -22,7 +22,7 @@ export function ChessLobby() {
     rankingPath: '/games/chess/ranking',
     namePlaceholder: '방 이름 (예: 점심 체스 한 판)',
     hostId: (room) => room.whiteId,
-    hasOpenSeat: (room) => room.status === 'waiting' && !room.blackId,
+    hasOpenSeat: (room) => room.status === 'waiting' && (!room.whiteId || !room.blackId),
     roomMeta: (room) => TIME_CONTROL_LABEL[room.timeControl] ?? null,
     createBody: () => ({ timeControl }),
     createExtras: (
