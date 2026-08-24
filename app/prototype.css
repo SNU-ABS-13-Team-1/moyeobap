@@ -4593,6 +4593,194 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.9rem;
 }
 
+/* ===== Open rooms (미니게임 현황판 — 게임 구분 없는 통합 방 목록) ===== */
+.open-rooms {
+  margin-top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.open-rooms__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.open-rooms__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.open-rooms__subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.open-rooms__error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.open-rooms__empty {
+  margin: 0;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px dashed var(--card-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.open-rooms__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.open-rooms__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.open-rooms__game {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.open-rooms__game--omok {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.open-rooms__game--chess {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.open-rooms__game--rummy {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.open-rooms__game--phone {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.open-rooms__info {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.open-rooms__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-rooms__meta {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-rooms__count {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.open-rooms__status {
+  flex: 0 0 auto;
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.open-rooms__status--waiting {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.open-rooms__status--playing {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.open-rooms__status--presenting {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.open-rooms__enter-btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.open-rooms__enter-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.open-rooms__enter-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .open-rooms__item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .open-rooms__info {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .open-rooms__enter-btn {
+    margin-left: auto;
+  }
+}
+
 
 .snake {
   max-width: fit-content;

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { OpenRoomsPanel } from '../components/moyeobap/OpenRoomsPanel';
 import { isFeatureEnabled } from '../lib/featureFlags';
 
 const GAMES = [
@@ -71,6 +72,8 @@ export default async function GamesPage() {
           </Link>
         ))}
       </div>
+
+      <OpenRoomsPanel />
     </main>
   );
 }
