@@ -30,6 +30,7 @@ type BadukRoomData = {
   deadStones: string[];
   blackConfirmedScore: boolean;
   whiteConfirmedScore: boolean;
+  scoreOfferBy: string | null;
   winner: 'black' | 'white' | null;
   finalBlackScore: number | null;
   finalWhiteScore: number | null;
@@ -403,6 +404,11 @@ export function BadukRoom({ roomId }: { roomId: string }) {
   const rematchRequestedByOpponent = Boolean(room.rematchBy) && room.rematchBy !== currentUser?.id;
   const rematchRequesterName = room.rematchBy === room.blackId ? room.blackName : room.whiteName;
 
+  const canOfferScoring = room.status === 'playing' && isParticipant;
+  const scoreOfferByMe = Boolean(room.scoreOfferBy) && room.scoreOfferBy === currentUser?.id;
+  const scoreOfferByOpponent = Boolean(room.scoreOfferBy) && room.scoreOfferBy !== currentUser?.id;
+  const scoreOffererName = room.scoreOfferBy === room.blackId ? room.blackName : room.whiteName;
+
   const myConfirmed = myColor === 'black' ? room.blackConfirmedScore : myColor === 'white' ? room.whiteConfirmedScore : false;
   const opponentConfirmed = myColor === 'black' ? room.whiteConfirmedScore : myColor === 'white' ? room.blackConfirmedScore : false;
 
@@ -462,6 +468,20 @@ export function BadukRoom({ roomId }: { roomId: string }) {
             </div>
           )}
 
+          {canOfferScoring && scoreOfferByOpponent && (
+            <div className="omok-room__rematch-offer">
+              <span>{scoreOffererName}님이 계가를 신청했어요.</span>
+              <div className="omok-room__rematch-offer-actions">
+                <button className="omok-room__restart-btn" disabled={acting} onClick={() => postAction('score-offer', { action: 'accept' })} type="button">
+                  수락 (계가 시작)
+                </button>
+                <button className="omok-room__rematch-cancel-btn" disabled={acting} onClick={() => postAction('score-offer', { action: 'decline' })} type="button">
+                  거절
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="omok-room__canvas-wrap">
             <canvas
               className={`omok-room__canvas ${isMyTurn || (isScoring && isParticipant) ? 'omok-room__canvas--active' : ''}`}
@@ -480,6 +500,16 @@ export function BadukRoom({ roomId }: { roomId: string }) {
             {room.status === 'playing' && isMyTurn && (
               <button className="baduk-room__pass-btn" disabled={acting} onClick={() => postAction('pass')} type="button">
                 패스
+              </button>
+            )}
+            {canOfferScoring && !room.scoreOfferBy && (
+              <button className="baduk-room__pass-btn" disabled={acting} onClick={() => postAction('score-offer', { action: 'offer' })} type="button">
+                계가 신청
+              </button>
+            )}
+            {canOfferScoring && scoreOfferByMe && (
+              <button className="omok-room__rematch-cancel-btn" disabled={acting} onClick={() => postAction('score-offer', { action: 'decline' })} type="button">
+                신청 취소
               </button>
             )}
             {(room.status === 'playing' || room.status === 'scoring') && isParticipant && (
@@ -513,6 +543,10 @@ export function BadukRoom({ roomId }: { roomId: string }) {
               </button>
             )}
           </div>
+
+          {canOfferScoring && scoreOfferByMe && (
+            <p className="omok-room__rematch-waiting">계가를 신청했어요. 상대의 답을 기다리는 중이에요.</p>
+          )}
 
           {canRematch && rematchRequestedByMe && (
             <p className="omok-room__rematch-waiting">재대국을 신청했어요. 상대의 수락을 기다리는 중이에요.</p>

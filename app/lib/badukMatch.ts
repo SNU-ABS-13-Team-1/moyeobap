@@ -61,3 +61,57 @@ export function swappedColors(room: {
     white_name: room.blackName,
   };
 }
+
+// ---------- 계가 신청 ----------
+
+/** 계가 신청에 대해 할 수 있는 행동입니다. */
+export type ScoreOfferAction = "offer" | "accept" | "decline";
+
+/** 계가 신청 판정에 필요한 방 정보만 추린 모양입니다. */
+export type ScoreOfferRoom = {
+  status: string;
+  blackId: string;
+  whiteId: string | null;
+  scoreOfferBy: string | null;
+};
+
+/**
+ * 계가 신청/수락/거절이 지금 가능한지 판정합니다. 통과하면 null을, 막히면
+ * 그대로 사용자에게 보여줄 이유를 돌려줍니다.
+ *
+ * DB를 타지 않는 순수 함수로 떼어 둔 이유는, 신청이 걸린 사이에 상대가
+ * 수를 두거나 기권해서 방 상태가 먼저 바뀌는 경우의 수가 많아서입니다.
+ * 그 조합을 테스트로 고정해 두고, baduk.ts는 이 판정을 가져다 쓰기만 합니다.
+ *
+ * 거절만 status를 따지지 않습니다. 신청이 걸린 채로 상대가 착수·기권해서
+ * 대국이 끝나 있을 수 있는데, 그때 누른 거절이 에러로 보이면 신청 표시를
+ * 치울 방법이 없어지기 때문입니다.
+ */
+export function checkScoreOffer(
+  room: ScoreOfferRoom,
+  userId: string,
+  action: ScoreOfferAction,
+): string | null {
+  if (room.blackId !== userId && room.whiteId !== userId) {
+    return "참여자만 계가를 신청할 수 있어요.";
+  }
+
+  if (action === "decline") {
+    if (!room.scoreOfferBy) return "물릴 계가 신청이 없어요.";
+    return null;
+  }
+
+  if (room.status !== "playing") {
+    return action === "offer" ? "대국 중에만 계가를 신청할 수 있어요." : "대국 중이 아니에요.";
+  }
+
+  if (action === "offer") {
+    if (room.scoreOfferBy === userId) return "이미 계가를 신청했어요.";
+    if (room.scoreOfferBy) return "상대가 이미 계가를 신청했어요. 수락하거나 거절해주세요.";
+    return null;
+  }
+
+  if (!room.scoreOfferBy) return "계가 신청이 없어요.";
+  if (room.scoreOfferBy === userId) return "상대의 답을 기다리는 중이에요.";
+  return null;
+}

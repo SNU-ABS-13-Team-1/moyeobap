@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRedis } from "./kv";
 import { getSupabase } from "./supabase";
+import { toParticipantProfiles } from "./potParticipants";
 import { RESTAURANTS } from "../data/restaurants";
 import { isChatEmojiPath } from "../data/chat-emojis";
 import type {
@@ -111,13 +112,7 @@ export function toPotView(
     deadline: pot.deadline,
     participantCount: pot.participants.length,
     participants: isParticipating
-      ? pot.participants.map((participant) => ({
-          name: participant.name,
-          initial: participant.initial,
-          isManager: participant.id === pot.managerId,
-          isPaid: Boolean(participant.isPaid),
-          orderMemo: participant.orderMemo || undefined,
-        }))
+      ? toParticipantProfiles(pot.participants, pot.managerId, currentUser?.id ?? null)
       : null,
     isParticipating,
     isManaging: Boolean(currentUser && currentUser.id === pot.managerId),

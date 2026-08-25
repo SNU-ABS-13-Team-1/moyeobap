@@ -42,6 +42,8 @@ export interface ParticipantProfile {
   name: string;
   initial: string;
   isManager: boolean;
+  /** 서버가 id로 판정한 본인 여부. 이름은 참여 시점 스냅샷이라 화면에서 비교하면 안 됩니다. */
+  isMe: boolean;
   isPaid?: boolean;
   orderMemo?: string;
 }
