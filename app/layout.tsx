@@ -5,6 +5,8 @@ import "./prototype.css";
 import { AuthProvider } from "./components/moyeobap/AuthProvider";
 import { Header } from "./components/moyeobap/Header";
 import { TestServerBanner } from "./components/moyeobap/TestServerBanner";
+import { NotificationProvider } from "./components/moyeobap/NotificationProvider";
+import { NotificationToasts } from "./components/moyeobap/NotificationToasts";
 import { isFeatureEnabled } from "./lib/featureFlags";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -59,19 +61,35 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const gamesEnabled = await isFeatureEnabled("games_hub");
+  const [gamesEnabled, notificationsEnabled] = await Promise.all([
+    isFeatureEnabled("games_hub"),
+    isFeatureEnabled("notifications"),
+  ]);
+
+  const shell = (
+    <div className="moyeobap-body">
+      <div className="app">
+        <Header gamesEnabled={gamesEnabled} />
+        {children}
+      </div>
+    </div>
+  );
 
   return (
     <html data-scroll-behavior="smooth" lang="ko">
       <body>
         <AuthProvider>
           <TestServerBanner />
-          <div className="moyeobap-body">
-            <div className="app">
-              <Header gamesEnabled={gamesEnabled} />
-              {children}
-            </div>
-          </div>
+          {/* 알림이 꺼져 있으면 Provider 자체를 매달지 않습니다 — 폴링도
+              Realtime 구독도 시작되지 않습니다. */}
+          {notificationsEnabled ? (
+            <NotificationProvider>
+              {shell}
+              <NotificationToasts />
+            </NotificationProvider>
+          ) : (
+            shell
+          )}
         </AuthProvider>
       </body>
     </html>

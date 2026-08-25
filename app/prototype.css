@@ -7723,3 +7723,79 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .phone__close-btn {
   color: #b91c1c;
 }
+
+/* 알림 — 헤더 카운트 배지 · 토스트 */
+.site-nav__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(225, 29, 72, 0.35);
+}
+
+.notice-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.notice-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  color: #1f2937;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  animation: notice-toast-in 180ms ease-out;
+}
+
+.notice-toast--chat {
+  border-left-color: #2563eb;
+}
+
+.notice-toast__icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.notice-toast__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes notice-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice-toast {
+    animation: none;
+  }
+}
