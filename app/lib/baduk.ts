@@ -1,6 +1,6 @@
 import { getSupabase } from "./supabase";
 import { recordMatchResult } from "./badukRanking";
-import { isTurnExpired, swappedColors } from "./badukMatch";
+import { checkScoreOffer, isTurnExpired, swappedColors } from "./badukMatch";
 import { applyMove, createEmptyBoard as createEmptyRulesBoard } from "./badukRules";
 import { computeScore, toggleDeadGroup } from "./badukScoring";
 import { BOARD_SIZE, KOMI } from "./badukConstants";
@@ -27,6 +27,7 @@ export type BadukRoom = {
   deadStones: string[];
   blackConfirmedScore: boolean;
   whiteConfirmedScore: boolean;
+  scoreOfferBy: string | null;
   winner: Winner;
   finalBlackScore: number | null;
   finalWhiteScore: number | null;
@@ -56,6 +57,7 @@ type BadukRoomRow = {
   dead_stones: string[];
   black_confirmed_score: boolean;
   white_confirmed_score: boolean;
+  score_offer_by: string | null;
   winner: Winner;
   final_black_score: number | null;
   final_white_score: number | null;
@@ -90,6 +92,7 @@ function mapRow(row: BadukRoomRow): BadukRoom {
     deadStones: row.dead_stones,
     blackConfirmedScore: row.black_confirmed_score,
     whiteConfirmedScore: row.white_confirmed_score,
+    scoreOfferBy: row.score_offer_by ?? null,
     winner: row.winner,
     finalBlackScore: row.final_black_score,
     finalWhiteScore: row.final_white_score,
@@ -210,6 +213,7 @@ async function finishRoomWithWinner(
       move_count: room.moveCount + 1,
       turn_started_at: null,
       rematch_by: null,
+      score_offer_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", room.id)
@@ -360,6 +364,7 @@ export async function acceptRematch(roomId: string, userId: string): Promise<Bad
       last_row: null,
       last_col: null,
       rematch_by: null,
+      score_offer_by: null,
       started_at: now,
       turn_started_at: now,
       updated_at: now,
@@ -455,6 +460,8 @@ export async function submitMove(
       captures_white: capturesWhite,
       last_row: row,
       last_col: col,
+      // 수를 두면 걸려 있던 계가 신청은 거절한 것으로 봅니다(체스 무승부 제안과 동일).
+      score_offer_by: null,
       turn_started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -507,6 +514,7 @@ export async function submitPass(roomId: string, userId: string): Promise<{ room
       dead_stones: enterScoring ? [] : room.deadStones,
       black_confirmed_score: false,
       white_confirmed_score: false,
+      score_offer_by: null,
       turn_started_at: enterScoring ? null : new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -520,6 +528,113 @@ export async function submitPass(roomId: string, userId: string): Promise<{ room
     return { error: "패스를 처리하지 못했어요." };
   }
   if (!data) return { error: "다른 수가 먼저 처리됐어요. 다시 시도해주세요." };
+
+  return { room: mapRow(data as BadukRoomRow) };
+}
+
+// ---------- 계가 신청 ----------
+//
+// 계가로 들어가는 두 번째 길입니다(첫 번째는 두 번 연속 패스 → submitPass).
+// 승패가 이미 뚜렷한 판에서 서로 패스를 주고받게 하지 않으려고, 대국 중에
+// "이쯤에서 끝내자"고 신청하고 상대가 수락하면 바로 계가 단계로 넘어갑니다.
+// 판정 규칙은 badukMatch.ts의 checkScoreOffer에 순수 함수로 모아 뒀습니다.
+
+/** 상대에게 계가를 신청합니다. 수락 전까지는 판이 그대로 진행됩니다. */
+export async function offerScoring(roomId: string, userId: string): Promise<{ room: BadukRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+
+  const reason = checkScoreOffer(room, userId, "offer");
+  if (reason) return { error: reason };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  // 여기서는 move_count를 올리지 않습니다. 신청은 판을 건드리지 않는
+  // 행동이라, 올려버리면 거의 동시에 날아온 상대의 정상 착수가 CAS에
+  // 걸려 실패합니다. 대신 "내가 읽은 판이 아직 그대로인지"만 확인합니다.
+  const { data, error } = await supabase
+    .from("baduk_rooms")
+    .update({ score_offer_by: userId, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .eq("status", "playing")
+    .eq("move_count", room.moveCount)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("offerScoring error:", error);
+    return { error: "계가를 신청하지 못했어요." };
+  }
+  if (!data) return { error: "그 사이에 판이 바뀌었어요. 다시 시도해주세요." };
+
+  return { room: mapRow(data as BadukRoomRow) };
+}
+
+/** 상대의 계가 신청을 수락해 계가 단계로 넘어갑니다. 두 번 연속 패스로
+ * 들어갈 때(submitPass)와 같은 상태로 맞춥니다. */
+export async function acceptScoring(roomId: string, userId: string): Promise<{ room: BadukRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+
+  const reason = checkScoreOffer(room, userId, "accept");
+  if (reason) return { error: reason };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("baduk_rooms")
+    .update({
+      status: "scoring",
+      move_count: room.moveCount + 1,
+      dead_stones: [],
+      black_confirmed_score: false,
+      white_confirmed_score: false,
+      score_offer_by: null,
+      turn_started_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", roomId)
+    .eq("status", "playing")
+    .eq("score_offer_by", room.scoreOfferBy)
+    .eq("move_count", room.moveCount)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("acceptScoring error:", error);
+    return { error: "계가를 시작하지 못했어요." };
+  }
+  if (!data) return { error: "그 사이에 판이 바뀌었어요. 다시 시도해주세요." };
+
+  return { room: mapRow(data as BadukRoomRow) };
+}
+
+/** 계가 신청을 물립니다. 상대의 신청을 거절할 때도, 내가 한 신청을 취소할
+ * 때도 같은 경로를 씁니다. */
+export async function declineScoring(roomId: string, userId: string): Promise<{ room: BadukRoom } | { error: string }> {
+  const room = await getRoom(roomId);
+  if (!room) return { error: "존재하지 않는 방이에요." };
+
+  const reason = checkScoreOffer(room, userId, "decline");
+  if (reason) return { error: reason };
+
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+
+  const { data, error } = await supabase
+    .from("baduk_rooms")
+    .update({ score_offer_by: null, updated_at: new Date().toISOString() })
+    .eq("id", roomId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error("declineScoring error:", error);
+    return { error: "계가 신청을 물리지 못했어요." };
+  }
+  if (!data) return { error: "방을 찾을 수 없어요." };
 
   return { room: mapRow(data as BadukRoomRow) };
 }
@@ -626,6 +741,7 @@ export async function confirmScore(roomId: string, userId: string): Promise<{ ro
       move_count: room.moveCount + 1,
       turn_started_at: null,
       rematch_by: null,
+      score_offer_by: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId)
