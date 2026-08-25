@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { BgmPlayer } from './BgmPlayer';
+import { useNotifications } from './NotificationProvider';
 
 interface NavItem {
   href: string;
@@ -26,6 +27,14 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
   const { currentUser, openAuth, openProfile } = useAuth();
   const navItems = gamesEnabled ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.href !== '/games');
 
+  // 알림이 꺼져 있으면 Provider가 없고, 기본값 0이 내려와 배지가 그려지지 않습니다.
+  const { newPotCount, unreadTotal } = useNotifications();
+  const countFor = (href: string) => {
+    if (href === '/') return newPotCount;
+    if (href === '/my') return unreadTotal;
+    return 0;
+  };
+
   return (
     <header className="header">
       <Link aria-label="모여밥 현황판" className="header__logo" href="/">
@@ -38,6 +47,7 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
           const active = item.href === '/'
             ? pathname === '/'
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const count = countFor(item.href);
           return (
             <Link
               aria-current={active ? 'page' : undefined}
@@ -49,6 +59,14 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
               <span className={item.mobileLabel ? 'site-nav__label-full' : ''}>{item.label}</span>
               {item.mobileLabel && <span className="site-nav__label-mobile">{item.mobileLabel}</span>}
               {item.badge && <span className="site-nav__badge">{item.badge}</span>}
+              {count > 0 && (
+                <span
+                  aria-label={item.href === '/' ? `새 모집 ${count}건` : `읽지 않은 메시지 ${count}개`}
+                  className="site-nav__count"
+                >
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
             </Link>
           );
         })}
