@@ -5,7 +5,7 @@ import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import {
-  CHAT_EMOJIS,
+  POT_CHAT_EMOJIS,
   getChatEmojiBySrc,
   isChatEmojiPath,
   type ChatEmoji,
@@ -545,7 +545,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
           id="chat-emoji-picker"
           aria-label="모여밥 이모티콘 선택"
         >
-          {CHAT_EMOJIS.map((emoji) => (
+          {POT_CHAT_EMOJIS.map((emoji) => (
             <button
               type="button"
               className="chat-panel__emoji-option"

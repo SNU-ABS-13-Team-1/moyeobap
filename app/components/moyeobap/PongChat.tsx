@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
-import { CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { GAME_CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
 
 // 퐁 채팅은 공용 GameChat을 쓰지 않습니다 — 화면 배색(pong-chat__*)이 게임과
@@ -169,7 +169,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
 
       {canPost && isEmojiPickerOpen && (
         <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id="pong-chat-emoji-picker">
-          {CHAT_EMOJIS.map((emoji) => (
+          {GAME_CHAT_EMOJIS.map((emoji) => (
             <button
               aria-label={`${emoji.label} 보내기`}
               className="chat-panel__emoji-option"

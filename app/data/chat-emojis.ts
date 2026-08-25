@@ -54,11 +54,28 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-// 피커 노출 순서 = 2차 개편분(15종) → 3차 개편분(13종) → 기존 12종.
-// 첫 줄에 인사·감사처럼 팟 채팅에서 제일 많이 쓰는 것이 오도록 2차분을 앞에
-// 두고, 승부 표현이 모여 있는 3차분을 그 뒤에 붙입니다.
-// 전송 화이트리스트(getChatEmojiById)와 렌더용 조회(getChatEmojiBySrc)가
-// 같은 목록을 보도록 하나로 유지합니다.
+// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 40종을 한 격자에 다 깔면 원하는
+// 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
+// 이유도 없기 때문입니다.
+
+/** 게임방 피커에도 함께 둘 공용 이모티콘. 인사·감사는 어디서나 씁니다. */
+const SHARED_WITH_GAME = new Set(['hello', 'thank-you', 'good-job', 'wait']);
+
+/** 팟 채팅 피커: 주문·정산 맥락. 2차 개편분(15종) 먼저, 기존 12종이 뒤에. */
+export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = [
+  ...CHAT_EMOJIS_V2,
+  ...LEGACY_CHAT_EMOJIS,
+];
+
+/** 게임방 피커: 승부 표현 13종 먼저, 공용 몇 개가 뒤에. */
+export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = [
+  ...CHAT_EMOJIS_V3,
+  ...CHAT_EMOJIS_V2.filter((emoji) => SHARED_WITH_GAME.has(emoji.id)),
+];
+
+// 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 40종을
+// 전부 알아야 합니다 — 게임방에서 온 메시지를 나중에 어디서 보든, 또 피커
+// 구성을 바꾼 뒤에도 지난 메시지가 깨지지 않아야 하기 때문입니다.
 export const CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V2,
   ...CHAT_EMOJIS_V3,

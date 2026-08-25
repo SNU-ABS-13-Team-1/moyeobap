@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
-import { CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { GAME_CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
 
 // 실시간 대전 방 공용 채팅. 오목·체스가 API 경로·Realtime 테이블·역할 이름만 다르게
@@ -22,7 +22,7 @@ export type GameChatConfig<Role extends string> = {
   roleLabel: Record<Role, string>;
   /**
    * 모여밥 이모티콘 버튼을 띄울지. 채팅 테이블에 kind 컬럼이 있고 API가
-   * emojiId를 받는 게임에서만 켭니다(현재 오목).
+   * emojiId를 받는 게임에서만 켭니다(오목·바둑·체스·퐁·루미큐브·갈틱폰).
    */
   emojis?: boolean;
 };
@@ -195,7 +195,7 @@ export function GameChat<Role extends string>({
 
       {config.emojis && isEmojiPickerOpen && (
         <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id={`${config.channelPrefix}-emoji-picker`}>
-          {CHAT_EMOJIS.map((emoji) => (
+          {GAME_CHAT_EMOJIS.map((emoji) => (
             <button
               aria-label={`${emoji.label} 보내기`}
               className="chat-panel__emoji-option"
