@@ -4,6 +4,7 @@ import type { ChatMessageView, User } from '../../types/moyeobap';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
+import { isChatAtBottom } from '../../lib/chatScroll';
 import {
   POT_CHAT_EMOJIS,
   getChatEmojiBySrc,
@@ -60,9 +61,15 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
   const copyTimerRef = useRef<number | null>(null);
   const scrolledPotIdRef = useRef<string | null>(null);
   const wasActiveRef = useRef(false);
+  /** 하단을 보고 있는지. 이 값이 참일 때만 새 메시지를 따라 내려갑니다. */
+  const followBottomRef = useRef(true);
   const messages = data?.messages ?? [];
   const pinnedAccount = messages.findLast((message) => message.kind === 'account');
   const pinnedOrderLink = messages.findLast((message) => message.kind === 'order_link');
+
+  function handleListScroll() {
+    if (listRef.current) followBottomRef.current = isChatAtBottom(listRef.current);
+  }
 
   function getAccountText(message: ChatMessageView) {
     const marker = '계좌번호:';
@@ -134,9 +141,12 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
           window.clearTimeout(timer2);
         };
       }
-    } else if (effectiveActive) {
-      // 이후 새 메시지가 올 때 부드러운 스크롤
-      listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    } else if (effectiveActive && followBottomRef.current) {
+      // 이후 새 메시지는 하단을 보고 있을 때만 따라갑니다. 위로 올려 지난 대화를
+      // 읽는 중이면 화면을 그대로 둡니다. 부드러운 스크롤 대신 즉시 이동인데,
+      // 애니메이션이 도는 사이에 다음 메시지가 오면 중간 위치를 "하단 아님"으로
+      // 읽어 그때부터 따라가지 못하기 때문입니다.
+      listRef.current.scrollTop = listRef.current.scrollHeight;
     }
 
     wasActiveRef.current = effectiveActive;
@@ -163,6 +173,8 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     if (!trimmed || sending) return;
 
     setSendError(null);
+    // 내가 보낸 것은 위로 올려둔 상태였더라도 보여줍니다.
+    followBottomRef.current = true;
     setText('');
 
     // 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
@@ -197,6 +209,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     if (sending) return;
     setSending(true);
     setSendError(null);
+    followBottomRef.current = true;
 
     const accountText = `${currentUser.bankName} ${currentUser.accountNumber}`;
     const optimisticMsg: ChatMessageView = {
@@ -237,6 +250,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
 
     setSending(true);
     setSendError(null);
+    followBottomRef.current = true;
     setIsOrderLinkModalOpen(false);
     setOrderLinkUrl('');
 
@@ -291,6 +305,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
 
     setSending(true);
     setSendError(null);
+    followBottomRef.current = true;
     const dataUrl = imagePreview;
     setImagePreview(null);
 
@@ -326,6 +341,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
 
     setSending(true);
     setSendError(null);
+    followBottomRef.current = true;
     setIsEmojiPickerOpen(false);
 
     const optimisticMsg: ChatMessageView = {
@@ -388,6 +404,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
       )}
       <div
         className="chat-panel__list"
+        onScroll={handleListScroll}
         ref={listRef}
         style={{
           transition: 'opacity 0.12s ease',
