@@ -34,6 +34,7 @@ const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
   apiBase: '/api/games/rummy/rooms',
   table: 'rummy_chat_messages',
   channelPrefix: 'rummy-chat',
+  emojis: true,
   roleLabel: { player: '플레이어', spectator: '관전' },
 };
 

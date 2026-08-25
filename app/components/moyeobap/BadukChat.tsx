@@ -8,6 +8,7 @@ const CONFIG: GameChatConfig<BadukChatAuthorRole> = {
   apiBase: '/api/games/baduk/rooms',
   table: 'baduk_chat_messages',
   channelPrefix: 'baduk-chat',
+  emojis: true,
   roleLabel: { black: '흑', white: '백', spectator: '관전' },
 };
 

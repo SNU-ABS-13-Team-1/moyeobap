@@ -1,11 +1,15 @@
 import { getSupabase } from "./supabase";
 import { getRoom } from "./pong";
 
+export type PongChatKind = "text" | "image";
+
 export type PongChatMessage = {
   id: string;
   authorId: string;
   authorName: string;
   text: string;
+  kind: PongChatKind;
+  imageUrl?: string;
   createdAt: string;
 };
 
@@ -14,6 +18,7 @@ type PongChatRow = {
   author_id: string;
   author_name: string;
   text: string;
+  kind: PongChatKind;
   created_at: string;
 };
 
@@ -23,6 +28,8 @@ function mapRow(row: PongChatRow): PongChatMessage {
     authorId: row.author_id,
     authorName: row.author_name,
     text: row.text,
+    kind: row.kind,
+    imageUrl: row.kind === "image" ? row.text : undefined,
     createdAt: row.created_at,
   };
 }
@@ -33,7 +40,7 @@ export async function getRoomChat(roomId: string): Promise<PongChatMessage[]> {
 
   const { data, error } = await supabase
     .from("pong_chat_messages")
-    .select("id, author_id, author_name, text, created_at")
+    .select("id, author_id, author_name, text, kind, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true })
     .limit(200);
@@ -53,6 +60,7 @@ export async function postRoomChat(
   userId: string,
   userName: string,
   text: string,
+  kind: PongChatKind = "text",
 ): Promise<PongChatMessage | { error: string }> {
   const trimmed = text.trim();
   if (!trimmed) return { error: "메시지를 입력해주세요." };
@@ -69,8 +77,8 @@ export async function postRoomChat(
 
   const { data, error } = await supabase
     .from("pong_chat_messages")
-    .insert({ room_id: roomId, author_id: userId, author_name: userName, text: trimmed })
-    .select("id, author_id, author_name, text, created_at")
+    .insert({ room_id: roomId, author_id: userId, author_name: userName, text: trimmed, kind })
+    .select("id, author_id, author_name, text, kind, created_at")
     .single();
 
   if (error || !data) {

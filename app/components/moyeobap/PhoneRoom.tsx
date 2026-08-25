@@ -29,6 +29,7 @@ const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
   apiBase: '/api/games/phone/rooms',
   table: 'phone_chat_messages',
   channelPrefix: 'phone-chat',
+  emojis: true,
   roleLabel: { player: '플레이어', spectator: '구경' },
 };
 
