@@ -5,13 +5,21 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
+import { CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
+
+// 퐁 채팅은 공용 GameChat을 쓰지 않습니다 — 화면 배색(pong-chat__*)이 게임과
+// 맞춰져 있고, 관전자는 읽기만 되는 규칙이 여기에만 있습니다. 이모티콘 UI만
+// 같은 클래스(chat-panel__emoji-*)를 빌려 씁니다.
 
 type PongChatMessage = {
   id: string;
   authorId: string;
   authorName: string;
   text: string;
+  /** 이모티콘 메시지는 'image'. 이 기능 이전 메시지는 undefined입니다. */
+  kind?: 'text' | 'image';
+  imageUrl?: string;
   createdAt: string;
 };
 
@@ -30,6 +38,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const messages = data?.messages ?? [];
 
@@ -72,6 +81,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
       authorId: currentUser.id,
       authorName: currentUser.name,
       text: trimmed,
+      kind: 'text',
       createdAt: new Date().toISOString(),
     };
     mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
@@ -86,6 +96,39 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
       await mutate();
     } catch (err) {
       setSendError(getErrorMessage(err, '메시지를 보내지 못했어요.'));
+      await mutate();
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleSendEmoji(emoji: ChatEmoji) {
+    if (sending || !currentUser) return;
+
+    setSendError(null);
+    setIsEmojiPickerOpen(false);
+
+    const optimisticMsg: PongChatMessage = {
+      id: `temp-emoji-${crypto.randomUUID()}`,
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      text: emoji.src,
+      kind: 'image',
+      imageUrl: emoji.src,
+      createdAt: new Date().toISOString(),
+    };
+    mutate((prev) => ({ messages: [...(prev?.messages ?? []), optimisticMsg] }), false);
+
+    setSending(true);
+    try {
+      await requestJson(`/api/games/pong/rooms/${roomId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emojiId: emoji.id }),
+      });
+      await mutate();
+    } catch (err) {
+      setSendError(getErrorMessage(err, '이모티콘을 보내지 못했어요.'));
       await mutate();
     } finally {
       setSending(false);
@@ -108,15 +151,55 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
             <span className="pong-chat__meta">
               [{formatTime(m.createdAt)}] {m.authorName}
             </span>
-            <span className="pong-chat__bubble">{m.text}</span>
+            {m.kind === 'image' && m.imageUrl && isChatEmojiPath(m.imageUrl) ? (
+              <span className="chat-panel__bubble--emoji">
+                <span className="chat-panel__image-wrap chat-panel__image-wrap--emoji">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img alt="이모티콘" className="chat-panel__emoji-message-image" src={m.imageUrl} />
+                </span>
+              </span>
+            ) : (
+              <span className="pong-chat__bubble">{m.text}</span>
+            )}
           </div>
         ))}
       </div>
 
       {sendError && <p className="pong-chat__error">{sendError}</p>}
 
+      {canPost && isEmojiPickerOpen && (
+        <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id="pong-chat-emoji-picker">
+          {CHAT_EMOJIS.map((emoji) => (
+            <button
+              aria-label={`${emoji.label} 보내기`}
+              className="chat-panel__emoji-option"
+              disabled={sending}
+              key={emoji.id}
+              onClick={() => handleSendEmoji(emoji)}
+              title={`${emoji.label} 보내기`}
+              type="button"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={emoji.label} src={emoji.src} />
+            </button>
+          ))}
+        </div>
+      )}
+
       {canPost ? (
         <form className="pong-chat__form" onSubmit={handleSubmit}>
+          <button
+            aria-controls="pong-chat-emoji-picker"
+            aria-expanded={isEmojiPickerOpen}
+            aria-label="모여밥 이모티콘 선택"
+            className={`chat-panel__tool-chip chat-panel__tool-chip--emoji ${isEmojiPickerOpen ? 'chat-panel__tool-chip--active' : ''}`}
+            disabled={sending}
+            onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+            title="모여밥 이모티콘 선택"
+            type="button"
+          >
+            🍚
+          </button>
           <input
             aria-label="메시지"
             className="pong-chat__input"

@@ -8,6 +8,7 @@ const CONFIG: GameChatConfig<ChessChatAuthorRole> = {
   apiBase: '/api/games/chess/rooms',
   table: 'chess_chat_messages',
   channelPrefix: 'chess-chat',
+  emojis: true,
   roleLabel: { white: '백', black: '흑', spectator: '관전' },
 };
 

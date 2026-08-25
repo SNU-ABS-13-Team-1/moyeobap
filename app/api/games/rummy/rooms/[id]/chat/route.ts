@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/app/lib/auth";
+import { getChatEmojiById } from "@/app/data/chat-emojis";
+import { parseChatBody } from "@/app/lib/gameChatBody";
 import { getRoomChat, postRoomChat } from "@/app/lib/rummyChat";
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -21,8 +23,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const { id } = await context.params;
   const body = await request.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text : "";
-  const result = await postRoomChat(id, user.id, user.name, text);
+  const parsed = parseChatBody(body, getChatEmojiById);
+  if ("error" in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  const result = await postRoomChat(id, user.id, user.name, parsed.text, parsed.kind);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

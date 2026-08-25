@@ -5979,6 +5979,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .pong-chat__list {
   flex: 1;
+  /* 오목 채팅과 같은 이유입니다 — 이모티콘을 열었을 때 목록이 먼저 줄고
+     스크롤돼야, 입력줄이 패널 밖으로 밀려나지 않습니다. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-md);
   display: flex;
@@ -6035,6 +6038,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: 8px;
   padding: var(--space-md);
   border-top: 1px solid var(--card-border);
+  /* 이모티콘을 닫는 🍚 버튼이 여기 있어서, 절대 밀려나면 안 됩니다. */
+  flex-shrink: 0;
 }
 
 .pong-chat__input {

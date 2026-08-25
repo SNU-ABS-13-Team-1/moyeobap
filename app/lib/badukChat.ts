@@ -2,6 +2,7 @@ import { getSupabase } from "./supabase";
 import { getRoom } from "./baduk";
 
 export type BadukChatAuthorRole = "black" | "white" | "spectator";
+export type BadukChatKind = "text" | "image";
 
 export type BadukChatMessage = {
   id: string;
@@ -10,6 +11,8 @@ export type BadukChatMessage = {
   /** 메시지를 쓴 시점의 역할. */
   authorRole: BadukChatAuthorRole | null;
   text: string;
+  kind: BadukChatKind;
+  imageUrl?: string;
   createdAt: string;
 };
 
@@ -19,6 +22,7 @@ type BadukChatRow = {
   author_name: string;
   author_role: BadukChatAuthorRole | null;
   text: string;
+  kind: BadukChatKind;
   created_at: string;
 };
 
@@ -29,6 +33,8 @@ function mapRow(row: BadukChatRow): BadukChatMessage {
     authorName: row.author_name,
     authorRole: row.author_role,
     text: row.text,
+    kind: row.kind,
+    imageUrl: row.kind === "image" ? row.text : undefined,
     createdAt: row.created_at,
   };
 }
@@ -39,7 +45,7 @@ export async function getRoomChat(roomId: string): Promise<BadukChatMessage[]> {
 
   const { data, error } = await supabase
     .from("baduk_chat_messages")
-    .select("id, author_id, author_name, author_role, text, created_at")
+    .select("id, author_id, author_name, author_role, text, kind, created_at")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true })
     .limit(200);
@@ -59,6 +65,7 @@ export async function postRoomChat(
   userId: string,
   userName: string,
   text: string,
+  kind: BadukChatKind = "text",
 ): Promise<BadukChatMessage | { error: string }> {
   const trimmed = text.trim();
   if (!trimmed) return { error: "메시지를 입력해주세요." };
@@ -81,8 +88,9 @@ export async function postRoomChat(
       author_name: userName,
       author_role: authorRole,
       text: trimmed,
+      kind,
     })
-    .select("id, author_id, author_name, author_role, text, created_at")
+    .select("id, author_id, author_name, author_role, text, kind, created_at")
     .single();
 
   if (error || !data) {
