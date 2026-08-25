@@ -3315,6 +3315,13 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: 10px var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: #fff7ed;
+  /* 이모티콘이 27개라 높이를 재지 않으면 격자가 패널보다 커집니다. 그러면
+     입력줄이 패널 밖으로 밀려나 🍚 버튼을 다시 누를 수 없고(=닫을 수 없고),
+     넘친 줄은 스크롤도 되지 않습니다. 높이를 묶고 안에서 스크롤합니다. */
+  max-height: 220px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  overscroll-behavior: contain;
 }
 
 .chat-panel__emoji-option {
@@ -5387,6 +5394,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .omok-chat__list {
   flex: 1;
+  /* flex 항목의 기본 min-height:auto 때문에 목록이 내용만큼 버티다가, 아래
+     요소를 패널 밖으로 밀어냅니다. 0으로 두어 목록이 먼저 줄고 스크롤되게 합니다. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-md);
   display: flex;
@@ -5443,6 +5453,9 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: 8px;
   padding: var(--space-md);
   border-top: 1px solid var(--card-border);
+  /* 입력줄은 어떤 경우에도 줄어들거나 밀려나지 않습니다 — 이모티콘을 닫는
+     🍚 버튼이 여기 있습니다. */
+  flex-shrink: 0;
 }
 
 .omok-chat__input {
