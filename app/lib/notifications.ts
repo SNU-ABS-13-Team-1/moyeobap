@@ -45,6 +45,32 @@ export function selectNewPots<T extends NewPotCandidate>(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+/**
+ * 팟 상세 경로(`/pots/<id>`)에서 팟 id를 뽑습니다. 그 외 경로는 null입니다.
+ * `/pots/new`는 모집 만들기 화면이라 팟 상세가 아닙니다.
+ */
+export function potIdFromPath(pathname: string): string | null {
+  const match = /^\/pots\/([^/]+)/.exec(pathname);
+  if (!match) return null;
+  return match[1] === "new" ? null : match[1];
+}
+
+/**
+ * 헤더에 띄울 안 읽은 메시지 수. 지금 열어 보고 있는 팟은 뺍니다.
+ *
+ * 읽음은 채팅을 열 때 서버에 기록되지만 헤더 숫자는 폴링으로 따라옵니다.
+ * 그 사이 배지가 남아 있으면 "확인했는데 안 사라진다"가 됩니다. 보고 있는
+ * 팟을 빼면 서버를 기다리지 않고 바로 반영됩니다.
+ */
+export function countUnread(
+  entries: readonly { potId: string; count: number }[],
+  currentPotId: string | null,
+): number {
+  return entries
+    .filter((entry) => entry.potId !== currentPotId)
+    .reduce((sum, entry) => sum + entry.count, 0);
+}
+
 export type MessageEvent = { potId: string; authorId: string };
 export type MessageContext = { userId: string; myPotIds: Set<string> };
 

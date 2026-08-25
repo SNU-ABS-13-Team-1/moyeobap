@@ -5,7 +5,13 @@ import { usePathname } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
-import { selectNewPots, shouldNotifyMessage, type NewPotCandidate } from '../../lib/notifications';
+import {
+  countUnread,
+  potIdFromPath,
+  selectNewPots,
+  shouldNotifyMessage,
+  type NewPotCandidate,
+} from '../../lib/notifications';
 import { useAuth } from './AuthProvider';
 
 // 게임을 하는 중에도 새 팟과 내 팟의 채팅을 눈치챌 수 있게 하는 알림 계층입니다.
@@ -101,6 +107,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     userId ? '/api/notifications/summary' : null,
     fetcher,
     { refreshInterval: POLL_INTERVAL_MS, revalidateOnFocus: true },
+  );
+
+  // 서버 시계와의 차이를 재 둡니다. 현황판에 들어간 순간 기준 시각을 "지금"으로
+  // 올려야 배지가 바로 사라지는데, 브라우저 시계를 그대로 쓰면 시계가 앞선
+  // 사람은 진짜 새 팟을 놓칩니다. 응답 도착 시점과 서버 시각의 차이로 보정합니다.
+  const serverOffsetRef = useRef(0);
+  useEffect(() => {
+    if (!data?.serverTime) return;
+    serverOffsetRef.current = Date.parse(data.serverTime) - Date.now();
+  }, [data?.serverTime]);
+  const serverNowIso = useCallback(
+    () => new Date(Date.now() + serverOffsetRef.current).toISOString(),
+    [],
   );
 
   // 기준 시각은 응답에 실려 온 서버 시각을 씁니다. 렌더할 때마다 값이 달라지지
@@ -203,25 +222,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // 구독은 내 팟 목록이 실제로 바뀔 때만 다시 겁니다.
   }, [userId, myPotIdsKey, pushToast, mutate]);
 
-  // 현황판을 열면 새 팟을 본 것으로 처리합니다.
+  // 화면을 옮기면 폴링 틱을 기다리지 않고 바로 다시 받아옵니다. 읽음 처리는
+  // 서버에 이미 기록됐는데 헤더 숫자만 남아 있는 시간을 없앱니다.
+  useEffect(() => {
+    if (!userId) return;
+    void mutate();
+  }, [pathname, userId, mutate]);
+
+  // 현황판을 열면 새 팟을 본 것으로 처리합니다. 직전 응답의 서버 시각이 아니라
+  // 보정한 "지금"을 씁니다 — 그 사이에 생긴 팟까지 본 것으로 쳐야 배지가
+  // 바로 사라집니다.
   useEffect(() => {
     if (!userId || pathname !== '/') return;
-    const seenAt = data?.serverTime ?? new Date().toISOString();
+    const seenAt = serverNowIso();
     writeLastSeen(userId, seenAt);
     // 현황판을 보고 있는 동안은 계속 "본 것"으로 갱신됩니다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLastSeen(seenAt);
     toastedRef.current.clear();
-  }, [pathname, userId, data?.serverTime]);
+  }, [pathname, userId, data?.serverTime, serverNowIso]);
+
+  // 지금 열어 보고 있는 팟은 헤더 숫자에서 뺍니다. 읽음이 서버에 기록되고
+  // 폴링이 따라오기까지 배지가 남아 있던 시간을 없앱니다.
+  const currentPotId = potIdFromPath(pathname);
+  const unreadTotal = useMemo(
+    () => countUnread(data?.unread ?? [], currentPotId),
+    [data?.unread, currentPotId],
+  );
 
   const value = useMemo<NotificationValue>(
     () => ({
       newPotCount: newPots.length,
-      unreadTotal: data?.unreadTotal ?? 0,
+      unreadTotal,
       toasts,
       dismissToast,
     }),
-    [newPots.length, data?.unreadTotal, toasts, dismissToast],
+    [newPots.length, unreadTotal, toasts, dismissToast],
   );
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
