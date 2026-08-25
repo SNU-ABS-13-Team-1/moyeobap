@@ -3315,7 +3315,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: 10px var(--space-sm);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: #fff7ed;
-  /* 이모티콘이 27개라 높이를 재지 않으면 격자가 패널보다 커집니다. 그러면
+  /* 이모티콘이 40개라 높이를 재지 않으면 격자가 패널보다 커집니다. 그러면
      입력줄이 패널 밖으로 밀려나 🍚 버튼을 다시 누를 수 없고(=닫을 수 없고),
      넘친 줄은 스크롤도 되지 않습니다. 높이를 묶고 안에서 스크롤합니다. */
   max-height: 220px;
