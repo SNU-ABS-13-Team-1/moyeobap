@@ -145,7 +145,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
     && deadlineDraftTime <= now + 24 * 60 * 60_000;
   const neededForMinOrder = estimateNeededParticipants(restaurant.minOrder, restaurant.menus[0]?.price);
 
-  const myParticipant = pot.participants?.find((p) => p.name === currentUser?.name);
+  const myParticipant = pot.participants?.find((p) => p.isMe);
 
   async function handleTogglePaid() {
     if (isTogglingPaid) return;
@@ -161,9 +161,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         pot: {
           ...prev.pot,
           participants: prev.pot.participants
-            ? prev.pot.participants.map((p) =>
-                p.name === currentUser?.name ? { ...p, isPaid: nextIsPaid } : p,
-              )
+            ? prev.pot.participants.map((p) => (p.isMe ? { ...p, isPaid: nextIsPaid } : p))
             : null,
         },
       };
@@ -204,7 +202,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           ...prev.pot,
           participants: prev.pot.participants
             ? prev.pot.participants.map((p) =>
-                p.name === currentUser?.name ? { ...p, orderMemo: trimmedMemo || undefined } : p,
+                p.isMe ? { ...p, orderMemo: trimmedMemo || undefined } : p,
               )
             : null,
         },
@@ -242,6 +240,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         name: currentUser.name,
         initial: currentUser.initial,
         isManager: false,
+        isMe: true,
         isPaid: false,
       };
       return {
@@ -277,7 +276,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           isParticipating: false,
           participantCount: Math.max(0, prev.pot.participantCount - 1),
           participants: prev.pot.participants
-            ? prev.pot.participants.filter((p) => p.name !== currentUser?.name)
+            ? prev.pot.participants.filter((p) => !p.isMe)
             : null,
         },
       };
@@ -646,7 +645,7 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
             ) : pot.isParticipating && pot.participants ? (
               <>
                 {pot.participants.map((participant, index) => {
-                  const isMe = currentUser?.name === participant.name;
+                  const isMe = participant.isMe;
                   return (
                     <div
                       className={`detail__participant ${isMe ? 'detail__participant--me' : ''}`}
