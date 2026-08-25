@@ -103,15 +103,25 @@ export async function recordMatchResult(room: BadukRoom, winner: "black" | "whit
   if (ratingError) console.error("recordMatchResult(rating) error:", ratingError);
 }
 
-export async function getRanking(limit = 20): Promise<RankingEntry[]> {
+/**
+ * 랭킹을 rating 내림차순으로 돌려줍니다. `limit`을 주지 않으면 자르지 않고
+ * 기록이 있는 사람을 전부 내려줍니다.
+ */
+export async function getRanking(limit?: number): Promise<RankingEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  // rating만으로 정렬하면 동점자 순서가 요청마다 달라집니다. 승수와 이름으로
+  // 순서를 고정해 폴링할 때마다 줄이 뒤바뀌지 않게 합니다.
+  let query = supabase
     .from("baduk_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
     .order("rating", { ascending: false })
-    .limit(limit);
+    .order("wins", { ascending: false })
+    .order("user_name", { ascending: true });
+  if (limit !== undefined) query = query.limit(limit);
+
+  const { data, error } = await query;
 
   if (error || !data) {
     if (error) console.error("getRanking error:", error);

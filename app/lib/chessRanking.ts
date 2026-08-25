@@ -104,16 +104,26 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
   if (ratingError) console.error("recordChessMatchResult(rating) error:", ratingError);
 }
 
-export async function getChessRanking(limit = 20, weekKey = currentWeekKey()): Promise<ChessRankingEntry[]> {
+/**
+ * 이번 주 랭킹을 rating 내림차순으로 돌려줍니다. `limit`을 주지 않으면 자르지
+ * 않고 그 주에 둔 사람을 전부 내려줍니다.
+ */
+export async function getChessRanking(limit?: number, weekKey = currentWeekKey()): Promise<ChessRankingEntry[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  // rating만으로 정렬하면 동점자 순서가 요청마다 달라집니다. 승수와 이름으로
+  // 순서를 고정해 폴링할 때마다 줄이 뒤바뀌지 않게 합니다.
+  let query = supabase
     .from("chess_ratings")
     .select("user_id, user_name, rating, wins, losses, draws")
     .eq("week_key", weekKey)
     .order("rating", { ascending: false })
-    .limit(limit);
+    .order("wins", { ascending: false })
+    .order("user_name", { ascending: true });
+  if (limit !== undefined) query = query.limit(limit);
+
+  const { data, error } = await query;
 
   if (error || !data) {
     if (error) console.error("getChessRanking error:", error);
