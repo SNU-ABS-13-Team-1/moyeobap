@@ -6,6 +6,7 @@ import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { GAME_CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { isChatAtBottom } from '../../lib/chatScroll';
 import { useAuth } from './AuthProvider';
 
 // 퐁 채팅은 공용 GameChat을 쓰지 않습니다 — 화면 배색(pong-chat__*)이 게임과
@@ -40,7 +41,13 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   const [sendError, setSendError] = useState<string | null>(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  /** 하단을 보고 있는지. 이 값이 참일 때만 새 메시지를 따라 내려갑니다. */
+  const followBottomRef = useRef(true);
   const messages = data?.messages ?? [];
+
+  function handleListScroll() {
+    if (listRef.current) followBottomRef.current = isChatAtBottom(listRef.current);
+  }
 
   useEffect(() => {
     let supabase;
@@ -64,8 +71,12 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
     };
   }, [roomId, mutate]);
 
+  // 새 메시지를 따라 내려가되, 위로 올려 지난 대화를 읽는 중이면 그대로 둡니다.
+  // 부드러운 스크롤 대신 즉시 이동입니다 — 애니메이션이 도는 300ms 사이에 다음
+  // 메시지가 오면 중간 위치를 "하단 아님"으로 읽어 그때부터 따라가지 못합니다.
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    if (!followBottomRef.current || !listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages.length]);
 
   async function handleSubmit(e: FormEvent) {
@@ -75,6 +86,8 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
 
     setSendError(null);
     setText('');
+    // 내가 보낸 것은 위로 올려둔 상태였더라도 보여줍니다.
+    followBottomRef.current = true;
 
     const optimisticMsg: PongChatMessage = {
       id: `temp-${Date.now()}`,
@@ -107,6 +120,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
 
     setSendError(null);
     setIsEmojiPickerOpen(false);
+    followBottomRef.current = true;
 
     const optimisticMsg: PongChatMessage = {
       id: `temp-emoji-${crypto.randomUUID()}`,
@@ -138,7 +152,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   return (
     <div className="pong-chat">
       <div className="pong-chat__header">CHAT</div>
-      <div className="pong-chat__list" ref={listRef}>
+      <div className="pong-chat__list" onScroll={handleListScroll} ref={listRef}>
         {error && <p className="pong-chat__error">대화를 불러오지 못했어요.</p>}
         {!error && messages.length === 0 && (
           <p className="pong-chat__empty">아직 대화가 없어요.</p>
