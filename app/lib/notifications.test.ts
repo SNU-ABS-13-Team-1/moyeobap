@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectNewPots, shouldNotifyMessage, type NewPotCandidate } from "./notifications.ts";
+import {
+  countUnread,
+  potIdFromPath,
+  selectNewPots,
+  shouldNotifyMessage,
+  type NewPotCandidate,
+} from "./notifications.ts";
 
 const NOW = new Date("2026-08-25T12:00:00.000Z");
 
@@ -110,4 +116,36 @@ test("내 팟이 아닌 곳의 메시지는 알리지 않는다", () => {
     { userId: "me", myPotIds: new Set(["p1"]) },
   );
   assert.equal(notify, false);
+});
+
+test("팟 상세 경로에서 팟 id를 뽑는다", () => {
+  assert.equal(potIdFromPath("/pots/abc123"), "abc123");
+});
+
+test("새 모집 만들기 화면은 팟 상세가 아니다", () => {
+  assert.equal(potIdFromPath("/pots/new"), null);
+});
+
+test("팟 상세가 아닌 경로에서는 팟 id가 없다", () => {
+  assert.equal(potIdFromPath("/"), null);
+  assert.equal(potIdFromPath("/games/flappy"), null);
+  assert.equal(potIdFromPath("/pots"), null);
+});
+
+test("안 읽은 수를 모두 더한다", () => {
+  const entries = [
+    { potId: "p1", count: 2 },
+    { potId: "p2", count: 3 },
+  ];
+  assert.equal(countUnread(entries, null), 5);
+});
+
+test("지금 보고 있는 팟은 안 읽은 수에서 뺀다", () => {
+  // 읽음 처리는 서버에 기록되지만 다음 폴링까지 배지가 남습니다.
+  // 그 팟을 열어둔 동안은 배지에서 즉시 빼서 기다림을 없앱니다.
+  const entries = [
+    { potId: "p1", count: 2 },
+    { potId: "p2", count: 3 },
+  ];
+  assert.equal(countUnread(entries, "p1"), 3);
 });
