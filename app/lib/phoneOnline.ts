@@ -23,10 +23,10 @@ import {
 export { MIN_PLAYERS, MAX_PLAYERS } from "./phoneMatch";
 export type { PhoneRoom, RoomPlayer, AlbumEntry } from "./phoneMatch";
 
-/** 하루 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(그림이 DB에 있어 오래 두지 않습니다).
- * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 턴 updated_at이 갱신되므로,
- * 24시간 멈춘 playing 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
-const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+/** 2시간 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(그림이 DB에 있어 오래 두지 않습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 턴 updated_at이 갱신되고,
+ * 앨범을 보는 동안에도 방장이 넘길 때마다 갱신되므로, 2시간 멈춘 방은 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 2 * 60 * 60 * 1000;
 
 type RoomRow = {
   id: string;
@@ -160,6 +160,21 @@ export async function joinRoom(roomId: string, userId: string, userName: string,
 
   const updated = await updateRoom(room, { players: [...room.players, { id: userId, name: userName, avatarUrl, left: false }] });
   return updated ?? { error: "잠시 뒤 다시 시도해주세요." };
+}
+
+/** 방장이 방을 없앱니다(상태 무관). 칸·채팅은 함께 삭제됩니다. */
+export async function closeRoom(roomId: string, hostId: string): Promise<{ ok: true } | { error: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: "서버 오류예요." };
+  const room = await getRoom(roomId);
+  if (!room) return { ok: true }; // 이미 없음
+  if (room.hostId !== hostId) return { error: "방장만 방을 없앨 수 있어요." };
+  const { error } = await supabase.from("phone_rooms").delete().eq("id", roomId);
+  if (error) {
+    console.error("phone closeRoom error:", error);
+    return { error: "방을 없애지 못했어요." };
+  }
+  return { ok: true };
 }
 
 /** 대기 중인 방에서 방장이 자리를 비운 사람을 내보냅니다. */
@@ -474,8 +489,9 @@ export async function getAlbumSummaries(room: PhoneRoom): Promise<AlbumSummary[]
   });
 }
 
-/** 앨범 하나의 공개된 칸들(턴 순). 방장이 넘긴 데까지만. */
-export async function getRevealedAlbum(room: PhoneRoom, albumIndex: number): Promise<{ owner: RoomPlayer; entries: AlbumEntry[]; length: number } | null> {
+/** 앨범 하나의 칸들(턴 순). 기본은 방장이 넘긴 데까지, full이면 전체 —
+ * 공개 단계에서는 방장이 자리를 비워도 각자 모든 앨범을 끝까지 볼 수 있어야 합니다. */
+export async function getRevealedAlbum(room: PhoneRoom, albumIndex: number, full = false): Promise<{ owner: RoomPlayer; entries: AlbumEntry[]; length: number } | null> {
   const supabase = getSupabase();
   if (!supabase || room.status !== "presenting") return null;
   const owner = room.players[albumIndex];
@@ -487,7 +503,7 @@ export async function getRevealedAlbum(room: PhoneRoom, albumIndex: number): Pro
     .eq("album_owner_id", owner.id)
     .order("turn", { ascending: true });
   const all = ((data ?? []) as EntryRow[]).map(mapEntry);
-  const count = revealedCount(room, albumIndex, all.length);
+  const count = full ? all.length : revealedCount(room, albumIndex, all.length);
   return { owner, entries: all.slice(0, count), length: all.length };
 }
 

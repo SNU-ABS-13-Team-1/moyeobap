@@ -7701,3 +7701,25 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .test-banner__link:hover {
   opacity: 0.85;
 }
+
+/* 갈틱폰 앨범 자유 관람 토글 · 방 없애기 */
+.phone__mode-toggle {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.phone__mode-toggle:hover {
+  background: #fff7ed;
+}
+
+.phone__close-btn {
+  color: #b91c1c;
+}
