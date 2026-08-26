@@ -3,6 +3,7 @@
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 
 type Entry = { userId: string; userName: string; games: number; wins: number; points: number };
@@ -43,8 +44,8 @@ export function RummyRanking() {
       </thead>
       <tbody>
         {ranking.map((e, i) => (
-          <tr key={e.userId}>
-            <td>{i + 1}</td>
+          <tr key={e.userId} className={rankRowClass(i + 1)}>
+            <td><RankMedal rank={i + 1} /></td>
             <td className="omok-ranking__name">{e.userName}</td>
             <td>{e.points > 0 ? `+${e.points}` : e.points}</td>
             <td>{e.wins}</td>

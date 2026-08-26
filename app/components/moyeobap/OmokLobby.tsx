@@ -14,6 +14,7 @@ const CONFIG: GameLobbyConfig<OmokLobbyRoom> = {
   apiRooms: '/api/games/omok/rooms',
   pagePath: '/games/omok',
   rankingPath: '/games/omok/ranking',
+  apiRanking: '/api/games/omok/ranking',
   namePlaceholder: '방 이름 (예: AI 연구실 오목)',
   hostId: (room) => room.blackId,
   hasOpenSeat: (room) => room.status === 'waiting' && (!room.blackId || !room.whiteId),
