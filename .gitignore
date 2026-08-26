@@ -69,3 +69,6 @@ __pycache__/
 /.wrangler/
 /dist/
 tsconfig.tsbuildinfo
+
+# supabase
+supabase/.temp/
