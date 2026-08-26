@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import { HAND_SIZE, INITIAL_MELD, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from '../../lib/rummy';
@@ -289,8 +290,8 @@ export function RummyGame() {
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (
           <ol className="rummy__leaderboard-list">
             {leaderboardData.leaderboard.map((entry, index) => (
-              <li className={`rummy__leaderboard-item ${currentUser?.id === entry.userId ? 'rummy__leaderboard-item--me' : ''}`} key={entry.userId}>
-                <span className="rummy__leaderboard-rank">{index + 1}</span>
+              <li className={`rummy__leaderboard-item ${currentUser?.id === entry.userId ? 'rummy__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`} key={entry.userId}>
+                <RankMedal rank={index + 1} className="rummy__leaderboard-rank" />
                 <span className="rummy__leaderboard-name">{entry.userName}</span>
                 <span className="rummy__leaderboard-score">{entry.bestScore}</span>
               </li>

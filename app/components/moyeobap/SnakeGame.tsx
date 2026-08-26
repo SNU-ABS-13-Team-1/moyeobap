@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
@@ -205,10 +206,10 @@ export function SnakeGame() {
           <ol className="snake__leaderboard-list">
             {leaderboardData.leaderboard.map((entry, index) => (
               <li
-                className={`snake__leaderboard-item ${currentUser?.id === entry.userId ? 'snake__leaderboard-item--me' : ''}`}
+                className={`snake__leaderboard-item ${currentUser?.id === entry.userId ? 'snake__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
                 key={entry.userId}
               >
-                <span className="snake__leaderboard-rank">{index + 1}</span>
+                <RankMedal rank={index + 1} className="snake__leaderboard-rank" />
                 <span className="snake__leaderboard-name">{entry.userName}</span>
                 <span className="snake__leaderboard-score">{entry.bestScore}</span>
               </li>
