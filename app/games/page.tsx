@@ -41,6 +41,13 @@ const GAMES = [
     desc: '문장 → 그림 → 문장… 전화 게임. 3~10명이 동시에 쓰고 그린 뒤 앨범을 같이 봐요.',
   },
   {
+    href: '/games/onenight',
+    emoji: '🌙',
+    title: '원나잇 인랑',
+    desc: '밤 한 번, 낮 한 번. 카드를 받고 한 명을 지목하면 끝나는 짧은 마피아 (3~8명).',
+    flag: 'onenight',
+  },
+  {
     href: '/games/flappy',
     emoji: '🐤',
     title: '플래피 버드',
@@ -49,8 +56,12 @@ const GAMES = [
 ] as const;
 
 export default async function GamesPage() {
-  const badukEnabled = await isFeatureEnabled('baduk');
-  const games = GAMES.filter((game) => !('flag' in game) || game.flag !== 'baduk' || badukEnabled);
+  const [badukEnabled, onenightEnabled] = await Promise.all([
+    isFeatureEnabled('baduk'),
+    isFeatureEnabled('onenight'),
+  ]);
+  const enabled: Record<string, boolean> = { baduk: badukEnabled, onenight: onenightEnabled };
+  const games = GAMES.filter((game) => !('flag' in game) || enabled[game.flag] === true);
 
   return (
     <main className="page-content">
