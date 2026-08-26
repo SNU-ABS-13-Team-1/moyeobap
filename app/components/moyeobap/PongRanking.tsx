@@ -3,6 +3,7 @@
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 
 type RankingEntry = {
@@ -48,8 +49,8 @@ export function PongRanking() {
       </thead>
       <tbody>
         {ranking.map((entry, index) => (
-          <tr key={entry.userId}>
-            <td>{index + 1}</td>
+          <tr key={entry.userId} className={rankRowClass(index + 1)}>
+            <td><RankMedal rank={index + 1} /></td>
             <td className="pong-ranking__name">{entry.userName}</td>
             <td>{entry.rating}</td>
             <td>{entry.wins}</td>

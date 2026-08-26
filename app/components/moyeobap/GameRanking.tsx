@@ -3,6 +3,7 @@
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 
 // 실시간 대전 공용 ELO 랭킹 표. 오목·체스가 API 경로만 다르게 넘겨서 같이 씁니다.
@@ -53,8 +54,8 @@ export function GameRanking({ apiRanking, limit, children }: { apiRanking: strin
         </thead>
         <tbody>
           {ranking.map((entry, index) => (
-            <tr key={entry.userId}>
-              <td>{index + 1}</td>
+            <tr key={entry.userId} className={rankRowClass(index + 1)}>
+              <td><RankMedal rank={index + 1} /></td>
               <td className="omok-ranking__name">{entry.userName}</td>
               <td>{entry.rating}</td>
               <td>{entry.wins}</td>

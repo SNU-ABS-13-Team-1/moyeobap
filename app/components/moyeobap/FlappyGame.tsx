@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import {
@@ -375,10 +376,10 @@ export function FlappyGame() {
           <ol className="flappy__leaderboard-list">
             {leaderboardData.leaderboard.map((entry, index) => (
               <li
-                className={`flappy__leaderboard-item ${currentUser?.id === entry.userId ? 'flappy__leaderboard-item--me' : ''}`}
+                className={`flappy__leaderboard-item ${currentUser?.id === entry.userId ? 'flappy__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
                 key={entry.userId}
               >
-                <span className="flappy__leaderboard-rank">{index + 1}</span>
+                <RankMedal rank={index + 1} className="flappy__leaderboard-rank" />
                 <span className="flappy__leaderboard-name">{entry.userName}</span>
                 <span className="flappy__leaderboard-score">{entry.bestScore}</span>
               </li>
