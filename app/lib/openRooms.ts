@@ -14,7 +14,7 @@
  * 원본과 어긋나면 openRooms.test.ts가 바로 잡아냅니다.
  */
 
-export type OpenRoomGame = "omok" | "chess" | "rummy" | "phone";
+export type OpenRoomGame = "omok" | "alkkagi" | "chess" | "rummy" | "phone";
 
 export type OpenRoomStatus = "waiting" | "playing" | "presenting";
 
@@ -49,6 +49,7 @@ export const PHONE_MAX_PLAYERS = 10;
 
 const GAME_LABEL: Record<OpenRoomGame, { label: string; emoji: string }> = {
   omok: { label: "오목", emoji: "⚫" },
+  alkkagi: { label: "알까기", emoji: "🥌" },
   chess: { label: "체스", emoji: "♟️" },
   rummy: { label: "루미큐브", emoji: "🀄" },
   phone: { label: "갈틱폰", emoji: "📞" },
@@ -57,6 +58,7 @@ const GAME_LABEL: Record<OpenRoomGame, { label: string; emoji: string }> = {
 /** 방 주소는 체스·루미큐브만 /online/ 이 한 칸 더 들어갑니다. */
 const PAGE_PATH: Record<OpenRoomGame, string> = {
   omok: "/games/omok",
+  alkkagi: "/games/alkkagi",
   chess: "/games/chess/online",
   rummy: "/games/rummy/online",
   phone: "/games/phone",
@@ -135,6 +137,24 @@ export function fromOmok(room: OmokLike): OpenRoom {
   };
 }
 
+/** 알까기는 오목과 같습니다 — 자리 두 칸, 방장이 흑. */
+export function fromAlkkagi(room: OmokLike): OpenRoom {
+  const seated = [room.blackId, room.whiteId].filter((id): id is string => Boolean(id));
+  return {
+    ...base("alkkagi", room.id),
+    id: room.id,
+    roomName: room.roomName,
+    status: room.status as OpenRoomStatus,
+    playerCount: seated.length,
+    maxPlayers: 2,
+    hasOpenSeat: room.status === "waiting" && seated.length < 2,
+    hostId: room.blackId,
+    memberIds: seated,
+    meta: null,
+    createdAt: room.createdAt,
+  };
+}
+
 /**
  * 체스만 시간제 라벨이 chessMatch.TIME_CONTROL_LABEL 에 있습니다. 이 모듈을
  * 순수하게 두려고 여기서는 라벨을 만들지 않고, 라우트가 넘겨주면 씁니다.
@@ -194,6 +214,7 @@ const OPEN_STATUSES = new Set(["waiting", "playing", "presenting"]);
 
 export type RoomsByGame = {
   omok: OmokLike[];
+  alkkagi: OmokLike[];
   chess: ChessLike[];
   rummy: RummyLike[];
   phone: PhoneLike[];
@@ -205,6 +226,7 @@ export type MergeOptions = { chessTimeLabel?: (timeControl: string) => string | 
 export function mergeOpenRooms(rooms: RoomsByGame, options: MergeOptions = {}): OpenRoom[] {
   return [
     ...rooms.omok.map(fromOmok),
+    ...rooms.alkkagi.map(fromAlkkagi),
     ...rooms.chess.map((room) => fromChess(room, options.chessTimeLabel?.(room.timeControl))),
     ...rooms.rummy.map(fromRummy),
     ...rooms.phone.map(fromPhone),

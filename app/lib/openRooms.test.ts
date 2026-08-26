@@ -4,6 +4,7 @@ import {
   MAX_OPEN_ROOMS,
   PHONE_MAX_PLAYERS,
   RUMMY_MAX_PLAYERS,
+  fromAlkkagi,
   fromChess,
   fromOmok,
   fromPhone,
@@ -158,6 +159,7 @@ test("갈틱폰은 끝난 방까지 내려오므로 목록에서 걸러낸다", 
   // phoneOnline.listRooms()에는 status 필터가 없습니다(다른 셋은 DB에서 이미 거름).
   const merged = mergeOpenRooms({
     omok: [],
+    alkkagi: [],
     chess: [],
     rummy: [],
     phone: [phoneRoom({ id: "done", status: "finished" }), phoneRoom({ id: "live" })],
@@ -171,6 +173,7 @@ test("갈틱폰은 끝난 방까지 내려오므로 목록에서 걸러낸다", 
 test("앨범 공개 중인 갈틱폰 방은 남긴다", () => {
   const merged = mergeOpenRooms({
     omok: [],
+    alkkagi: [],
     chess: [],
     rummy: [],
     phone: [phoneRoom({ id: "show", status: "presenting" })],
@@ -184,6 +187,7 @@ test("앨범 공개 중인 갈틱폰 방은 남긴다", () => {
 test("게임을 섞어 최신순으로 정렬한다", () => {
   const merged = mergeOpenRooms({
     omok: [omokRoom()],
+    alkkagi: [],
     chess: [chessRoom()],
     rummy: [rummyRoom()],
     phone: [phoneRoom()],
@@ -199,7 +203,7 @@ test("목록은 최대 개수까지만 내려간다", () => {
     omokRoom({ id: `o${i}`, createdAt: new Date(Date.parse(at("1")) + i * 1000).toISOString() }),
   );
   assert.equal(
-    mergeOpenRooms({ omok: rooms, chess: [], rummy: [], phone: [] }).length,
+    mergeOpenRooms({ omok: rooms, alkkagi: [], chess: [], rummy: [], phone: [] }).length,
     MAX_OPEN_ROOMS,
   );
 });
@@ -214,8 +218,38 @@ test("체스 시간제 라벨은 넘겨받아 붙인다", () => {
   assert.equal(fromChess(chessRoom()).meta, null);
   assert.equal(fromChess(chessRoom(), "한 수 60초").meta, "한 수 60초");
   const merged = mergeOpenRooms(
-    { omok: [], chess: [chessRoom()], rummy: [], phone: [] },
+    { omok: [], alkkagi: [], chess: [chessRoom()], rummy: [], phone: [] },
     { chessTimeLabel: (timeControl) => `[${timeControl}]` },
   );
   assert.equal(merged[0].meta, "[move60]");
+});
+
+test("알까기 방은 빈 자리가 있을 때만 참여 가능으로 표시된다", () => {
+  const waiting = fromAlkkagi({
+    id: "a1",
+    roomName: "알까기 방",
+    status: "waiting",
+    blackId: "B",
+    whiteId: null,
+    createdAt: "2026-08-26T03:00:00.000Z",
+  });
+  assert.equal(waiting.game, "alkkagi");
+  assert.equal(waiting.gameLabel, "알까기");
+  assert.equal(waiting.href, "/games/alkkagi/a1");
+  assert.equal(waiting.joinApi, "/api/games/alkkagi/rooms/a1/join");
+  assert.equal(waiting.maxPlayers, 2);
+  assert.equal(waiting.playerCount, 1);
+  assert.equal(waiting.hasOpenSeat, true);
+  assert.deepEqual(waiting.memberIds, ["B"]);
+
+  const playing = fromAlkkagi({
+    id: "a2",
+    roomName: "알까기 방",
+    status: "playing",
+    blackId: "B",
+    whiteId: "W",
+    createdAt: "2026-08-26T03:00:00.000Z",
+  });
+  assert.equal(playing.playerCount, 2);
+  assert.equal(playing.hasOpenSeat, false);
 });

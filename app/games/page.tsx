@@ -16,6 +16,12 @@ const GAMES = [
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
   },
   {
+    href: '/games/alkkagi',
+    emoji: '🥌',
+    title: '알까기',
+    desc: '돌을 끌어서 튕겨 상대 돌을 판 밖으로 내보내세요. 5개씩, 먼저 다 떨어뜨리면 승리.',
+  },
+  {
     href: '/games/baduk',
     emoji: '⚫⚪',
     title: '바둑',
