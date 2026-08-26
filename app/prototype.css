@@ -380,11 +380,60 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
-.header__bgm-label {
+/* 곡 제목이 파형 옆을 계속 흘러가는 창. 헤더가 좁아서 통 너비를 고정하고,
+   글자가 통에 딱 잘리면 튀어나온 것처럼 보여 양 끝을 흐리게 지웁니다. */
+.header__bgm-marquee {
+  overflow: hidden;
+  width: 96px;
+  height: 14px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+
+.header__bgm-track {
+  display: flex;
+  width: max-content;
+  gap: 20px;
+  animation: bgmMarquee 7s linear infinite;
+}
+
+.header__bgm-text {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+/* 한 벌 + 사이 간격(20px)만큼 밀면 두 번째 벌이 정확히 첫 벌 자리에 옵니다.
+   -50%는 (한 벌 + 간격 절반)이라 남은 10px을 빼 줍니다. */
+@keyframes bgmMarquee {
+  to {
+    transform: translateX(calc(-50% - 10px));
+  }
+}
+
+@media (max-width: 640px) {
+  .header__bgm-marquee {
+    width: 76px;
+  }
+}
+
+/* 움직임을 줄이는 설정이면 흐르지 않게 두고, 대신 제목이 잘리지 않도록 통을 풉니다. */
+@media (prefers-reduced-motion: reduce) {
+  .header__bgm-track {
+    animation: none;
+  }
+
+  .header__bgm-marquee {
+    width: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .header__bgm-track .header__bgm-text + .header__bgm-text {
+    display: none;
+  }
 }
 
 .dashboard-toolbar {

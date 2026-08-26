@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 const BGM_STORAGE_KEY = 'moyeobap:bgm:playing';
 const BGM_VOLUME = 0.5;
 const BGM_START_SECONDS = 64.5;
+const BGM_TITLE = '다같이 모여밥';
 
 export function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,6 +48,8 @@ export function BgmPlayer() {
 
   if (!mounted) return null;
 
+  const label = `BGM ${isPlaying ? 'ON' : 'OFF'} \u00b7 ${BGM_TITLE}`;
+
   return (
     <>
       <audio preload="auto" ref={audioRef} src="/bgm.mp3" />
@@ -64,7 +67,13 @@ export function BgmPlayer() {
           <span className="header__bgm-bar header__bgm-bar--3" />
           <span className="header__bgm-bar header__bgm-bar--4" />
         </div>
-        <span className="header__bgm-label">{isPlaying ? 'BGM ON' : 'BGM OFF'}</span>
+        <span className="header__bgm-marquee">
+          {/* 같은 문구를 두 번 깔고 한 벌 길이만큼 밀어야 이음매 없이 계속 흐릅니다. */}
+          <span className="header__bgm-track">
+            <span className="header__bgm-text">{label}</span>
+            <span aria-hidden="true" className="header__bgm-text">{label}</span>
+          </span>
+        </span>
       </button>
     </>
   );
