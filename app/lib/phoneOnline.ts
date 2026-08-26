@@ -23,10 +23,10 @@ import {
 export { MIN_PLAYERS, MAX_PLAYERS } from "./phoneMatch";
 export type { PhoneRoom, RoomPlayer, AlbumEntry } from "./phoneMatch";
 
-/** 2시간 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(그림이 DB에 있어 오래 두지 않습니다).
+/** 1시간 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(그림이 DB에 있어 오래 두지 않습니다).
  * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 턴 updated_at이 갱신되고,
- * 앨범을 보는 동안에도 방장이 넘길 때마다 갱신되므로, 2시간 멈춘 방은 버려진 방입니다. */
-const STALE_ROOM_TTL_MS = 2 * 60 * 60 * 1000;
+ * 앨범을 보는 동안에도 방장이 넘길 때마다 갱신되므로, 1시간 멈춘 방은 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 1 * 60 * 60 * 1000;
 
 type RoomRow = {
   id: string;

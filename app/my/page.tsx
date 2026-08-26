@@ -25,7 +25,12 @@ export default function MyPotsPage() {
   const { data: potsData, error: potsError, mutate: mutatePots } = useSWR<{ pots: SerializedPot[] }>(
     currentUser ? '/api/pots' : null,
     fetcher,
-    { refreshInterval: 4000 },
+    {
+      refreshInterval: 12000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const { data: restaurantsData, error: restaurantsError } = useSWR<{ restaurants: Restaurant[] }>(
     '/api/restaurants',

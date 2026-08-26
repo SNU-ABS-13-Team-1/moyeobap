@@ -55,7 +55,12 @@ const STATUS_LABEL: Record<LobbyRoomBase['status'], string> = {
 export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: GameLobbyConfig<Room> }) {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
-  const { data, mutate } = useSWR<{ rooms: Room[] }>(config.apiRooms, fetcher, { refreshInterval: 3000 });
+  const { data, mutate } = useSWR<{ rooms: Room[] }>(config.apiRooms, fetcher, {
+    refreshInterval: 10000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  });
   const [roomName, setRoomName] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

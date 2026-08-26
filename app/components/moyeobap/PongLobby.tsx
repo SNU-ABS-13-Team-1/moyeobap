@@ -28,7 +28,10 @@ export function PongLobby() {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
   const { data, mutate } = useSWR<{ rooms: LobbyRoom[] }>('/api/games/pong/rooms', fetcher, {
-    refreshInterval: 3000,
+    refreshInterval: 10000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
   });
   const [roomName, setRoomName] = useState('');
   const [busy, setBusy] = useState(false);

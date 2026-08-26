@@ -15,7 +15,10 @@ type RankingEntry = {
 
 export function PongRanking() {
   const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>('/api/games/pong/ranking', fetcher, {
-    refreshInterval: 10000,
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
   });
   const ranking = data?.ranking ?? [];
 

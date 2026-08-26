@@ -45,7 +45,12 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
     fetcher,
-    { refreshInterval: 3000 },
+    {
+      refreshInterval: 10000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);

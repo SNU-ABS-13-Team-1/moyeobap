@@ -52,7 +52,12 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
     fetcher,
-    { refreshInterval: 4000 },
+    {
+      refreshInterval: 10000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
 
   // Supabase Realtime 구독 (참여자 변경, 송금 상태, 팟 상태 실시간 동기화)

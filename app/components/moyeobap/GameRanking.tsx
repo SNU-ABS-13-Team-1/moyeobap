@@ -17,7 +17,12 @@ export type RankingEntry = {
 };
 
 export function GameRanking({ apiRanking, children }: { apiRanking: string; children?: React.ReactNode }) {
-  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>(apiRanking, fetcher, { refreshInterval: 10000 });
+  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>(apiRanking, fetcher, {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
   const ranking = data?.ranking ?? [];
 
   if (error) {
