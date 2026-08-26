@@ -39,6 +39,16 @@ const CHAT_EMOJIS_V3: readonly ChatEmoji[] = [
   { id: 'peekaboo', label: '우르르 까꿍', src: '/emojis/peekaboo.png' },
 ];
 
+// 사용자 피드백으로 보강한 게임 진행·응원 표현 6종.
+const CHAT_EMOJIS_V4: readonly ChatEmoji[] = [
+  { id: 'interesting', label: '흥미롭군요…', src: '/emojis/interesting.png' },
+  { id: 'fighting', label: '화이팅!', src: '/emojis/fighting.png' },
+  { id: 'nice', label: '나이스!', src: '/emojis/nice.png' },
+  { id: 'ok', label: 'ㅇㅋ', src: '/emojis/ok.png' },
+  { id: 'dozing', label: 'zzz…', src: '/emojis/dozing.png' },
+  { id: 'speed-game', label: '스겜', src: '/emojis/speed-game.png' },
+];
+
 const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'volunteer', label: '저요!', src: '/emojis/volunteer.png' },
   { id: 'plus-one', label: '+1', src: '/emojis/plus-one.png' },
@@ -54,7 +64,7 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 40종을 한 격자에 다 깔면 원하는
+// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 46종을 한 격자에 다 깔면 원하는
 // 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
 // 이유도 없기 때문입니다.
 
@@ -67,18 +77,20 @@ export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...LEGACY_CHAT_EMOJIS,
 ];
 
-/** 게임방 피커: 승부 표현 13종 먼저, 공용 몇 개가 뒤에. */
+/** 게임방 피커: 승부·진행 표현 19종 먼저, 공용 몇 개가 뒤에. */
 export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V3,
+  ...CHAT_EMOJIS_V4,
   ...CHAT_EMOJIS_V2.filter((emoji) => SHARED_WITH_GAME.has(emoji.id)),
 ];
 
-// 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 40종을
+// 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 46종을
 // 전부 알아야 합니다 — 게임방에서 온 메시지를 나중에 어디서 보든, 또 피커
 // 구성을 바꾼 뒤에도 지난 메시지가 깨지지 않아야 하기 때문입니다.
 export const CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V2,
   ...CHAT_EMOJIS_V3,
+  ...CHAT_EMOJIS_V4,
   ...LEGACY_CHAT_EMOJIS,
 ];
 
