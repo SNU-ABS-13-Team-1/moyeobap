@@ -106,7 +106,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { data, mutate } = useSWR<Summary>(
     userId ? '/api/notifications/summary' : null,
     fetcher,
-    { refreshInterval: POLL_INTERVAL_MS, revalidateOnFocus: true },
+    {
+      refreshInterval: POLL_INTERVAL_MS,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 3000,
+    },
   );
 
   // 서버 시계와의 차이를 재 둡니다. 현황판에 들어간 순간 기준 시각을 "지금"으로

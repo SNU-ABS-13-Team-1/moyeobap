@@ -34,7 +34,12 @@ export default function HomePage() {
   }>('/api/restaurants', fetcher);
   const { data: potsData, error: potsError, mutate: mutatePots } = useSWR<{
     pots: SerializedPot[];
-  }>('/api/pots', fetcher, { refreshInterval: 4000 });
+  }>('/api/pots', fetcher, {
+    refreshInterval: 12000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  });
 
   const restaurants = useMemo(() => restaurantsData?.restaurants ?? [], [restaurantsData]);
   const pots = useMemo(() => (potsData?.pots ?? []).map(toPot), [potsData]);

@@ -70,7 +70,12 @@ export function PongRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: PongRoomData }>(
     `/api/games/pong/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    {
+      refreshInterval: 8000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const room = data?.room;
 

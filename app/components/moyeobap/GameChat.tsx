@@ -58,7 +58,10 @@ export function GameChat<Role extends string>({
   const { currentUser } = useAuth();
   const url = `${config.apiBase}/${roomId}/chat`;
   const { data, error, mutate } = useSWR<{ messages: GameChatMessage<Role>[] }>(url, fetcher, {
-    refreshInterval: 3000,
+    refreshInterval: 10000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
   });
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);

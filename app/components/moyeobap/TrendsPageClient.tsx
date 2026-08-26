@@ -8,7 +8,12 @@ export function TrendsPageClient() {
   const { data, error, isLoading } = useSWR<{
     campus: CampusStats;
     my: MyStatsReport | null;
-  }>("/api/stats", fetcher, { refreshInterval: 10000 });
+  }>("/api/stats", fetcher, {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
 
   if (isLoading) {
     return (

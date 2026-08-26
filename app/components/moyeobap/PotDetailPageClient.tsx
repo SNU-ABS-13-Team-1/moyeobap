@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR, { useSWRConfig } from 'swr';
-import type { Pot, Restaurant, SerializedPot } from '../../types/moyeobap';
+import type { ParticipantProfile, Pot, Restaurant, SerializedPot } from '../../types/moyeobap';
 import { estimateNeededParticipants, formatTime, getTimeRemaining } from '../../lib/moyeobap-utils';
 import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
@@ -52,7 +52,12 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
   const { data, error, mutate } = useSWR<PotDetailResponse>(
     `/api/pots/${encodeURIComponent(potId)}`,
     fetcher,
-    { refreshInterval: 4000 },
+    {
+      refreshInterval: 10000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
 
   // Supabase Realtime 구독 (참여자 변경, 송금 상태, 팟 상태 실시간 동기화)
@@ -147,11 +152,12 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
 
   const myParticipant = pot.participants?.find((p) => p.isMe);
 
-  async function handleTogglePaid() {
+  async function handleTogglePaid(targetParticipant: ParticipantProfile, targetIndex: number) {
     if (isTogglingPaid) return;
 
-    const currentIsPaid = Boolean(myParticipant?.isPaid);
+    const currentIsPaid = Boolean(targetParticipant.isPaid);
     const nextIsPaid = !currentIsPaid;
+    const isTargetMe = targetParticipant.isMe;
 
     // 1. 낙관적 UI 업데이트 (0ms 즉시 화면 반영)
     mutate((prev) => {
@@ -161,21 +167,28 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
         pot: {
           ...prev.pot,
           participants: prev.pot.participants
-            ? prev.pot.participants.map((p) => (p.isMe ? { ...p, isPaid: nextIsPaid } : p))
+            ? prev.pot.participants.map((p, idx) => (idx === targetIndex ? { ...p, isPaid: nextIsPaid } : p))
             : null,
         },
       };
     }, false);
 
-    showToast(
-      nextIsPaid ? '송금 완료 상태로 표시했어요.' : '송금 완료 표시를 해제했어요.',
-      'success',
-    );
+    const toastMessage = isTargetMe
+      ? nextIsPaid
+        ? '송금 완료 상태로 표시했어요.'
+        : '송금 완료 표시를 해제했어요.'
+      : nextIsPaid
+        ? `${targetParticipant.name}님을 송금 완료 처리했어요.`
+        : `${targetParticipant.name}님의 송금 완료 표시를 해제했어요.`;
+
+    showToast(toastMessage, 'success');
 
     setIsTogglingPaid(true);
     try {
       const response = await requestJson<{ pot: SerializedPot }>(`/api/pots/${potId}/paid`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetIndex }),
       });
       await Promise.all([
         mutate((prev) => (prev ? { ...prev, pot: response.pot } : prev), false),
@@ -666,15 +679,15 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
                       </div>
 
                       <div className="detail__participant-actions">
-                        {isMe ? (
+                        {isMe || pot.isManaging ? (
                           <button
                             type="button"
                             className={`detail__paid-badge-btn ${participant.isPaid ? 'detail__paid-badge-btn--active' : ''}`}
-                            onClick={handleTogglePaid}
+                            onClick={() => handleTogglePaid(participant, index)}
                             disabled={isTogglingPaid}
-                            title="클릭하여 송금 상태 변경"
+                            title={isMe ? '클릭하여 송금 상태 변경' : `${participant.name}님 송금 상태 변경 (방장 권한)`}
                           >
-                            {participant.isPaid ? '✓ 송금 완료' : '💸 미송금 (클릭)'}
+                            {participant.isPaid ? '✓ 송금 완료' : (isMe ? '💸 미송금 (클릭)' : '미송금 (클릭)')}
                           </button>
                         ) : participant.isPaid ? (
                           <span className="detail__participant-paid-badge">✓ 송금 완료</span>
