@@ -22,6 +22,7 @@ import {
 import type { PrivateView } from '../../lib/onenightOnline';
 import { useAuth } from './AuthProvider';
 import { GameChat, type GameChatConfig } from './GameChat';
+import { Spectators } from './Spectators';
 import { OneNightRulebook } from './OneNightRulebook';
 
 const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
@@ -164,6 +165,43 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
     };
   }, [roomId, mutate]);
 
+  // 접속 표시(🟢)와 관전자 이름. 자리에 앉지 않고 들어와 있는 사람이 관전자입니다.
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
+  const [spectators, setSpectators] = useState<string[]>([]);
+  const playerIdsKey = room?.players.map((p) => p.id).join(',') ?? '';
+  useEffect(() => {
+    if (!currentUser || !room) return undefined;
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch {
+      return undefined;
+    }
+    const myRole = room.players.some((p) => p.id === currentUser.id && !p.left) ? 'player' : 'spectator';
+    const channel = supabase.channel(`onenight-presence-${roomId}`, { config: { presence: { key: currentUser.id } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<{ userId: string; name: string; role: string }>();
+      const ids = new Set<string>();
+      const names: string[] = [];
+      Object.values(state).forEach((metas) =>
+        metas.forEach((m) => {
+          ids.add(m.userId);
+          if (m.role === 'spectator' && !names.includes(m.name)) names.push(m.name);
+        }),
+      );
+      setOnlineIds(ids);
+      setSpectators(names);
+    });
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await channel.track({ userId: currentUser.id, name: currentUser.name, role: myRole });
+    });
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // 참여자 구성이 바뀔 때만 재구독합니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, currentUser, playerIdsKey]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(timer);
@@ -235,6 +273,7 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
           <h1 className="onenight__title">{room.roomName}</h1>
           <span className="onenight__phase">{PHASE_LABEL[room.status]}</span>
           {left !== null && <span className="onenight__clock">{formatClock(left)}</span>}
+          <Spectators className="onenight__spectators" names={spectators} />
         </div>
         <div className="onenight__head-tools">
           <OneNightRulebook playerCount={seated.length} />
@@ -385,6 +424,9 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
               {seated.map((p) => (
                 <li key={p.id}>
                   <Avatar player={p} size={20} />
+                  <span aria-label={onlineIds.has(p.id) ? '접속 중' : '접속 끊김'} className="onenight__online">
+                    {onlineIds.has(p.id) ? '🟢' : '⚪'}
+                  </span>
                   <span>{p.name}</span>
                   {room.status === 'night' && room.nightSubmitted.includes(p.id) && <span className="onenight__done">✓</span>}
                   {room.status === 'voting' && room.voted.includes(p.id) && <span className="onenight__done">✓</span>}

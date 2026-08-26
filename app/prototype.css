@@ -8377,3 +8377,10 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   .onenight-rulebook__tabs { padding-left: 14px; padding-right: 14px; }
   .onenight-rulebook__body { padding: 16px 14px; }
 }
+
+.onenight__spectators {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.onenight__online { font-size: 0.55rem; line-height: 1; flex-shrink: 0; }
