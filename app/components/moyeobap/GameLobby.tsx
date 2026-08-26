@@ -7,6 +7,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson, getErrorMessage } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
+import { GameRanking } from './GameRanking';
 
 // 실시간 대전 공용 로비(방 목록·방 만들기·참여/관전). 오목·체스가 경로와
 // "누가 방장이고 빈 자리가 있는지"를 읽는 방법만 다르게 넘겨서 같이 씁니다.
@@ -25,6 +26,8 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   pagePath: string;
   /** 랭킹 페이지. 없는 게임(갈틱폰)은 비워 둡니다. */
   rankingPath?: string;
+  /** 랭킹 API. 넣으면 로비 카드 아래에 이번 주 랭킹을 바로 펼쳐 보여줍니다. 예: /api/games/omok/ranking */
+  apiRanking?: string;
   namePlaceholder: string;
   hostId: (room: Room) => string | null;
   hasOpenSeat: (room: Room) => boolean;
@@ -108,87 +111,97 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
   const rooms = data?.rooms ?? [];
 
   return (
-    <div className="omok-lobby">
-      <div className="omok-lobby__toolbar">
-        <input
-          className="omok-lobby__name-input"
-          maxLength={40}
-          onChange={(e) => setRoomName(e.target.value)}
-          placeholder={config.namePlaceholder}
-          type="text"
-          value={roomName}
-        />
-        {config.createExtras}
-        <button className="omok-lobby__create-btn" disabled={busy} onClick={handleCreate} type="button">
-          + 새 방 만들기
-        </button>
+    <>
+      <div className="omok-lobby">
+        <div className="omok-lobby__toolbar">
+          <input
+            className="omok-lobby__name-input"
+            maxLength={40}
+            onChange={(e) => setRoomName(e.target.value)}
+            placeholder={config.namePlaceholder}
+            type="text"
+            value={roomName}
+          />
+          {config.createExtras}
+          <button className="omok-lobby__create-btn" disabled={busy} onClick={handleCreate} type="button">
+            + 새 방 만들기
+          </button>
+        </div>
+
+        {errorMessage && <p className="omok-lobby__error">{errorMessage}</p>}
+
+        {rooms.length === 0 ? (
+          <p className="omok-lobby__empty">대기 중인 방이 없어요. 새로 만들어보세요!</p>
+        ) : (
+          <table className="omok-lobby__table">
+            <thead>
+              <tr>
+                <th>방 이름</th>
+                <th>플레이어</th>
+                <th>상태</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.map((room) => {
+                const hasOpenSeat = config.hasOpenSeat(room);
+                const maxPlayers = config.maxPlayers ?? 2;
+                const playerCount = config.playerCount ? config.playerCount(room) : hasOpenSeat ? 1 : 2;
+                const isMine = currentUser?.id === config.hostId(room) || Boolean(currentUser && config.isMember?.(room, currentUser.id));
+                const meta = config.roomMeta?.(room);
+                return (
+                  <tr className="omok-lobby__row" key={room.id}>
+                    <td className="omok-lobby__row-name">{room.roomName}</td>
+                    <td>
+                      {playerCount} / {maxPlayers}{meta ? <span className="omok-lobby__row-meta"> · {meta}</span> : null}
+                    </td>
+                    <td>
+                      <span className={`omok-lobby__status-badge omok-lobby__status-badge--${room.status}`}>
+                        {STATUS_LABEL[room.status]}
+                      </span>
+                    </td>
+                    <td className="omok-lobby__row-actions">
+                      <button className="omok-lobby__join-btn" disabled={busy} onClick={() => handleJoin(room)} type="button">
+                        {isMine ? '입장하기' : hasOpenSeat ? '참여하기' : '관전하기'}
+                      </button>
+                      {config.allowSpectateWaiting && !isMine && hasOpenSeat && (
+                        <button
+                          className="omok-lobby__join-btn omok-lobby__join-btn--ghost"
+                          disabled={busy}
+                          onClick={() => {
+                            if (!currentUser) {
+                              openAuth(config.pagePath);
+                              return;
+                            }
+                            router.push(`${config.pagePath}/${room.id}`);
+                          }}
+                          type="button"
+                        >
+                          관전
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {config.rankingPath && (
-        <Link className="omok-lobby__ranking-link" href={config.rankingPath}>
-          🏆 랭킹 보기
-        </Link>
+      {config.apiRanking && (
+        <section className="lobby-ranking">
+          <div className="lobby-ranking__header">
+            <h2 className="lobby-ranking__title">🏆 이번 주 랭킹</h2>
+            {config.rankingPath && (
+              <Link className="lobby-ranking__link" href={config.rankingPath}>
+                전체 랭킹 보기 →
+              </Link>
+            )}
+          </div>
+          <GameRanking apiRanking={config.apiRanking} limit={10} />
+        </section>
       )}
-
-      {errorMessage && <p className="omok-lobby__error">{errorMessage}</p>}
-
-      {rooms.length === 0 ? (
-        <p className="omok-lobby__empty">대기 중인 방이 없어요. 새로 만들어보세요!</p>
-      ) : (
-        <table className="omok-lobby__table">
-          <thead>
-            <tr>
-              <th>방 이름</th>
-              <th>플레이어</th>
-              <th>상태</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rooms.map((room) => {
-              const hasOpenSeat = config.hasOpenSeat(room);
-              const maxPlayers = config.maxPlayers ?? 2;
-              const playerCount = config.playerCount ? config.playerCount(room) : hasOpenSeat ? 1 : 2;
-              const isMine = currentUser?.id === config.hostId(room) || Boolean(currentUser && config.isMember?.(room, currentUser.id));
-              const meta = config.roomMeta?.(room);
-              return (
-                <tr className="omok-lobby__row" key={room.id}>
-                  <td className="omok-lobby__row-name">{room.roomName}</td>
-                  <td>
-                    {playerCount} / {maxPlayers}{meta ? <span className="omok-lobby__row-meta"> · {meta}</span> : null}
-                  </td>
-                  <td>
-                    <span className={`omok-lobby__status-badge omok-lobby__status-badge--${room.status}`}>
-                      {STATUS_LABEL[room.status]}
-                    </span>
-                  </td>
-                  <td className="omok-lobby__row-actions">
-                    <button className="omok-lobby__join-btn" disabled={busy} onClick={() => handleJoin(room)} type="button">
-                      {isMine ? '입장하기' : hasOpenSeat ? '참여하기' : '관전하기'}
-                    </button>
-                    {config.allowSpectateWaiting && !isMine && hasOpenSeat && (
-                      <button
-                        className="omok-lobby__join-btn omok-lobby__join-btn--ghost"
-                        disabled={busy}
-                        onClick={() => {
-                          if (!currentUser) {
-                            openAuth(config.pagePath);
-                            return;
-                          }
-                          router.push(`${config.pagePath}/${room.id}`);
-                        }}
-                        type="button"
-                      >
-                        관전
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </div>
+    </>
   );
 }

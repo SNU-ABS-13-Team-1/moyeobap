@@ -14,6 +14,7 @@ const CONFIG: GameLobbyConfig<BadukLobbyRoom> = {
   apiRooms: '/api/games/baduk/rooms',
   pagePath: '/games/baduk',
   rankingPath: '/games/baduk/ranking',
+  apiRanking: '/api/games/baduk/ranking',
   namePlaceholder: '방 이름 (예: 점심 내기 바둑)',
   hostId: (room) => room.blackId,
   hasOpenSeat: (room) => room.status === 'waiting' && !room.whiteId,
