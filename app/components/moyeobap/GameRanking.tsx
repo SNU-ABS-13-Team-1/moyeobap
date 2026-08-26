@@ -16,9 +16,11 @@ export type RankingEntry = {
   draws: number;
 };
 
-export function GameRanking({ apiRanking, children }: { apiRanking: string; children?: React.ReactNode }) {
+// limit을 주면 상위 몇 명만 보여줍니다(로비에 끼워 넣을 때 사용).
+export function GameRanking({ apiRanking, limit, children }: { apiRanking: string; limit?: number; children?: React.ReactNode }) {
   const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>(apiRanking, fetcher, { refreshInterval: 10000 });
-  const ranking = data?.ranking ?? [];
+  const all = data?.ranking ?? [];
+  const ranking = limit ? all.slice(0, limit) : all;
 
   if (error) {
     return <p className="omok-ranking__error">랭킹을 불러오지 못했어요.</p>;

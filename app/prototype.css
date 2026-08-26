@@ -4972,17 +4972,44 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   cursor: not-allowed;
 }
 
-.omok-lobby__ranking-link {
-  display: inline-block;
-  margin-bottom: var(--space-md);
+.lobby-ranking {
+  max-width: 720px;
+  margin: var(--space-xl, 40px) auto 0;
+}
+
+.lobby-ranking__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+}
+
+.lobby-ranking__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.lobby-ranking__link {
   color: var(--primary);
   font-weight: 600;
   font-size: 0.9rem;
   text-decoration: none;
 }
 
-.omok-lobby__ranking-link:hover {
+.lobby-ranking__link:hover {
   text-decoration: underline;
+}
+
+/* 로비 안에서는 랭킹 표를 방 목록 카드와 같은 너비로 맞춥니다. */
+.lobby-ranking .omok-ranking__table {
+  max-width: none;
+}
+
+.lobby-ranking .omok-ranking__empty {
+  padding: var(--space-lg) 0;
 }
 
 .omok-lobby__error {
