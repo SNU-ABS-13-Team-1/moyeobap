@@ -380,8 +380,79 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
+/* BGM 버튼 + 곡 고르기 버튼 묶음. 목록을 버튼 아래에 띄우려고 기준점이 됩니다. */
+.header__bgm {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header__bgm-pick {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.header__bgm-pick:hover { border-color: rgba(0, 0, 0, 0.16); background: #f8fafc; color: var(--text-primary); }
+.header__bgm-pick--open { border-color: var(--primary); background: #fff7ed; color: var(--primary); }
+
+.header__bgm-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 168px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+}
+
+.header__bgm-list-head {
+  padding: 4px 8px 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.header__bgm-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.header__bgm-option:hover { background: #f8fafc; }
+.header__bgm-option.is-current { color: var(--primary); font-weight: 700; }
+.header__bgm-option-check { width: 10px; flex-shrink: 0; }
+
 /* 곡 제목이 파형 옆을 계속 흘러가는 창. 헤더가 좁아서 통 너비를 고정하고,
-   글자가 통에 딱 잘리면 튀어나온 것처럼 보여 양 끝을 흐리게 지웁니다. */
+   글자가 통에 딱 잘리면 튀어나온 것처럼 보여 양 끝을 흐리게 지웁니다.
+   꺼져 있을 때는 아예 흐르지 않고 "BGM OFF"만 둡니다. */
 .header__bgm-marquee {
   overflow: hidden;
   width: 96px;
