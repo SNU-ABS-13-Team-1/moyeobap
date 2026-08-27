@@ -177,7 +177,7 @@ async function ensureRestaurantExistsInSupabase(restaurantId: string): Promise<v
 const MAX_EVENTS = 2000;
 
 /**
- * 행동/Event 기록을 남깁니다. 기록에 실패해도 사용자의 동작은 성공한 것으로
+ * 기록 데이터를 남깁니다. 기록에 실패해도 사용자의 동작은 성공한 것으로
  * 둡니다 — 통계용 로그 때문에 모집 참여가 막히면 안 됩니다.
  */
 export async function logEvent(
