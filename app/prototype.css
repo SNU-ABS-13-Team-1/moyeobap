@@ -8800,3 +8800,17 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 }
 
 .onenight__online { font-size: 0.55rem; line-height: 1; flex-shrink: 0; }
+
+/* 연습 모드(컴퓨터 대결) 안내. 랭킹이 없다는 걸 분명히 알려 줘야
+   "내 점수가 어디 올라가나" 하고 신경 쓰지 않습니다. */
+.chess__practice-note,
+.rummy__practice-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  text-align: center;
+}

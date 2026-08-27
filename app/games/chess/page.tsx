@@ -9,7 +9,7 @@ const MODES = [
     href: '/games/chess/computer',
     emoji: '🤖',
     title: '컴퓨터와 대결',
-    desc: '완전 초보부터 프로까지 5단계. 난이도별 랭킹에 도전하세요.',
+    desc: '완전 초보부터 프로까지 5단계. 랭킹 없이 편하게 연습하세요.',
   },
   {
     href: '/games/chess/online',

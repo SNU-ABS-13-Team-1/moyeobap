@@ -14,7 +14,7 @@ export default function ChessPage() {
         <div>
           <p className="page-heading__eyebrow">잠깐 쉬어가기</p>
           <h1>체스 컴퓨터</h1>
-          <p>5단계 난이도의 컴퓨터와 두고, 난이도별 랭킹에 도전하세요.</p>
+          <p>5단계 난이도의 컴퓨터와 편하게 두세요. 연습용이라 랭킹이 없고, 점수는 아무에게도 안 보여요.</p>
         </div>
         <Link className="page-back-link" href="/games/chess">← 체스</Link>
       </div>

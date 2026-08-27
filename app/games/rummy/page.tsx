@@ -9,7 +9,7 @@ const MODES = [
     href: '/games/rummy/computer',
     emoji: '🤖',
     title: '컴퓨터와 대결',
-    desc: '완전 초보부터 프로까지 5단계, 컴퓨터 1~3명. 난이도별 랭킹.',
+    desc: '완전 초보부터 프로까지 5단계, 컴퓨터 1~3명. 랭킹 없이 편하게 연습하세요.',
   },
   {
     href: '/games/rummy/online',

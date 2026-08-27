@@ -1,23 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import useSWR from 'swr';
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
 import { DIFFICULTY_LABEL, pickCpuMove, type Difficulty } from '../../lib/chessAi';
 import type { ChessAiRequest, ChessAiResponse } from '../../lib/chessAi.worker';
-import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, type HallWeek } from './HallOfFame';
-import { RankMedal, rankRowClass } from './RankMedal';
-import { WeekNote, type WeekInfo } from './WeekNote';
-import { requestJson } from '../../lib/api-client';
-import { useAuth } from './AuthProvider';
+import { readPersonalBest, savePersonalBest } from '../../lib/personalBest';
 import { ChessBoard } from './ChessBoard';
 import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
 
-// 컴퓨터와 두는 체스. 난이도(5단계)별로 랭킹이 따로 있고, 이기면 그 난이도 랭킹에 기록됩니다.
-
-type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
+// 컴퓨터와 두는 체스(난이도 5단계). 연습용이라 랭킹이 없습니다 — 점수는 서버로
+// 보내지 않고, 내 최고 기록만 이 브라우저에 남습니다. 남 눈치 볼 일 없이
+// 편하게 두시라고 이렇게 뒀습니다. 사람과 겨루려면 실시간 대전으로 가면 됩니다.
 
 type Outcome =
   | { kind: 'playing' }
@@ -30,9 +23,7 @@ const CPU_THINK_MS = 350;
 const WORKER_FROM_LEVEL: Difficulty = 4;
 const DIFFICULTIES: Difficulty[] = [1, 2, 3, 4, 5];
 
-function leaderboardUrl(difficulty: Difficulty): string {
-  return `/api/games/chess-l${difficulty}/scores`;
-}
+const bestKey = (difficulty: Difficulty) => `chess-l${difficulty}`;
 
 function readOutcome(game: Chess): Outcome {
   if (game.isCheckmate()) {
@@ -46,25 +37,21 @@ function readOutcome(game: Chess): Outcome {
   return { kind: 'playing' };
 }
 
-/** 빠르게 이길수록 높은 점수(난이도별 랭킹이 따로라 배율은 없음). 최소 10점, 최대 300점. */
+/** 빠르게 이길수록 높은 점수(난이도별로 기록이 따로라 배율은 없음). 최소 10점, 최대 300점. */
 function winScore(fullMoves: number): number {
   return Math.max(10, 300 - fullMoves * 3);
 }
 
 export function ChessGame() {
   const [game, setGame] = useState<Chess>(() => new Chess());
-  const { currentUser } = useAuth();
   const [difficulty, setDifficulty] = useState<Difficulty>(3);
-  const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
-    leaderboardUrl(difficulty),
-    fetcher,
-  );
-
   const [fen, setFen] = useState(() => game.fen());
   const [selected, setSelected] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [savedScore, setSavedScore] = useState<number | null>(null);
+  // 최고 기록은 이 브라우저에만 남습니다(서버로 안 보냅니다).
+  const [best, setBest] = useState<{ best: number; isNew: boolean } | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
@@ -111,6 +98,13 @@ export function ChessGame() {
     };
   }, []);
 
+  // localStorage는 서버 렌더에서 읽을 수 없어 마운트 뒤에 채웁니다(BgmPlayer와 같은 방식).
+  useEffect(() => {
+    const saved = readPersonalBest(bestKey(difficulty));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBest(saved === null ? null : { best: saved, isNew: false });
+  }, [difficulty]);
+
   function syncBoard(target: Chess = game) {
     setFen(target.fen());
   }
@@ -118,16 +112,8 @@ export function ChessGame() {
   function submitWinScore() {
     const score = winScore(game.moveNumber());
     setSubmitted(true);
-    requestJson(leaderboardUrl(difficulty), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ score }),
-    })
-      .then(() => {
-        setSavedScore(score);
-        mutateLeaderboard();
-      })
-      .catch(() => null);
+    setSavedScore(score);
+    setBest(savePersonalBest(bestKey(difficulty), score));
   }
 
   function applyMove(from: Square, to: Square, promotion?: PieceSymbol) {
@@ -144,8 +130,9 @@ export function ChessGame() {
     syncBoard();
 
     // 내 수로 체크메이트가 나면(= 이제 컴퓨터 차례인데 둘 수 없음) 점수를 한 번만 기록합니다.
+    // 로그인 여부는 따지지 않습니다 — 어차피 이 브라우저에만 남습니다.
     const humanWon = game.turn() !== HUMAN_COLOR && game.isCheckmate();
-    if (humanWon && currentUser && !submitted) submitWinScore();
+    if (humanWon && !submitted) submitWinScore();
   }
 
   function handleNewGame(nextDifficulty: Difficulty = difficulty) {
@@ -295,32 +282,16 @@ export function ChessGame() {
       </div>
 
       {savedScore !== null && (
-        <p className="chess__saved">{DIFFICULTY_LABEL[difficulty]} 랭킹에 {savedScore}점이 기록됐어요. (빠르게 이길수록 높은 점수)</p>
+        <p className="chess__saved">
+          이번 판 {savedScore}점 (빠르게 이길수록 높아요)
+          {best && !best.isNew && ` · 내 최고 ${best.best}점`}
+          {best?.isNew && ' · 내 최고 기록이에요! 🎉'}
+        </p>
       )}
 
-      <div className="chess__leaderboard">
-        <p className="chess__leaderboard-title">🏆 {DIFFICULTY_LABEL[difficulty]} 이번 주 랭킹 (최고 점수)</p>
-        <WeekNote week={leaderboardData?.week} />
-        {!currentUser && <p className="chess__leaderboard-note">로그인하면 컴퓨터를 이겼을 때 점수가 랭킹에 기록돼요.</p>}
-        {leaderboardData && leaderboardData.leaderboard.length === 0 && (
-          <p className="chess__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>
-        )}
-        {leaderboardData && leaderboardData.leaderboard.length > 0 && (
-          <ol className="chess__leaderboard-list">
-            {leaderboardData.leaderboard.map((entry, index) => (
-              <li
-                className={`chess__leaderboard-item ${currentUser?.id === entry.userId ? 'chess__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
-                key={entry.userId}
-              >
-                <RankMedal rank={index + 1} className="chess__leaderboard-rank" />
-                <span className="chess__leaderboard-name">{entry.userName}</span>
-                <span className="chess__leaderboard-score">{entry.bestScore}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-        <HallOfFame hall={leaderboardData?.hall} unit="점" />
-      </div>
+      <p className="chess__practice-note">
+        여기는 연습이라 랭킹이 없어요. 점수는 이 브라우저에만 남고 아무도 볼 수 없어요.
+      </p>
     </div>
   );
 }
