@@ -28,10 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     icons: {
       icon: [
-        { url: "/icon.png", type: "image/png" },
-        { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍚</text></svg>", type: "image/svg+xml" },
+        { url: "/icon.svg", type: "image/svg+xml" },
+        { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon.ico", sizes: "any" },
       ],
-      apple: "/icon.png",
+      shortcut: "/icon.svg",
     },
     openGraph: {
       title,

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
@@ -155,7 +156,16 @@ export default function HomePage() {
           </div>
         ) : isInitialLoading ? (
           <div className="empty">
-            <div className="empty__emoji">🍚</div>
+            <div className="empty__emoji">
+              <Image
+                alt=""
+                className="empty__emoji-img"
+                height={52}
+                priority
+                src="/icon.png"
+                width={52}
+              />
+            </div>
             <p className="empty__desc">모집 현황을 불러오는 중이에요...</p>
           </div>
         ) : filteredPots.length === 0 ? (

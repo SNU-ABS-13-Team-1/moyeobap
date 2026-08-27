@@ -91,6 +91,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: var(--space-sm);
   text-decoration: none;
   justify-self: start;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .site-nav {
@@ -149,6 +151,14 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .site-nav__label-mobile {
   display: none;
+}
+
+.header__logo-img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 .header__logo-emoji {
@@ -488,6 +498,20 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .header__bgm-marquee {
     width: 76px;
   }
+
+  .header__profile {
+    padding: 3px;
+    border-radius: var(--radius-full);
+  }
+
+  .header__profile-name {
+    display: none;
+  }
+
+  .header__auth-btn {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+  }
 }
 
 /* 움직임을 줄이는 설정이면 흐르지 않게 두고, 대신 제목이 잘리지 않도록 통을 풉니다. */
@@ -538,6 +562,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .empty__emoji {
   font-size: 2.5rem;
   margin-bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.empty__emoji-img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  display: block;
+  animation: loadingFloat 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes loadingFloat {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(-6px) scale(1.05);
+  }
 }
 
 .empty__title {
