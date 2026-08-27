@@ -19,6 +19,7 @@ export function RummyLobby() {
     apiRooms: '/api/games/rummy/rooms',
     pagePath: '/games/rummy/online',
     rankingPath: '/games/rummy/ranking',
+    apiRanking: '/api/games/rummy/ranking',
     namePlaceholder: '방 이름 (예: 점심 루미큐브)',
     maxPlayers: 4,
     allowSpectateWaiting: true,

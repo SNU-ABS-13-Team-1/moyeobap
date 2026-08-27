@@ -55,7 +55,12 @@ function entryPlaceholder(entry: AlbumEntry): string {
 export function PhoneRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { data, error, mutate } = useSWR<{ room: Room; albums: AlbumSummary[] }>(`/api/games/phone/rooms/${roomId}`, fetcher, { refreshInterval: 2000 });
+  const { data, error, mutate } = useSWR<{ room: Room; albums: AlbumSummary[] }>(`/api/games/phone/rooms/${roomId}`, fetcher, {
+    refreshInterval: 8000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  });
   const room = data?.room;
   const albums = data?.albums ?? [];
 

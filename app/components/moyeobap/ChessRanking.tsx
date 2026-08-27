@@ -26,7 +26,12 @@ function reasonLabel(reason: string | null): string {
 
 // ELO 표(공용) 아래에 체스만의 "최근 대국" 목록을 덧붙입니다.
 export function ChessRanking() {
-  const { data } = useSWR<{ recent: RecentMatch[] }>('/api/games/chess/ranking', fetcher, { refreshInterval: 10000 });
+  const { data } = useSWR<{ recent: RecentMatch[] }>('/api/games/chess/ranking', fetcher, {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
   const recent = data?.recent ?? [];
 
   return (

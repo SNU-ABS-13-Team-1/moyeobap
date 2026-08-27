@@ -129,9 +129,24 @@ export async function createRoom(userId: string, userName: string, roomName?: st
   return mapRow(data as BadukRoomRow);
 }
 
+/** 1시간 동안 아무 움직임이 없는 방은 상태와 무관하게 정리합니다(전적·랭킹은 별도 표라 남습니다).
+ * 진행 중(playing)인 방도 포함합니다 — 정상 진행 중엔 매 수마다 updated_at이 갱신되므로,
+ * 1시간 멈춘 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
+const STALE_ROOM_TTL_MS = 1 * 60 * 60 * 1000;
+
+async function cleanupStaleRooms(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const cutoff = new Date(Date.now() - STALE_ROOM_TTL_MS).toISOString();
+  const { error } = await supabase.from("baduk_rooms").delete().lt("updated_at", cutoff);
+  if (error) console.error("baduk cleanupStaleRooms error:", error);
+}
+
 export async function listRooms(): Promise<BadukRoom[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
+
+  await cleanupStaleRooms();
 
   const { data, error } = await supabase
     .from("baduk_rooms")

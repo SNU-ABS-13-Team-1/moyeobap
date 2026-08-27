@@ -7,6 +7,7 @@ import { DIFFICULTY_LABEL, pickCpuMove, type Difficulty } from '../../lib/chessA
 import type { ChessAiRequest, ChessAiResponse } from '../../lib/chessAi.worker';
 import { fetcher } from '../../lib/fetcher';
 import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
@@ -308,10 +309,10 @@ export function ChessGame() {
           <ol className="chess__leaderboard-list">
             {leaderboardData.leaderboard.map((entry, index) => (
               <li
-                className={`chess__leaderboard-item ${currentUser?.id === entry.userId ? 'chess__leaderboard-item--me' : ''}`}
+                className={`chess__leaderboard-item ${currentUser?.id === entry.userId ? 'chess__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
                 key={entry.userId}
               >
-                <span className="chess__leaderboard-rank">{index + 1}</span>
+                <RankMedal rank={index + 1} className="chess__leaderboard-rank" />
                 <span className="chess__leaderboard-name">{entry.userName}</span>
                 <span className="chess__leaderboard-score">{entry.bestScore}</span>
               </li>

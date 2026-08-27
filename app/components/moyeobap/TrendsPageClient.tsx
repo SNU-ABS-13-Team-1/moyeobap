@@ -8,7 +8,12 @@ export function TrendsPageClient() {
   const { data, error, isLoading } = useSWR<{
     campus: CampusStats;
     my: MyStatsReport | null;
-  }>("/api/stats", fetcher, { refreshInterval: 10000 });
+  }>("/api/stats", fetcher, {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
 
   if (isLoading) {
     return (
@@ -41,7 +46,7 @@ export function TrendsPageClient() {
         <div className="trends-header__badge">📊 DATA INSIGHTS</div>
         <h1 className="trends-header__title">모여밥 캠퍼스 맛집 랭킹 & 트렌드</h1>
         <p className="trends-header__desc">
-          우리 캠퍼스에서 일어난 실제 공동주문 행동 데이터를 분석한 인기 맛집 랭킹과 식사 패턴이에요.
+          우리 캠퍼스에서 일어난 실제 공동주문 기록 데이터를 분석한 인기 맛집 랭킹과 식사 패턴이에요.
         </p>
       </header>
 

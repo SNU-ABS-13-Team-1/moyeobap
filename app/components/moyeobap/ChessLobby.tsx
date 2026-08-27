@@ -20,6 +20,7 @@ export function ChessLobby() {
     apiRooms: '/api/games/chess/rooms',
     pagePath: '/games/chess/online',
     rankingPath: '/games/chess/ranking',
+    apiRanking: '/api/games/chess/ranking',
     namePlaceholder: '방 이름 (예: 점심 체스 한 판)',
     hostId: (room) => room.whiteId,
     hasOpenSeat: (room) => room.status === 'waiting' && (!room.whiteId || !room.blackId),

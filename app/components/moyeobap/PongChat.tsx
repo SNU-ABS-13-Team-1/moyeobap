@@ -34,7 +34,12 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   const { data, error, mutate } = useSWR<{ messages: PongChatMessage[] }>(
     `/api/games/pong/rooms/${roomId}/chat`,
     fetcher,
-    { refreshInterval: 3000 },
+    {
+      refreshInterval: 10000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);

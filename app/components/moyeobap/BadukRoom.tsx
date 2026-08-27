@@ -58,7 +58,12 @@ export function BadukRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: BadukRoomData }>(
     `/api/games/baduk/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    {
+      refreshInterval: 8000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const room = data?.room;
 

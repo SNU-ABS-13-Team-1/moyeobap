@@ -55,7 +55,12 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    {
+      refreshInterval: 8000,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 2000,
+    },
   );
   const room = data?.room;
 
