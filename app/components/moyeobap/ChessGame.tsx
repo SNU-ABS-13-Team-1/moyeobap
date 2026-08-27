@@ -16,8 +16,7 @@ import { PromotionPicker, type PromotionPiece } from './PromotionPicker';
 
 // 컴퓨터와 두는 체스. 난이도(5단계)별로 랭킹이 따로 있고, 이기면 그 난이도 랭킹에 기록됩니다.
 
-/** rank는 서버가 매긴 공동 순위입니다. 점수가 같으면 같은 값이라, 목록의 몇 번째인지로 세면 안 됩니다. */
-type ScoreEntry = { userId: string; userName: string; bestScore: number; rank: number };
+type ScoreEntry = { userId: string; userName: string; bestScore: number };
 type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 
 type Outcome =
@@ -308,12 +307,12 @@ export function ChessGame() {
         )}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (
           <ol className="chess__leaderboard-list">
-            {leaderboardData.leaderboard.map((entry) => (
+            {leaderboardData.leaderboard.map((entry, index) => (
               <li
-                className={`chess__leaderboard-item ${currentUser?.id === entry.userId ? 'chess__leaderboard-item--me' : ''} ${rankRowClass(entry.rank)}`}
+                className={`chess__leaderboard-item ${currentUser?.id === entry.userId ? 'chess__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
                 key={entry.userId}
               >
-                <RankMedal rank={entry.rank} className="chess__leaderboard-rank" />
+                <RankMedal rank={index + 1} className="chess__leaderboard-rank" />
                 <span className="chess__leaderboard-name">{entry.userName}</span>
                 <span className="chess__leaderboard-score">{entry.bestScore}</span>
               </li>
