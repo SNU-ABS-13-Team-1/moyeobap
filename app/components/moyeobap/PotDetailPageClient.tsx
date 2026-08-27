@@ -476,7 +476,9 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
       <div className="pot-page__layout">
         <section className={`pot-page__info ${mobileTab === 'info' ? 'pot-page__panel--mobile-active' : ''}`}>
           <div className="pot-page__hero">
-            <div className="detail__emoji">{restaurant.emoji}</div>
+            <div className="detail__emoji">
+              {effectiveCategory === 'lunch' ? '🍽️' : effectiveCategory === 'cafe' ? '☕' : '📦'}
+            </div>
             <div>
               <div className="card__badges">
                 <span className={`card__category ${effectiveCategory === 'lunch' ? 'card__category--lunch' : effectiveCategory === 'other' ? 'card__category--other' : 'card__category--cafe'}`}>

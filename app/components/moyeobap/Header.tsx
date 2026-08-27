@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
@@ -38,7 +39,14 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
   return (
     <header className="header">
       <Link aria-label="모여밥 현황판" className="header__logo" href="/">
-        <span className="header__logo-emoji">🍚</span>
+        <Image
+          alt=""
+          className="header__logo-img"
+          height={30}
+          priority
+          src="/icon.png"
+          width={30}
+        />
         <span className="header__logo-text">모여밥</span>
       </Link>
 

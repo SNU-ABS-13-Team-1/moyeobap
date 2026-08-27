@@ -42,6 +42,7 @@ export function PotCard({
   const effectiveCategory = pot.category ?? restaurant.category;
   const catLabel = effectiveCategory === 'lunch' ? '점심' : effectiveCategory === 'other' ? '기타' : '카페';
   const catClass = effectiveCategory === 'lunch' ? 'card__category--lunch' : effectiveCategory === 'other' ? 'card__category--other' : 'card__category--cafe';
+  const catEmoji = effectiveCategory === 'lunch' ? '🍽️' : effectiveCategory === 'cafe' ? '☕' : '📦';
 
   let statusClass = 'card__status--open';
   let statusText = '모집 중';
@@ -69,7 +70,7 @@ export function PotCard({
               </span>
             )}
           </div>
-          <span className="card__emoji">{restaurant.emoji}</span>
+          <span className="card__emoji">{catEmoji}</span>
         </div>
         <h3 className="card__name">{restaurant.name}</h3>
         <p className="card__meta">{restaurantMeta}</p>
