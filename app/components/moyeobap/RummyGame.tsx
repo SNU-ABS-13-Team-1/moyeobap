@@ -1,25 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import useSWR from 'swr';
-import { fetcher } from '../../lib/fetcher';
-import { HallOfFame, type HallWeek } from './HallOfFame';
-import { RankMedal, rankRowClass } from './RankMedal';
-import { WeekNote, type WeekInfo } from './WeekNote';
-import { requestJson } from '../../lib/api-client';
 import { HAND_SIZE, INITIAL_MELD, arrangeSet, createDeck, handPenalty, sortTiles, validateTurn, type Tile } from '../../lib/rummy';
 import { RUMMY_DIFFICULTY_LABEL, findCpuMoveByLevel, type RummyDifficulty } from '../../lib/rummyAi';
-import { useAuth } from './AuthProvider';
+import { readPersonalBest, savePersonalBest } from '../../lib/personalBest';
 import { RummyBoard, applyMove, type MoveTarget, type Selection } from './RummyBoard';
 
-// 루미큐브 — 컴퓨터 상대(1~3명, 난이도 5단계). 난이도별로 랭킹이 따로 있습니다.
+// 루미큐브 — 컴퓨터 상대(1~3명, 난이도 5단계). 연습용이라 랭킹이 없습니다 —
+// 점수는 서버로 보내지 않고 내 최고 기록만 이 브라우저에 남습니다.
+// 남 눈치 볼 일 없이 편하게 하시라고 이렇게 뒀습니다.
 
 const CPU_THINK_MS = 900;
 const CPU_NAMES = ['컴퓨터 A', '컴퓨터 B', '컴퓨터 C'];
 const DIFFICULTIES: RummyDifficulty[] = [1, 2, 3, 4, 5];
-
-type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 
 type Player = { name: string; isCpu: boolean; hand: Tile[]; melded: boolean };
 type Game = {
@@ -36,9 +29,7 @@ type Game = {
   snapshot: { table: Tile[][]; hand: Tile[] };
 };
 
-function leaderboardUrl(level: RummyDifficulty): string {
-  return `/api/games/rummy-l${level}/scores`;
-}
+const bestKey = (level: RummyDifficulty) => `rummy-l${level}`;
 
 function newGame(cpuCount: number): Game {
   let deck = createDeck();
@@ -83,7 +74,6 @@ function finishIfStuck(g: Game): Game {
 }
 
 export function RummyGame() {
-  const { currentUser } = useAuth();
   const [cpuCount, setCpuCount] = useState(1);
   const [level, setLevel] = useState<RummyDifficulty>(3);
   const [game, setGame] = useState<Game>(() => newGame(1));
@@ -92,7 +82,15 @@ export function RummyGame() {
   const [message, setMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [savedScore, setSavedScore] = useState<number | null>(null);
-  const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(leaderboardUrl(level), fetcher);
+  // 최고 기록은 이 브라우저에만 남습니다(서버로 안 보냅니다).
+  const [best, setBest] = useState<{ best: number; isNew: boolean } | null>(null);
+
+  // localStorage는 서버 렌더에서 읽을 수 없어 마운트 뒤에 채웁니다(BgmPlayer와 같은 방식).
+  useEffect(() => {
+    const saved = readPersonalBest(bestKey(level));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBest(saved === null ? null : { best: saved, isNew: false });
+  }, [level]);
 
   const me = game.players[0];
   const isMyTurn = game.current === 0 && game.winner === null;
@@ -139,15 +137,12 @@ export function RummyGame() {
   }
 
   function submitScore(g: Game) {
-    if (!currentUser || submitted) return;
+    // 로그인 여부는 따지지 않습니다 — 어차피 이 브라우저에만 남습니다.
+    if (submitted) return;
     const score = g.players.slice(1).reduce((sum, p) => sum + handPenalty(p.hand), 0);
     setSubmitted(true);
-    requestJson(leaderboardUrl(level), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }) })
-      .then(() => {
-        setSavedScore(score);
-        mutateLeaderboard();
-      })
-      .catch(() => null);
+    setSavedScore(score);
+    setBest(savePersonalBest(bestKey(level), score));
   }
 
   function endTurn() {
@@ -278,28 +273,15 @@ export function RummyGame() {
 
       {savedScore !== null && (
         <p className="rummy__saved">
-          {RUMMY_DIFFICULTY_LABEL[level]} 랭킹에 {savedScore}점이 기록됐어요. (상대들의 남은 타일 벌점 합)
+          이번 판 {savedScore}점 (상대들의 남은 타일 벌점 합)
+          {best && !best.isNew && ` · 내 최고 ${best.best}점`}
+          {best?.isNew && ' · 내 최고 기록이에요! 🎉'}
         </p>
       )}
 
-      <div className="rummy__leaderboard">
-        <p className="rummy__leaderboard-title">🏆 {RUMMY_DIFFICULTY_LABEL[level]} 이번 주 랭킹 (최고 점수)</p>
-        <WeekNote week={leaderboardData?.week} />
-        {!currentUser && <p className="rummy__leaderboard-note">로그인하면 이겼을 때 점수가 랭킹에 기록돼요.</p>}
-        {leaderboardData && leaderboardData.leaderboard.length === 0 && <p className="rummy__leaderboard-note">아직 기록이 없어요. 이 난이도의 첫 승리를 남겨보세요!</p>}
-        {leaderboardData && leaderboardData.leaderboard.length > 0 && (
-          <ol className="rummy__leaderboard-list">
-            {leaderboardData.leaderboard.map((entry, index) => (
-              <li className={`rummy__leaderboard-item ${currentUser?.id === entry.userId ? 'rummy__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`} key={entry.userId}>
-                <RankMedal rank={index + 1} className="rummy__leaderboard-rank" />
-                <span className="rummy__leaderboard-name">{entry.userName}</span>
-                <span className="rummy__leaderboard-score">{entry.bestScore}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-        <HallOfFame hall={leaderboardData?.hall} unit="점" />
-      </div>
+      <p className="rummy__practice-note">
+        여기는 연습이라 랭킹이 없어요. 점수는 이 브라우저에만 남고 아무도 볼 수 없어요.
+      </p>
     </div>
   );
 }
