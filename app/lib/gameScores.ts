@@ -1,11 +1,14 @@
 import { getSupabase } from "./supabase";
 import { currentWeekKey, weekRangeUtc } from "./gameWeek";
 import { ensurePrevWeekSnapshot, type HallEntry } from "./gameHall";
+import { assignRanks } from "./gameRank";
 
 export type ScoreEntry = {
   userId: string;
   userName: string;
   bestScore: number;
+  /** 공동 순위. 점수가 같으면 같은 값입니다(1, 1, 3 …). */
+  rank: number;
 };
 
 export async function submitGameScore(
@@ -50,7 +53,7 @@ async function leaderboardForWeek(game: string, weekKey: string, limit: number):
     return [];
   }
 
-  const bestByUser = new Map<string, ScoreEntry>();
+  const bestByUser = new Map<string, Omit<ScoreEntry, "rank">>();
   for (const row of data) {
     const existing = bestByUser.get(row.user_id);
     if (!existing || row.score > existing.bestScore) {
@@ -62,9 +65,12 @@ async function leaderboardForWeek(game: string, weekKey: string, limit: number):
     }
   }
 
-  return [...bestByUser.values()]
-    .sort((a, b) => b.bestScore - a.bestScore)
-    .slice(0, limit);
+  // 순위는 자르기 전에 매깁니다. 10위 자리에서 동점이 갈려도 보이는 순위는 맞아야 합니다.
+  const ranked = assignRanks(
+    [...bestByUser.values()].sort((a, b) => b.bestScore - a.bestScore),
+    (entry) => entry.bestScore,
+  );
+  return ranked.slice(0, limit);
 }
 
 /** 이번 주 랭킹. 겸사겸사 지난주 상위 3명을 명예의 전당에 남깁니다(이미 있으면 통과). */
