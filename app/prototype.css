@@ -8310,3 +8310,493 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   display: flex;
   gap: 8px;
 }
+
+/* ============================================================
+   원나잇 인랑
+   ============================================================ */
+
+.onenight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.onenight__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.onenight__head-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.onenight__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.onenight__phase {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: #1e1b4b;
+  color: #e0e7ff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.onenight__clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.onenight__head-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.onenight-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--card-border);
+  background: #fff;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.onenight-btn:hover:not(:disabled) { background: #f8fafc; border-color: rgba(0, 0, 0, 0.16); }
+.onenight-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.onenight-btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.onenight-btn--primary:hover:not(:disabled) { background: #ea580c; border-color: #ea580c; }
+
+.onenight-btn--danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.onenight-btn--danger:hover:not(:disabled) { background: #b91c1c; border-color: #b91c1c; }
+
+.onenight-btn--wide { width: 100%; padding: 12px; font-size: 0.95rem; }
+
+.onenight__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .onenight__layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.onenight__main,
+.onenight__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.onenight__notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.onenight__error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.88rem;
+}
+
+.onenight__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.onenight__subhead { margin: 0; font-size: 1.05rem; font-weight: 700; }
+
+/* 자리·참가자 목록 */
+.onenight__seats,
+.onenight__roster ul,
+.onenight__vote-list,
+.onenight__pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onenight__pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.onenight__pick-list--center { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.onenight__seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.onenight__avatar { border-radius: var(--radius-full); object-fit: cover; flex-shrink: 0; }
+.onenight__avatar--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-gradient);
+  color: #fff;
+  font-weight: 700;
+}
+
+.onenight__tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.onenight__tag--pick { background: #ffedd5; color: var(--primary); }
+.onenight__tag--dead { background: #fee2e2; color: #b91c1c; }
+
+.onenight__kick {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.onenight__done { margin-left: auto; color: #16a34a; font-weight: 700; }
+
+.onenight__roster {
+  padding: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.onenight__roster h3 { margin: 0 0 10px; font-size: 0.9rem; font-weight: 700; }
+.onenight__roster li { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+
+/* 역할 카드 */
+.onenight-role {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+}
+.onenight-role--wolf { border-color: #fecaca; background: linear-gradient(135deg, #fef2f2, #fff7ed); }
+.onenight-role__emoji { font-size: 2.2rem; line-height: 1; }
+.onenight-role__name { display: block; font-size: 1.1rem; font-weight: 700; }
+.onenight-role__desc { margin: 4px 0 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+
+/* 밤 */
+.onenight__night { display: flex; flex-direction: column; gap: var(--space-md); }
+.onenight__mode { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.onenight__pick,
+.onenight__vote {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.onenight__pick:hover:not(:disabled),
+.onenight__vote:hover:not(:disabled) { border-color: var(--primary); background: #fff7ed; }
+.onenight__pick.is-picked,
+.onenight__vote.is-picked { border-color: var(--primary); background: #ffedd5; }
+.onenight__vote:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.onenight__pick--card { flex-direction: column; gap: 6px; text-align: center; }
+.onenight__card-back { font-size: 2rem; line-height: 1; }
+
+/* 밤에 알게 된 것 */
+.onenight__knowledge {
+  padding: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.onenight__knowledge h3 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 700; }
+.onenight__knowledge ul { margin: 0 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.onenight__knowledge li { font-size: 0.92rem; line-height: 1.6; }
+
+/* 결과 */
+.onenight__result { display: flex; flex-direction: column; gap: var(--space-md); }
+.onenight__winner { margin: 0; font-size: 1.5rem; font-weight: 800; color: #15803d; }
+.onenight__winner.is-wolf { color: #b91c1c; }
+.onenight__reason { margin: 0; color: var(--text-muted); font-size: 0.92rem; }
+
+.onenight__reveal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.onenight__reveal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-size: 0.88rem;
+  flex-wrap: wrap;
+}
+.onenight__reveal-row.is-dead { background: #fef2f2; border-color: #fecaca; }
+.onenight__reveal-name { font-weight: 600; }
+.onenight__reveal-roles { color: var(--text-muted); }
+.onenight__reveal-votes { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+
+.onenight__center-reveal {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+.onenight__center-reveal h3 { margin: 0 0 6px; font-size: 0.85rem; font-weight: 700; }
+.onenight__center-reveal p { margin: 0; font-size: 0.88rem; color: var(--text-muted); }
+
+/* 로비 안내 */
+.onenight-lobby__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 18px;
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(135deg, #eef2ff, #fff);
+}
+.onenight-lobby__intro h2 { margin: 0 0 6px; font-size: 1.05rem; font-weight: 700; }
+.onenight-lobby__intro p { margin: 0; font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; max-width: 52ch; }
+
+/* 룰북 — 처음 하는 사람이 대부분이라 방·로비 어디서나 열 수 있게 둡니다 */
+.onenight-rulebook__open {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.onenight-rulebook__open:hover { background: #e0e7ff; border-color: #a5b4fc; }
+
+.onenight-rulebook__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.onenight-rulebook {
+  width: min(560px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.onenight-rulebook__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 20px 20px 0;
+}
+.onenight-rulebook__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+}
+.onenight-rulebook__head h2 { margin: 0; font-size: 1.25rem; font-weight: 800; }
+
+.onenight-rulebook__close {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: none;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.onenight-rulebook__close:hover { background: #e2e8f0; }
+
+.onenight-rulebook__lead {
+  margin: 12px 20px 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+.onenight-rulebook__lead strong { color: var(--text-primary); }
+
+.onenight-rulebook__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 14px 20px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+.onenight-rulebook__tab {
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.onenight-rulebook__tab.is-active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.onenight-rulebook__body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.onenight-rulebook__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.onenight-rulebook__steps li { display: flex; gap: 12px; }
+.onenight-rulebook__steps strong { display: block; font-size: 0.95rem; margin-bottom: 3px; }
+.onenight-rulebook__steps p { margin: 0; font-size: 0.87rem; line-height: 1.65; color: var(--text-muted); }
+
+.onenight-rulebook__badge {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.onenight-rulebook__subhead {
+  margin: 22px 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.onenight-rulebook__wins { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.onenight-rulebook__win {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--card-border);
+  background: #f8fafc;
+}
+.onenight-rulebook__win--village { border-left-color: #16a34a; }
+.onenight-rulebook__win--wolf { border-left-color: #dc2626; }
+.onenight-rulebook__win strong { display: block; font-size: 0.88rem; margin-bottom: 2px; }
+.onenight-rulebook__win span { font-size: 0.85rem; line-height: 1.6; color: var(--text-muted); }
+
+.onenight-rulebook__note {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.onenight-rulebook__roles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.onenight-rulebook__roles li { display: flex; gap: 12px; align-items: flex-start; }
+.onenight-rulebook__roles strong { display: flex; align-items: center; gap: 6px; font-size: 0.92rem; }
+.onenight-rulebook__roles p { margin: 3px 0 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-muted); }
+.onenight-rulebook__role-emoji { font-size: 1.5rem; line-height: 1.2; flex-shrink: 0; }
+.onenight-rulebook__count { font-style: normal; font-weight: 600; color: var(--text-muted); }
+.onenight-rulebook__tag {
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.onenight-rulebook__tag--wolf { background: #fee2e2; color: #b91c1c; }
+
+.onenight-rulebook__tips { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+.onenight-rulebook__tips li { font-size: 0.88rem; line-height: 1.65; }
+
+.onenight-rulebook__foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--card-border);
+  background: #f8fafc;
+}
+.onenight-rulebook__foot .onenight-btn { width: 100%; padding: 11px; }
+
+@media (max-width: 480px) {
+  .onenight-rulebook { max-height: 88vh; }
+  .onenight-rulebook__tabs { padding-left: 14px; padding-right: 14px; }
+  .onenight-rulebook__body { padding: 16px 14px; }
+}
+
+.onenight__spectators {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.onenight__online { font-size: 0.55rem; line-height: 1; flex-shrink: 0; }
