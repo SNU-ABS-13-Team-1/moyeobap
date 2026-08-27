@@ -16,6 +16,10 @@ const STATUS_LABEL: Record<OpenRoom['status'], string> = {
   waiting: '대기중',
   playing: '게임중',
   presenting: '앨범 공개 중',
+  scoring: '계가 중',
+  night: '밤 진행 중',
+  day: '낮 토론 중',
+  voting: '투표 중',
 };
 
 /** 방장이거나 이미 자리에 앉아 있으면 참여 요청 없이 바로 들어갑니다. */

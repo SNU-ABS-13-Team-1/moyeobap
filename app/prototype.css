@@ -4845,6 +4845,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: #334155;
 }
 
+.open-rooms__game--alkkagi {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.open-rooms__game--baduk {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
 .open-rooms__game--chess {
   background: #f5f3ff;
   color: #6d28d9;
@@ -4858,6 +4868,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .open-rooms__game--phone {
   background: #ecfeff;
   color: #0e7490;
+}
+
+.open-rooms__game--onenight {
+  background: #faf5ff;
+  color: #7e22ce;
 }
 
 .open-rooms__info {
@@ -4913,6 +4928,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .open-rooms__status--presenting {
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+.open-rooms__status--scoring {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.open-rooms__status--night {
+  background: #312e81;
+  color: #e0e7ff;
+}
+
+.open-rooms__status--day {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.open-rooms__status--voting {
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .open-rooms__enter-btn {
@@ -8844,3 +8879,17 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 }
 
 .onenight__online { font-size: 0.55rem; line-height: 1; flex-shrink: 0; }
+
+/* 연습 모드(컴퓨터 대결) 안내. 랭킹이 없다는 걸 분명히 알려 줘야
+   "내 점수가 어디 올라가나" 하고 신경 쓰지 않습니다. */
+.chess__practice-note,
+.rummy__practice-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  text-align: center;
+}

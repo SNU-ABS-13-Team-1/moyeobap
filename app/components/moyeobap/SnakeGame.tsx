@@ -12,7 +12,8 @@ import { useAuth } from './AuthProvider';
 const GAME_KEY = 'snake';
 const LEADERBOARD_URL = `/api/games/${GAME_KEY}/scores`;
 
-type ScoreEntry = { userId: string; userName: string; bestScore: number };
+/** rank는 서버가 매긴 공동 순위입니다. 점수가 같으면 같은 값이라, 목록의 몇 번째인지로 세면 안 됩니다. */
+type ScoreEntry = { userId: string; userName: string; bestScore: number; rank: number };
 type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 
 const GRID_SIZE = 20;
@@ -204,12 +205,12 @@ export function SnakeGame() {
         )}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (
           <ol className="snake__leaderboard-list">
-            {leaderboardData.leaderboard.map((entry, index) => (
+            {leaderboardData.leaderboard.map((entry) => (
               <li
-                className={`snake__leaderboard-item ${currentUser?.id === entry.userId ? 'snake__leaderboard-item--me' : ''} ${rankRowClass(index + 1)}`}
+                className={`snake__leaderboard-item ${currentUser?.id === entry.userId ? 'snake__leaderboard-item--me' : ''} ${rankRowClass(entry.rank)}`}
                 key={entry.userId}
               >
-                <RankMedal rank={index + 1} className="snake__leaderboard-rank" />
+                <RankMedal rank={entry.rank} className="snake__leaderboard-rank" />
                 <span className="snake__leaderboard-name">{entry.userName}</span>
                 <span className="snake__leaderboard-score">{entry.bestScore}</span>
               </li>
