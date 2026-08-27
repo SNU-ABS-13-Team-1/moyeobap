@@ -8014,3 +8014,299 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 @media (prefers-reduced-motion: reduce) {
   .rank-medal--1 { animation: none; }
 }
+
+/* ===== 알까기 (실시간 대전) =====
+   방 화면 구조는 오목과 같습니다(왼쪽 판 · 오른쪽 채팅). 채팅은 공용
+   컴포넌트가 .omok-chat 클래스를 쓰므로 그 규칙을 그대로 얹습니다.
+   다른 점은 판이 정사각형 캔버스 하나라는 것뿐입니다. */
+.alkkagi-room-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+  align-items: start;
+  gap: var(--space-lg);
+}
+
+.alkkagi-room-page__chat {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  position: sticky;
+  top: 92px;
+  max-height: calc(100vh - 120px);
+}
+
+.alkkagi-room-page__chat .omok-chat {
+  flex: 1;
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+}
+
+@media (max-width: 900px) {
+  .alkkagi-room-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .alkkagi-room-page__chat,
+  .alkkagi-room-page__chat .omok-chat {
+    position: static;
+    height: 60vh;
+    max-height: 60vh;
+    min-height: 360px;
+  }
+}
+
+.alkkagi-room {
+  /* 판 너비가 %로 정해지므로 오목처럼 fit-content를 쓰면 순환 참조가 됩니다.
+     그리드 칸 너비를 그대로 받고 내용만 가운데로 모읍니다. */
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.alkkagi-room__state {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--space-xl, 40px);
+}
+
+.alkkagi-room__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.alkkagi-room__name {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  /* 긴 방 이름 줄바꿈 */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  text-align: center;
+}
+
+.alkkagi-room__players {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.alkkagi-room__player {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+}
+
+.alkkagi-room__player--active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #fff7ed;
+}
+
+.alkkagi-room__vs {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* 남은 돌 수. 숫자가 바뀌어도 폭이 흔들리지 않게 tabular-nums를 씁니다. */
+.alkkagi-room__count {
+  margin: 0 0 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.alkkagi-room__status {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  font-weight: 600;
+  text-align: center;
+}
+
+.alkkagi-room__clock {
+  margin: 0 0 var(--space-sm);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.alkkagi-room__clock--urgent {
+  color: #e0483f;
+}
+
+.alkkagi-room__clock-note {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.alkkagi-room__disconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: var(--space-md);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.alkkagi-room__disconnect-banner button {
+  padding: 6px 14px;
+  background: #e0483f;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.alkkagi-room__disconnect-banner button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alkkagi-board {
+  display: block; /* baseline 아래 여백 제거 */
+  width: min(480px, 100%);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 2px solid #a97c30;
+  box-shadow: var(--shadow-md);
+  /* 조준하는 동안 화면이 같이 스크롤되지 않게 합니다(트랙패드·터치). */
+  touch-action: none;
+  cursor: pointer;
+}
+
+.alkkagi-room__shot-error {
+  margin-top: var(--space-sm);
+  color: #e0483f;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.alkkagi-room__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: var(--space-md);
+}
+
+.alkkagi-room__leave-btn {
+  padding: 12px 24px;
+  background: #fff;
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alkkagi-room__leave-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.alkkagi-room__leave-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alkkagi-room__restart-btn {
+  padding: 12px 24px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alkkagi-room__restart-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.alkkagi-room__restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alkkagi-room__rematch-cancel-btn {
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.alkkagi-room__rematch-cancel-btn:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.alkkagi-room__rematch-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.alkkagi-room__rematch-waiting {
+  margin-top: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.alkkagi-room__rematch-offer {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.alkkagi-room__rematch-offer-actions {
+  display: flex;
+  gap: 8px;
+}

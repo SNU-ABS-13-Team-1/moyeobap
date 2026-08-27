@@ -16,6 +16,13 @@ const GAMES = [
     desc: '로비에서 상대를 찾아 실시간으로 오목을 둬보세요.',
   },
   {
+    href: '/games/alkkagi',
+    emoji: '🥌',
+    title: '알까기',
+    desc: '돌을 끌어서 튕겨 상대 돌을 판 밖으로 내보내세요. 5개씩, 먼저 다 떨어뜨리면 승리.',
+    flag: 'alkkagi',
+  },
+  {
     href: '/games/baduk',
     emoji: '⚫⚪',
     title: '바둑',
@@ -49,8 +56,15 @@ const GAMES = [
 ] as const;
 
 export default async function GamesPage() {
-  const badukEnabled = await isFeatureEnabled('baduk');
-  const games = GAMES.filter((game) => !('flag' in game) || game.flag !== 'baduk' || badukEnabled);
+  // 플래그가 붙은 게임만 DB를 확인합니다(바둑·알까기처럼 테스트서버에서 먼저
+  // 검증 중인 것들). 플래그가 없는 게임은 그대로 모두에게 보입니다.
+  type Flag = Extract<(typeof GAMES)[number], { flag: string }>['flag'];
+  const flags = [...new Set(GAMES.flatMap((game) => ('flag' in game ? [game.flag] : [])))];
+  const enabled = new Set<Flag>(
+    (await Promise.all(flags.map(async (flag) => ((await isFeatureEnabled(flag)) ? flag : null))))
+      .filter((flag): flag is Flag => flag !== null),
+  );
+  const games = GAMES.filter((game) => !('flag' in game) || enabled.has(game.flag));
 
   return (
     <main className="page-content">
