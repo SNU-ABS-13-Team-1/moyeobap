@@ -19,7 +19,7 @@ export async function GET(
     leaderboard,
     hall,
     week: currentWeekInfo(),
-    myRank: user ? leaderboard.findIndex((entry) => entry.userId === user.id) + 1 || null : null,
+    myRank: user ? (leaderboard.find((entry) => entry.userId === user.id)?.rank ?? null) : null,
   });
 }
 
@@ -49,6 +49,6 @@ export async function POST(
   return NextResponse.json({
     leaderboard,
     week: currentWeekInfo(),
-    myRank: leaderboard.findIndex((entry) => entry.userId === user.id) + 1 || null,
+    myRank: leaderboard.find((entry) => entry.userId === user.id)?.rank ?? null,
   });
 }
