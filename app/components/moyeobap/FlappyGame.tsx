@@ -277,9 +277,9 @@ export function FlappyGame() {
         }
       }
 
-      // 통과 판정
+      // 통과 판정: 파이프 가로 중앙선이 새를 지나는 순간의 높이로 평가합니다.
       for (const pipe of pipes) {
-        if (!pipe.scored && pipe.x + PIPE_WIDTH < BIRD_X - BIRD_COLLISION_RADIUS) {
+        if (!pipe.scored && pipe.x + PIPE_WIDTH / 2 <= BIRD_X) {
           pipe.scored = true;
           comboLocal += 1;
           const result = evaluatePass(birdY, pipe.gapY, pipe.gapHeight, comboLocal);
