@@ -4801,6 +4801,16 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   color: #334155;
 }
 
+.open-rooms__game--alkkagi {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.open-rooms__game--baduk {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
 .open-rooms__game--chess {
   background: #f5f3ff;
   color: #6d28d9;
@@ -4814,6 +4824,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .open-rooms__game--phone {
   background: #ecfeff;
   color: #0e7490;
+}
+
+.open-rooms__game--onenight {
+  background: #faf5ff;
+  color: #7e22ce;
 }
 
 .open-rooms__info {
@@ -4869,6 +4884,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .open-rooms__status--presenting {
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+.open-rooms__status--scoring {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.open-rooms__status--night {
+  background: #312e81;
+  color: #e0e7ff;
+}
+
+.open-rooms__status--day {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.open-rooms__status--voting {
+  background: #fce7f3;
+  color: #be185d;
 }
 
 .open-rooms__enter-btn {
