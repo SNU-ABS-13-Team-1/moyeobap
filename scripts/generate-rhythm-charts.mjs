@@ -15,14 +15,15 @@
 //      (~23ms) 해상도 그대로 쓰면 3~4분짜리 곡 끝부분에서 박자가 눈에 띄게
 //      밀린다.
 //   3) 그 주기로 만든 박자 격자(beat grid) 위에, 사람이 짠 것과 같은
-//      "프레이즈 패턴"(4박 단위, 초반엔 성기고 후반엔 촘촘하게)을 그대로
-//      얹는다. 실제 온셋 세기로 노트를 골라내던 예전 방식은 조용한 구간이
-//      통째로 비어버리는 문제가 있어서, 이제는 격자 위에 항상 패턴을 채운다
-//      — 그래서 "노트가 없는 지루한 구간"이 안 생기고, 격자에서 그대로
-//      뽑으므로 박자도 항상 딱 맞는다.
-//   4) BPM이 느린 곡(100 미만)은 한 박이 물리적으로 길어 기본 패턴만으로는
-//      헐렁하게 느껴지므로, 쉬운 구간 비중을 줄이고 어려운 구간 비중을
-//      늘려 체감 밀도를 맞춘다.
+//      "프레이즈 패턴"(4박 단위)을 그대로 얹는다. 실제 온셋 세기로 노트를
+//      골라내던 예전 방식은 조용한 구간이 통째로 비어버리는 문제가 있어서,
+//      이제는 격자 위에 항상 패턴을 채운다 — 그래서 "노트가 없는 지루한
+//      구간"이 안 생기고, 격자에서 그대로 뽑으므로 박자도 항상 딱 맞는다.
+//   4) 난이도(easy/normal/hard)는 곡 중간에 섞어 올리지 않고, 곡마다 그
+//      난이도의 패턴 하나로 처음부터 끝까지 간다 — 이전엔 곡 후반부를
+//      항상 제일 어려운 패턴으로 채웠더니 "후반이 너무 어렵다"는 피드백을
+//      받았다. 이제 플레이어가 시작 전에 난이도를 고르고, 그 난이도가 곡
+//      끝까지 일정하게 유지된다.
 //   5) 레인은 같은 레인이 연달아 나오지 않게 순환시키고, 프레이즈 반복마다
 //      살짝 회전시켜(laneShift) 단조롭지 않게 한다.
 
@@ -196,12 +197,19 @@ function estimatePhaseMs(flux, periodMs) {
   return (bestFrame * hopMs) % periodMs;
 }
 
+const DIFFICULTY_PHRASES = {
+  easy: PHRASE_EASY,
+  normal: PHRASE_MEDIUM,
+  hard: PHRASE_HARD,
+};
+
 /**
- * 박자 격자 위에 프레이즈 패턴을 채워 채보를 만든다. 실제 온셋 세기로
- * 노트를 골라내지 않으므로(조용한 구간이 통째로 비는 문제 회피), 격자에서
- * 그대로 뽑힌 시각은 항상 박자와 정확히 맞는다.
+ * 박자 격자 위에 프레이즈 패턴 하나를 처음부터 끝까지 반복해서 채보를
+ * 만든다. 실제 온셋 세기로 노트를 골라내지 않으므로(조용한 구간이 통째로
+ * 비는 문제 회피), 격자에서 그대로 뽑힌 시각은 항상 박자와 정확히 맞는다.
+ * 마지막 한 마디만 정리 느낌의 아웃트로로 마무리한다.
  */
-function buildChart(durationMs, periodMs, phaseMs, bpm) {
+function buildChart(durationMs, periodMs, phaseMs, mainPhrase) {
   const notes = [];
   let id = 0;
 
@@ -214,27 +222,10 @@ function buildChart(durationMs, periodMs, phaseMs, bpm) {
   const usableMs = Math.max(0, durationMs - startMs - outroMarginMs);
   const phrasesAvailable = Math.max(4, Math.floor(usableMs / periodMs / PHRASE_LENGTH_BEATS));
 
-  // 느린 곡(BPM 100 미만)은 한 박이 물리적으로 길어서 기본 패턴만 쓰면
-  // 노트 사이 공백이 길게 느껴집니다. easy 비중을 줄이고 medium 비중을
-  // 늘려 체감 밀도를 맞춥니다. hard(16분음표+화음)는 정말 어려운
-  // 구간이라 곡 후반이 통째로 hard였을 때 "후반이 너무 어렵다"는 피드백을
-  // 받았습니다 — 곡 길이와 무관하게 짧은 클라이맥스 정도(20%)로만 두고,
-  // 나머지 밀도는 medium이 채웁니다.
-  const isSlow = bpm < 100;
-  const proportions = isSlow
-    ? { easy: 0.05, medium: 0.75, hard: 0.2 }
-    : { easy: 0.15, medium: 0.65, hard: 0.2 };
-
-  const outroRepeats = 1;
-  const easyRepeats = Math.max(isSlow ? 0 : 2, Math.round(phrasesAvailable * proportions.easy));
-  const hardRepeats = Math.max(2, Math.round(phrasesAvailable * proportions.hard));
-  const mediumRepeats = Math.max(2, phrasesAvailable - easyRepeats - hardRepeats - outroRepeats);
-
+  const mainRepeats = Math.max(2, phrasesAvailable - 1);
   const sections = [
-    { phrase: PHRASE_EASY, repeats: easyRepeats },
-    { phrase: PHRASE_MEDIUM, repeats: mediumRepeats },
-    { phrase: PHRASE_HARD, repeats: hardRepeats },
-    { phrase: PHRASE_OUTRO, repeats: outroRepeats },
+    { phrase: mainPhrase, repeats: mainRepeats },
+    { phrase: PHRASE_OUTRO, repeats: 1 },
   ];
 
   let startBeat = 0;
@@ -273,10 +264,15 @@ function analyzeSong(song) {
   const phaseMs = estimatePhaseMs(flux, periodMs);
   const bpm = 60000 / periodMs;
 
-  const notes = buildChart(durationMs, periodMs, phaseMs, bpm);
-  console.log(`[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 ${notes.length}개, 길이 ${(durationMs / 1000).toFixed(1)}초`);
+  const charts = {};
+  for (const [difficulty, phrase] of Object.entries(DIFFICULTY_PHRASES)) {
+    charts[difficulty] = buildChart(durationMs, periodMs, phaseMs, phrase);
+  }
+  console.log(
+    `[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 수 easy ${charts.easy.length} / normal ${charts.normal.length} / hard ${charts.hard.length}, 길이 ${(durationMs / 1000).toFixed(1)}초`,
+  );
 
-  return { id: song.id, label: song.label, file: song.file, bpm, durationMs: Math.round(durationMs), notes };
+  return { id: song.id, label: song.label, file: song.file, bpm, durationMs: Math.round(durationMs), charts };
 }
 
 function main() {
@@ -289,13 +285,15 @@ function main() {
 
 import type { ChartNote } from './types';
 
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
 export type RhythmSong = {
   id: string;
   label: string;
   file: string;
   bpm: number;
   durationMs: number;
-  chart: ChartNote[];
+  charts: Record<Difficulty, ChartNote[]>;
 };
 
 export const RHYTHM_SONGS: RhythmSong[] = ${JSON.stringify(
@@ -305,7 +303,7 @@ export const RHYTHM_SONGS: RhythmSong[] = ${JSON.stringify(
       file: `/${r.file}`,
       bpm: Math.round(r.bpm * 10) / 10,
       durationMs: r.durationMs,
-      chart: r.notes,
+      charts: r.charts,
     })),
     null,
     2,

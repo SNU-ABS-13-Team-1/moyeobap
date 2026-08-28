@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson } from '../../lib/api-client';
 import { RhythmAudioEngine } from '../../lib/rhythm/audio';
-import { RHYTHM_SONGS, type RhythmSong } from '../../lib/rhythm/charts.generated';
+import { RHYTHM_SONGS, type Difficulty, type RhythmSong } from '../../lib/rhythm/charts.generated';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -33,6 +33,8 @@ type Effect = { id: number; lane: number; text: string; tier: JudgmentTier; crea
 
 const LANE_COLORS = ['#ff6b6b', '#ffd43b', '#4dd4ff', '#c77dff'];
 const JUDGMENT_LABEL: Record<JudgmentTier, string> = { perfect: 'PERFECT', great: 'GREAT', good: 'GOOD', miss: 'MISS' };
+const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
 
 function laneX(lane: number): number {
   return (CANVAS_WIDTH / (LANE_COUNT + 1)) * (lane + 1);
@@ -68,7 +70,11 @@ export function RhythmGame() {
   const audioEngineRef = useRef<RhythmAudioEngine | null>(null);
   const hitLaneRef = useRef<((lane: number) => void) | null>(null);
   const selectedSongRef = useRef<RhythmSong | null>(null);
+  const selectedDifficultyRef = useRef<Difficulty>('normal');
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 곡을 고른 뒤 난이도를 고르는 중간 단계입니다(2단계 선택). null이면
+  // 곡 목록을, 값이 있으면 그 곡의 난이도 버튼을 보여줍니다.
+  const [pickingSong, setPickingSong] = useState<RhythmSong | null>(null);
 
   // 지금 누르고 있는 레인(키보드 홀드 중 + 탭 버튼 터치 중). 캔버스
   // 판정선 마커는 매 프레임 이 ref를 직접 읽고(리렌더 없이), 아래 탭
@@ -94,11 +100,12 @@ export function RhythmGame() {
     }
   }, [leaderboardData, currentUser]);
 
-  async function startGame(song: RhythmSong) {
+  async function startGame(song: RhythmSong, difficulty: Difficulty) {
     const statusBefore: Status = statusRef.current;
     if (statusBefore === 'playing' || statusBefore === 'loading') return;
     audioEngineRef.current?.stop();
     selectedSongRef.current = song;
+    selectedDifficultyRef.current = difficulty;
     setLoadError(null);
     setStatus('loading');
     const engine = new RhythmAudioEngine();
@@ -118,7 +125,7 @@ export function RhythmGame() {
   }
 
   function restartSelected() {
-    if (selectedSongRef.current) void startGame(selectedSongRef.current);
+    if (selectedSongRef.current) void startGame(selectedSongRef.current, selectedDifficultyRef.current);
   }
 
   function attemptLaneHit(lane: number) {
@@ -178,7 +185,7 @@ export function RhythmGame() {
     setNewRecord(false);
     setJudgmentCounts({ perfect: 0, great: 0, good: 0, miss: 0 });
 
-    const notes: NoteState[] = song.chart.map((n) => ({ ...n, judged: false, tier: null }));
+    const notes: NoteState[] = song.charts[selectedDifficultyRef.current].map((n) => ({ ...n, judged: false, tier: null }));
     let scoreLocal = 0;
     let comboLocal = 0;
     const counts: Record<JudgmentTier, number> = { perfect: 0, great: 0, good: 0, miss: 0 };
@@ -356,7 +363,7 @@ export function RhythmGame() {
           </div>
         )}
 
-        {status === 'idle' && (
+        {status === 'idle' && pickingSong === null && (
           <div className="rhythm__overlay">
             <p className="rhythm__overlay-title">곡을 선택하세요</p>
             {loadError && <p className="rhythm__overlay-error">{loadError}</p>}
@@ -365,7 +372,7 @@ export function RhythmGame() {
                 <button
                   className="rhythm__song-btn"
                   key={song.id}
-                  onClick={() => void startGame(song)}
+                  onClick={() => setPickingSong(song)}
                   type="button"
                 >
                   <span className="rhythm__song-btn-label">{song.label}</span>
@@ -376,6 +383,29 @@ export function RhythmGame() {
               ))}
             </div>
             <p className="rhythm__overlay-hint">D / F / J / K 로 노트를 맞춰요</p>
+          </div>
+        )}
+
+        {status === 'idle' && pickingSong !== null && (
+          <div className="rhythm__overlay">
+            <p className="rhythm__overlay-title">{pickingSong.label}</p>
+            <p className="rhythm__overlay-hint">난이도를 선택하세요</p>
+            {loadError && <p className="rhythm__overlay-error">{loadError}</p>}
+            <div className="rhythm__song-list">
+              {DIFFICULTIES.map((difficulty) => (
+                <button
+                  className={`rhythm__song-btn rhythm__song-btn--${difficulty}`}
+                  key={difficulty}
+                  onClick={() => void startGame(pickingSong, difficulty)}
+                  type="button"
+                >
+                  <span className="rhythm__song-btn-label">{DIFFICULTY_LABEL[difficulty]}</span>
+                </button>
+              ))}
+            </div>
+            <button className="rhythm__secondary-btn" onClick={() => setPickingSong(null)} type="button">
+              ← 곡 다시 고르기
+            </button>
           </div>
         )}
 
@@ -399,7 +429,14 @@ export function RhythmGame() {
               <button className="rhythm__restart-btn" onClick={restartSelected} type="button">
                 다시 시작 (R)
               </button>
-              <button className="rhythm__secondary-btn" onClick={() => setStatus('idle')} type="button">
+              <button
+                className="rhythm__secondary-btn"
+                onClick={() => {
+                  setPickingSong(null);
+                  setStatus('idle');
+                }}
+                type="button"
+              >
                 곡 다시 고르기
               </button>
             </div>
