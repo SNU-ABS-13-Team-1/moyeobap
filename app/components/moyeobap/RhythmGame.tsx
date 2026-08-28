@@ -12,7 +12,7 @@ import {
   GOOD_WINDOW_MS,
   JUDGMENT_LINE_Y,
   LANE_COUNT,
-  LANE_KEYS,
+  LANE_KEY_CODES,
   LANE_LABELS,
   NOTE_RADIUS,
   NOTE_TRAVEL_MS,
@@ -70,6 +70,21 @@ export function RhythmGame() {
   const selectedSongRef = useRef<RhythmSong | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // 지금 누르고 있는 레인(키보드 홀드 중 + 탭 버튼 터치 중). 캔버스
+  // 판정선 마커는 매 프레임 이 ref를 직접 읽고(리렌더 없이), 아래 탭
+  // 버튼은 React state로 눌림 스타일을 반영합니다 — 뭘 눌렀는지 눈으로
+  // 바로 보여서 정확히 맞추기 쉽게 하기 위한 것입니다.
+  const pressedLanesRef = useRef<Set<number>>(new Set());
+  const [pressedLanes, setPressedLanes] = useState<Set<number>>(new Set());
+
+  function setLanePressed(lane: number, pressed: boolean) {
+    const next = new Set(pressedLanesRef.current);
+    if (pressed) next.add(lane);
+    else next.delete(lane);
+    pressedLanesRef.current = next;
+    setPressedLanes(next);
+  }
+
   useEffect(() => {
     if (!currentUser || !leaderboardData) return;
     const mine = leaderboardData.leaderboard.find((entry) => entry.userId === currentUser.id);
@@ -119,9 +134,10 @@ export function RhythmGame() {
   // hitLaneRef에 심어둔 함수를 그 자리에서 호출합니다).
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const laneIndex = LANE_KEYS.indexOf(e.key.toLowerCase() as (typeof LANE_KEYS)[number]);
+      const laneIndex = LANE_KEY_CODES.indexOf(e.code as (typeof LANE_KEY_CODES)[number]);
       if (laneIndex !== -1) {
         e.preventDefault();
+        if (!pressedLanesRef.current.has(laneIndex)) setLanePressed(laneIndex, true);
         attemptLaneHit(laneIndex);
         return;
       }
@@ -132,9 +148,15 @@ export function RhythmGame() {
         }
       }
     }
+    function onKeyUp(e: KeyboardEvent) {
+      const laneIndex = LANE_KEY_CODES.indexOf(e.code as (typeof LANE_KEY_CODES)[number]);
+      if (laneIndex !== -1) setLanePressed(laneIndex, false);
+    }
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -242,10 +264,13 @@ export function RhythmGame() {
       }
 
       for (let lane = 0; lane < LANE_COUNT; lane += 1) {
-        ctx!.fillStyle = 'rgba(255,255,255,0.15)';
+        const isPressed = pressedLanesRef.current.has(lane);
+        ctx!.fillStyle = isPressed ? LANE_COLORS[lane] : 'rgba(255,255,255,0.15)';
+        ctx!.globalAlpha = isPressed ? 0.9 : 1;
         ctx!.beginPath();
-        ctx!.arc(laneX(lane), JUDGMENT_LINE_Y, NOTE_RADIUS + 6, 0, Math.PI * 2);
+        ctx!.arc(laneX(lane), JUDGMENT_LINE_Y, NOTE_RADIUS + (isPressed ? 9 : 6), 0, Math.PI * 2);
         ctx!.fill();
+        ctx!.globalAlpha = 1;
       }
 
       effects = effects.filter((fx) => now - fx.createdAt < 500);
@@ -385,9 +410,18 @@ export function RhythmGame() {
           <div className="rhythm__lane-buttons">
             {LANE_LABELS.map((label, index) => (
               <button
-                className="rhythm__lane-btn"
+                className={`rhythm__lane-btn ${pressedLanes.has(index) ? 'rhythm__lane-btn--pressed' : ''}`}
                 key={label}
-                onClick={() => attemptLaneHit(index)}
+                // 클릭(pointerup 이후)이 아니라 pointerdown에서 바로
+                // 판정합니다 — 안 그러면 실제 입력 시각과 판정 시각 사이에
+                // 사람이 느낄 만한 지연이 생깁니다.
+                onPointerCancel={() => setLanePressed(index, false)}
+                onPointerDown={() => {
+                  setLanePressed(index, true);
+                  attemptLaneHit(index);
+                }}
+                onPointerLeave={() => setLanePressed(index, false)}
+                onPointerUp={() => setLanePressed(index, false)}
                 style={{ borderColor: LANE_COLORS[index] }}
                 type="button"
               >

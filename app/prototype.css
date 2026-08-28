@@ -8989,6 +8989,13 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   background: rgba(255, 255, 255, 0.25);
 }
 
+.rhythm__lane-btn--pressed {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: #fff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.6);
+  transform: scale(0.93);
+}
+
 .rhythm__overlay {
   position: absolute;
   inset: 0;

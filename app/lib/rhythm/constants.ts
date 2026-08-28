@@ -5,7 +5,10 @@ export const CANVAS_WIDTH = 360;
 export const CANVAS_HEIGHT = 520;
 
 export const LANE_COUNT = 4;
-export const LANE_KEYS = ['d', 'f', 'j', 'k'] as const;
+// KeyboardEvent.code(물리적 키 위치)로 판정합니다. e.key는 한/영 전환이나
+// Shift에 따라 'ㅇ', 'D' 등으로 바뀌지만, code는 자판이나 대소문자와
+// 무관하게 항상 'KeyD'처럼 고정이라 자판이 한글이어도 그대로 동작합니다.
+export const LANE_KEY_CODES = ['KeyD', 'KeyF', 'KeyJ', 'KeyK'] as const;
 export const LANE_LABELS = ['D', 'F', 'J', 'K'] as const;
 
 export const JUDGMENT_LINE_Y = CANVAS_HEIGHT - 90;
