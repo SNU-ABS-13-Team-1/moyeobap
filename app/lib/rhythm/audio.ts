@@ -54,6 +54,17 @@ export class RhythmAudioEngine {
     this.source = source;
   }
 
+  /** 일시정지. ctx.currentTime 자체가 멈추므로 currentSongTimeMs도 그대로
+   * 얼어붙고, resume()하면 멈췄던 지점부터 정확히 이어집니다(노래도,
+   * 판정 기준 시각도 어긋나지 않습니다). */
+  suspend(): void {
+    void this.ctx.suspend();
+  }
+
+  resume(): void {
+    void this.ctx.resume();
+  }
+
   stop(): void {
     try {
       this.source?.stop();

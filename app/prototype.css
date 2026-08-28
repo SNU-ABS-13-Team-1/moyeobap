@@ -9381,6 +9381,22 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   animation: flappy-combo-pop 260ms ease-out;
 }
 
+.rhythm__pause-btn {
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rhythm__pause-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .rhythm__lane-buttons {
   position: absolute;
   left: 0;

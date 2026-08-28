@@ -133,8 +133,27 @@ export function RhythmGame() {
     if (selectedSongRef.current) void startGame(selectedSongRef.current, selectedDifficultyRef.current);
   }
 
-  function attemptLaneHit(lane: number) {
+  // status는 'playing'으로 유지한 채 별도 플래그로만 멈춥니다. status를
+  // 바꾸면 아래 게임 루프 effect가 정리(cleanup)되면서 engine.stop()이
+  // 불려 오디오·노트 진행 상태가 통째로 사라지기 때문입니다. 대신
+  // AudioContext 자체를 suspend해서 오디오 클럭(currentSongTimeMs)을
+  // 얼리고, rAF 루프도 이 플래그를 보고 판정·그리기를 건너뜁니다.
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+
+  function togglePause() {
     if (statusRef.current !== 'playing') return;
+    const engine = audioEngineRef.current;
+    if (!engine) return;
+    const next = !pausedRef.current;
+    pausedRef.current = next;
+    setPaused(next);
+    if (next) engine.suspend();
+    else engine.resume();
+  }
+
+  function attemptLaneHit(lane: number) {
+    if (statusRef.current !== 'playing' || pausedRef.current) return;
     hitLaneRef.current?.(lane);
   }
 
@@ -157,6 +176,12 @@ export function RhythmGame() {
         if (statusRef.current === 'over') {
           e.preventDefault();
           restartSelected();
+        }
+      }
+      if (e.code === 'KeyP' || e.code === 'Escape') {
+        if (statusRef.current === 'playing') {
+          e.preventDefault();
+          togglePause();
         }
       }
     }
@@ -189,6 +214,8 @@ export function RhythmGame() {
     setCombo(0);
     setNewRecord(false);
     setJudgmentCounts({ perfect: 0, great: 0, good: 0, miss: 0 });
+    pausedRef.current = false;
+    setPaused(false);
 
     const notes: NoteState[] = song.charts[selectedDifficultyRef.current].map((n) => ({ ...n, judged: false, tier: null }));
     let scoreLocal = 0;
@@ -299,6 +326,12 @@ export function RhythmGame() {
 
     let rafId = 0;
     function tick(now: number) {
+      // suspend()로 오디오 클럭이 멈춰 있는 동안은 판정도 그리기도 건너뛰고
+      // rAF만 유지합니다(resume() 즉시 매끄럽게 이어지도록).
+      if (pausedRef.current) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
       const currentTime = engine!.currentSongTimeMs;
 
       for (const note of notes) {
@@ -365,6 +398,18 @@ export function RhythmGame() {
               Combo x{combo}
             </span>
             <span>{accuracy.toFixed(1)}%</span>
+            <button className="rhythm__pause-btn" onClick={togglePause} type="button">
+              {paused ? '▶' : '⏸'}
+            </button>
+          </div>
+        )}
+
+        {status === 'playing' && paused && (
+          <div className="rhythm__overlay">
+            <p className="rhythm__overlay-title">일시정지</p>
+            <button className="rhythm__restart-btn" onClick={togglePause} type="button">
+              계속하기 (P)
+            </button>
           </div>
         )}
 
