@@ -1,13 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./prototype.css";
 import { AuthProvider } from "./components/moyeobap/AuthProvider";
 import { Header } from "./components/moyeobap/Header";
 import { TestServerBanner } from "./components/moyeobap/TestServerBanner";
+import { ServiceWorkerRegister } from "./components/moyeobap/ServiceWorkerRegister";
 import { NotificationProvider } from "./components/moyeobap/NotificationProvider";
 import { NotificationToasts } from "./components/moyeobap/NotificationToasts";
 import { isFeatureEnabled } from "./lib/featureFlags";
+
+export const viewport: Viewport = {
+  themeColor: "#FF6B35",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -84,6 +89,7 @@ export default async function RootLayout({
     <html data-scroll-behavior="smooth" lang="ko">
       <body>
         <AuthProvider>
+          <ServiceWorkerRegister />
           <TestServerBanner />
           {/* 알림이 꺼져 있으면 Provider 자체를 매달지 않습니다 — 폴링도
               Realtime 구독도 시작되지 않습니다. */}
