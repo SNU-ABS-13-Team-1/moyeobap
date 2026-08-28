@@ -8893,3 +8893,288 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   line-height: 1.6;
   text-align: center;
 }
+
+/* ===== 미니게임: 정밀 노트 리듬게임 ===== */
+
+.rhythm {
+  max-width: fit-content;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rhythm__desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-md);
+  text-align: center;
+  max-width: 420px;
+}
+
+.rhythm__canvas-wrap {
+  position: relative;
+  line-height: 0;
+  width: 100%;
+  max-width: 360px;
+}
+
+.rhythm__canvas {
+  display: block;
+  border-radius: var(--radius-sm);
+  border: 2px solid #1f2937;
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 360 / 520;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.rhythm__hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  line-height: normal;
+}
+
+.rhythm__hud-combo {
+  display: inline-block;
+  animation: flappy-combo-pop 260ms ease-out;
+}
+
+.rhythm__lane-buttons {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  display: flex;
+  justify-content: space-evenly;
+  padding: 0 8px;
+}
+
+.rhythm__lane-btn {
+  width: 22%;
+  aspect-ratio: 1;
+  max-width: 64px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rhythm__lane-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.rhythm__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  text-align: center;
+  padding: var(--space-lg);
+  line-height: normal;
+}
+
+.rhythm__overlay-title {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.rhythm__overlay-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #d1d5db;
+}
+
+.rhythm__overlay-record {
+  margin: 0 0 6px;
+  color: #ffd43b;
+  font-weight: 800;
+  font-size: 1.1rem;
+  animation: flappy-record-pulse 900ms ease-in-out infinite;
+}
+
+.rhythm__overlay-line {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm__restart-btn {
+  margin-top: var(--space-md);
+  padding: 10px 24px;
+  background: #ffd43b;
+  color: #212529;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rhythm__restart-btn:hover {
+  filter: brightness(1.05);
+}
+
+.rhythm__overlay-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.rhythm__secondary-btn {
+  padding: 10px 20px;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rhythm__secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rhythm__overlay-error {
+  margin: 0 0 4px;
+  color: #ff8787;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.rhythm__song-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 280px;
+  margin: var(--space-sm) 0;
+}
+
+.rhythm__song-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rhythm__song-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.rhythm__song-btn-label {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.rhythm__song-btn-meta {
+  font-size: 0.75rem;
+  color: #d1d5db;
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm__leaderboard {
+  width: 100%;
+  max-width: 420px;
+  margin-top: var(--space-lg);
+}
+
+.rhythm__leaderboard-title {
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.rhythm__leaderboard-note {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.rhythm__leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rhythm__leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--card-border);
+}
+
+.rhythm__leaderboard-item--me {
+  border-color: var(--primary);
+  background: #fff7ed;
+}
+
+.rhythm__leaderboard-rank {
+  width: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.rhythm__leaderboard-name {
+  flex: 1;
+}
+
+.rhythm__leaderboard-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm__leaderboard-my-rank {
+  margin-top: var(--space-sm);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}

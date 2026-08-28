@@ -12,7 +12,8 @@
     "lint": "eslint . --ignore-pattern .next --ignore-pattern '_archive_*'",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "node --experimental-strip-types --test 'app/**/*.test.ts'",
-    "data:build": "node scripts/csv-to-ts.mjs"
+    "data:build": "node scripts/csv-to-ts.mjs",
+    "rhythm:build": "node scripts/generate-rhythm-charts.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
