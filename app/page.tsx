@@ -170,7 +170,19 @@ export default function HomePage() {
           </div>
         ) : filteredPots.length === 0 ? (
           <div className="empty">
-            <div className="empty__emoji">{statusFilter === 'closed' ? '🗂️' : '🍽️'}</div>
+            <div className="empty__emoji">
+              {statusFilter === 'closed' ? (
+                '🗂️'
+              ) : (
+                <Image
+                  alt=""
+                  className="empty__emoji-img"
+                  height={52}
+                  src="/icon.png"
+                  width={52}
+                />
+              )}
+            </div>
             <h2 className="empty__title">
               {statusFilter === 'closed' ? '아직 마감된 팟이 없어요' : '아직 열린 팟이 없어요'}
             </h2>
