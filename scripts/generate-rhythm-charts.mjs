@@ -27,7 +27,7 @@
 //   5) 레인은 같은 레인이 연달아 나오지 않게 순환시키고, 프레이즈 반복마다
 //      살짝 회전시켜(laneShift) 단조롭지 않게 한다.
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -206,59 +206,12 @@ const DIFFICULTY_PHRASES = {
 };
 
 /**
- * ffmpeg의 silencedetect로 "이 지점부터 소리가 실질적으로 끝난다"는 곡의
- * 진짜 엔딩(페이드아웃 꼬리, 마무리 후 정적 등)을 찾는다. flux 최고점을
- * 찾는 방식은 페이드아웃이 긴 곡에서 마지막 진짜 강타 이후에도 여러 초
- * 동안 소리가 잦아들며 이어지는 꼬리를 놓쳐서, 채보가 곡이 실제로
- * 끝나기 한참 전에 멈춰버리는 문제가 있었다. -35dB 아래로 0.5초 넘게
- * 이어지는 마지막 구간의 시작점을 쓰면 훨씬 정확하다.
- */
-function detectTrailingSilenceStartMs(mp3Path) {
-  const result = spawnSync('ffmpeg', [
-    '-i', mp3Path,
-    '-af', 'silencedetect=noise=-35dB:d=0.5',
-    '-f', 'null', '-',
-  ], { encoding: 'utf8' });
-  const stderr = result.stderr ?? '';
-  const starts = [...stderr.matchAll(/silence_start:\s*([\d.]+)/g)].map((m) => parseFloat(m[1]));
-  if (starts.length === 0) return null;
-  // 맨 앞 도입부 무음도 걸릴 수 있으므로, 가장 나중(=끝자락) 값을 쓴다.
-  return starts[starts.length - 1] * 1000;
-}
-
-/**
- * 곡의 실제 "마지막 한 방"(마무리 코드, 페이드 직전 마지막 타격 등)이
- * 언제인지 찾는다. 채보의 마지막 노트를 여기에 맞춰야, "노트는 다
- * 끝났는데 곡은 몇 초 더 남아있는" 어긋난 느낌이 없어진다.
- * silencedetect로 못 찾으면(페이드 없이 뚝 끊기는 곡 등) flux 최고점으로
- * 대신한다.
- */
-function findLastOnsetMs(mp3Path, flux, durationMs) {
-  const silenceStartMs = detectTrailingSilenceStartMs(mp3Path);
-  if (silenceStartMs !== null) return silenceStartMs;
-
-  const hopMs = (HOP_SIZE / SAMPLE_RATE) * 1000;
-  const windowMs = Math.min(durationMs * 0.3, 15000);
-  const searchStartFrame = Math.max(0, Math.floor((durationMs - windowMs) / hopMs));
-  let bestFrame = flux.length - 1;
-  let bestVal = -Infinity;
-  for (let i = searchStartFrame; i < flux.length; i += 1) {
-    if (flux[i] > bestVal) {
-      bestVal = flux[i];
-      bestFrame = i;
-    }
-  }
-  return bestFrame * hopMs;
-}
-
-/**
  * 박자 격자 위에 프레이즈 패턴 하나를 처음부터 끝까지 반복해서 채보를
  * 만든다. 실제 온셋 세기로 노트를 골라내지 않으므로(조용한 구간이 통째로
  * 비는 문제 회피), 격자에서 그대로 뽑힌 시각은 항상 박자와 정확히 맞는다.
- * 마지막 한 마디만 정리 느낌의 아웃트로로 마무리하고, 그 마지막 노트는
- * findLastOnsetMs로 찾은 곡의 실제 엔딩 지점에 정확히 맞춘다.
+ * 마지막 한 마디만 정리 느낌의 아웃트로로 마무리한다.
  */
-function buildChart(durationMs, periodMs, phaseMs, mainPhrase, lastOnsetMs) {
+function buildChart(durationMs, periodMs, phaseMs, mainPhrase) {
   const notes = [];
   let id = 0;
 
@@ -267,9 +220,7 @@ function buildChart(durationMs, periodMs, phaseMs, mainPhrase, lastOnsetMs) {
   const minStartMs = 1500;
   const beatsToSkip = Math.max(0, Math.ceil((minStartMs - phaseMs) / periodMs));
   const startMs = phaseMs + beatsToSkip * periodMs;
-  // 격자로 곡의 실제 엔딩 바로 앞까지만 채우고(여유 반 박자), 마지막 노트는
-  // 아래에서 lastOnsetMs로 스냅합니다.
-  const outroMarginMs = Math.max(200, durationMs - lastOnsetMs + periodMs / 2);
+  const outroMarginMs = 2500;
   const usableMs = Math.max(0, durationMs - startMs - outroMarginMs);
   const phrasesAvailable = Math.max(4, Math.floor(usableMs / periodMs / PHRASE_LENGTH_BEATS));
 
@@ -296,20 +247,7 @@ function buildChart(durationMs, periodMs, phaseMs, mainPhrase, lastOnsetMs) {
     startBeat += section.repeats * PHRASE_LENGTH_BEATS;
   }
 
-  notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
-
-  // 마지막 순간(같은 시각에 찍힌 노트 전부, 화음일 수도 있음)을 곡의 실제
-  // 엔딩으로 스냅합니다.
-  if (notes.length > 0) {
-    const lastTime = notes[notes.length - 1].time;
-    const snappedTime = Math.round(lastOnsetMs);
-    for (let i = notes.length - 1; i >= 0 && notes[i].time === lastTime; i -= 1) {
-      notes[i].time = snappedTime;
-    }
-    notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
-  }
-
-  return notes;
+  return notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
 }
 
 function analyzeSong(song) {
@@ -327,14 +265,13 @@ function analyzeSong(song) {
   const periodMs = estimateBeatPeriodMs(flux);
   const phaseMs = estimatePhaseMs(flux, periodMs);
   const bpm = 60000 / periodMs;
-  const lastOnsetMs = findLastOnsetMs(mp3Path, flux, durationMs);
 
   const charts = {};
   for (const [difficulty, phrase] of Object.entries(DIFFICULTY_PHRASES)) {
-    charts[difficulty] = buildChart(durationMs, periodMs, phaseMs, phrase, lastOnsetMs);
+    charts[difficulty] = buildChart(durationMs, periodMs, phaseMs, phrase);
   }
   console.log(
-    `[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 수 easy ${charts.easy.length} / normal ${charts.normal.length} / hard ${charts.hard.length}, 길이 ${(durationMs / 1000).toFixed(1)}초, 엔딩 ${(lastOnsetMs / 1000).toFixed(1)}초`,
+    `[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 수 easy ${charts.easy.length} / normal ${charts.normal.length} / hard ${charts.hard.length}, 길이 ${(durationMs / 1000).toFixed(1)}초`,
   );
 
   return { id: song.id, label: song.label, file: song.file, bpm, durationMs: Math.round(durationMs), charts };
