@@ -33,8 +33,13 @@ type Effect = { id: number; lane: number; text: string; tier: JudgmentTier; crea
 
 const LANE_COLORS = ['#ff6b6b', '#ffd43b', '#4dd4ff', '#c77dff'];
 const JUDGMENT_LABEL: Record<JudgmentTier, string> = { perfect: 'PERFECT', great: 'GREAT', good: 'GOOD', miss: 'MISS' };
-const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
-const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
+// hard(16분음표 몰아치기)는 너무 어렵다는 피드백으로 선택지에서 뺐습니다
+// (데이터는 charts.generated.ts에 그대로 있지만 UI에서 고를 수 없게만
+// 막았습니다). normal 채보를 "어려움"으로 보여줘서 쉬움/어려움 2단계만
+// 고르게 합니다. 버튼 색도 라벨에 맞춰 easy=초록, normal="어려움"=빨강으로 씁니다.
+const DIFFICULTIES: Difficulty[] = ['easy', 'normal'];
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: '쉬움', normal: '어려움', hard: '어려움' };
+const DIFFICULTY_STYLE: Record<Difficulty, string> = { easy: 'easy', normal: 'hard', hard: 'hard' };
 
 function laneX(lane: number): number {
   return (CANVAS_WIDTH / (LANE_COUNT + 1)) * (lane + 1);
@@ -394,7 +399,7 @@ export function RhythmGame() {
             <div className="rhythm__song-list">
               {DIFFICULTIES.map((difficulty) => (
                 <button
-                  className={`rhythm__song-btn rhythm__song-btn--${difficulty}`}
+                  className={`rhythm__song-btn rhythm__song-btn--${DIFFICULTY_STYLE[difficulty]}`}
                   key={difficulty}
                   onClick={() => void startGame(pickingSong, difficulty)}
                   type="button"
