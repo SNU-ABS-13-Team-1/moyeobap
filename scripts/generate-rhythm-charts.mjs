@@ -10,16 +10,21 @@
 // strength)으로 박자를 직접 추정한다.
 //   1) ffmpeg로 mono 22.05kHz PCM으로 디코드
 //   2) 짧은 구간(93ms, 23ms hop)마다 에너지를 구하고, 그 증가분(flux)을
-//      "박자가 있을 법한 지점"의 세기로 쓴다
-//   3) flux를 자기상관(autocorrelation)해서 가장 우세한 박자 주기를 찾고
-//      그 주기로 8분음표 간격의 격자(beat grid)를 만든다
-//   4) 격자점마다 그 지점의 실제 flux 세기를 매겨, 세기가 강한 상위 점만
-//      노트로 남긴다(약한 격자점은 건너뛰어 무음 구간에 노트가 안 박히게)
-//   5) 레인은 같은 레인이 연달아 나오지 않게, 강한 박에는 가끔 화음(2레인)을
-//      섞어서 배정한다
-//
-// 자동 생성이라 사람이 짠 채보만큼 "손맛"이 좋진 않지만, 실제 곡의 박자와
-// 어긋나지는 않는다.
+//      자기상관(autocorrelation)해서 가장 우세한 박자 주기(BPM)를 찾는다.
+//      최고점 주변을 포물선 보간해 소수점 단위까지 다듬는다 — 정수 프레임
+//      (~23ms) 해상도 그대로 쓰면 3~4분짜리 곡 끝부분에서 박자가 눈에 띄게
+//      밀린다.
+//   3) 그 주기로 만든 박자 격자(beat grid) 위에, 사람이 짠 것과 같은
+//      "프레이즈 패턴"(4박 단위, 초반엔 성기고 후반엔 촘촘하게)을 그대로
+//      얹는다. 실제 온셋 세기로 노트를 골라내던 예전 방식은 조용한 구간이
+//      통째로 비어버리는 문제가 있어서, 이제는 격자 위에 항상 패턴을 채운다
+//      — 그래서 "노트가 없는 지루한 구간"이 안 생기고, 격자에서 그대로
+//      뽑으므로 박자도 항상 딱 맞는다.
+//   4) BPM이 느린 곡(100 미만)은 한 박이 물리적으로 길어 기본 패턴만으로는
+//      헐렁하게 느껴지므로, 쉬운 구간 비중을 줄이고 어려운 구간 비중을
+//      늘려 체감 밀도를 맞춘다.
+//   5) 레인은 같은 레인이 연달아 나오지 않게 순환시키고, 프레이즈 반복마다
+//      살짝 회전시켜(laneShift) 단조롭지 않게 한다.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -41,7 +46,52 @@ const SONGS = [
 ];
 
 const LANE_COUNT = 4;
-const MIN_NOTE_GAP_MS = 140; // 한 레인이 아니라 "아무 노트나" 최소 간격(너무 몰리지 않게)
+const PHRASE_LENGTH_BEATS = 4;
+
+// 4분음표 위주, 한 번에 한 레인만 — 입문 구간.
+const PHRASE_EASY = [
+  { beatOffset: 0, lanes: [0] },
+  { beatOffset: 1, lanes: [1] },
+  { beatOffset: 2, lanes: [2] },
+  { beatOffset: 3, lanes: [1] },
+];
+
+// 8분음표 섞임 + 화음(동시치기) 하나 — 중급 구간.
+const PHRASE_MEDIUM = [
+  { beatOffset: 0, lanes: [0] },
+  { beatOffset: 0.5, lanes: [1] },
+  { beatOffset: 1, lanes: [2] },
+  { beatOffset: 1.5, lanes: [1] },
+  { beatOffset: 2, lanes: [3] },
+  { beatOffset: 2.5, lanes: [2] },
+  { beatOffset: 3, lanes: [0, 2] },
+  { beatOffset: 3.5, lanes: [1] },
+];
+
+// 16분음표 몰아치기 + 화음 다수 — 상급 구간.
+const PHRASE_HARD = [
+  { beatOffset: 0, lanes: [0] },
+  { beatOffset: 0.25, lanes: [1] },
+  { beatOffset: 0.5, lanes: [2] },
+  { beatOffset: 0.75, lanes: [3] },
+  { beatOffset: 1, lanes: [2] },
+  { beatOffset: 1.25, lanes: [1] },
+  { beatOffset: 1.5, lanes: [0, 2] },
+  { beatOffset: 2, lanes: [1] },
+  { beatOffset: 2.25, lanes: [3] },
+  { beatOffset: 2.5, lanes: [0] },
+  { beatOffset: 2.75, lanes: [1, 3] },
+  { beatOffset: 3, lanes: [2] },
+  { beatOffset: 3.5, lanes: [0, 1, 2, 3] },
+];
+
+// 4분음표로 정리하며 마지막에 전체 화음으로 마무리하는 아웃트로.
+const PHRASE_OUTRO = [
+  { beatOffset: 0, lanes: [3] },
+  { beatOffset: 1, lanes: [2] },
+  { beatOffset: 2, lanes: [1] },
+  { beatOffset: 3, lanes: [0, 1, 2, 3] },
+];
 
 function decodeToPcm(mp3Path) {
   const tmpDir = mkdtempSync(join(tmpdir(), 'rhythm-'));
@@ -95,25 +145,40 @@ function computeFlux(energy) {
   return flux;
 }
 
-/** flux 자기상관으로 60~180BPM 범위에서 가장 우세한 박자 주기(ms)를 찾는다. */
+/** flux 자기상관으로 60~180BPM 범위에서 가장 우세한 박자 주기(ms)를 찾는다.
+ * 정수 프레임(hop, ~23ms) 해상도로만 고르면 그 오차가 곡 전체에 누적돼
+ * 후반부에서 박자가 눈에 띄게 밀리므로, 최고점 주변을 포물선 보간해
+ * 소수점 단위 정밀도로 다듬는다. */
 function estimateBeatPeriodMs(flux) {
   const hopMs = (HOP_SIZE / SAMPLE_RATE) * 1000;
   const minLag = Math.round(60000 / 180 / hopMs); // 180BPM
   const maxLag = Math.round(60000 / 60 / hopMs); // 60BPM
 
-  let bestLag = minLag;
-  let bestScore = -Infinity;
-  for (let lag = minLag; lag <= maxLag; lag += 1) {
+  function scoreAt(lag) {
     let score = 0;
     for (let i = 0; i + lag < flux.length; i += 1) {
       score += flux[i] * flux[i + lag];
     }
+    return score;
+  }
+
+  let bestLag = minLag;
+  let bestScore = -Infinity;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    const score = scoreAt(lag);
     if (score > bestScore) {
       bestScore = score;
       bestLag = lag;
     }
   }
-  return bestLag * hopMs;
+
+  const sPrev = scoreAt(bestLag - 1);
+  const sCurr = bestScore;
+  const sNext = scoreAt(bestLag + 1);
+  const denom = sPrev - 2 * sCurr + sNext;
+  const delta = denom !== 0 ? Math.max(-1, Math.min(1, (0.5 * (sPrev - sNext)) / denom)) : 0;
+
+  return (bestLag + delta) * hopMs;
 }
 
 /** 격자 위상(phase, ms): flux가 가장 강한 초반 프레임을 기준으로 잡는다. */
@@ -131,57 +196,60 @@ function estimatePhaseMs(flux, periodMs) {
   return (bestFrame * hopMs) % periodMs;
 }
 
-function fluxAt(flux, timeMs) {
-  const hopMs = (HOP_SIZE / SAMPLE_RATE) * 1000;
-  const frame = Math.round(timeMs / hopMs);
-  let best = 0;
-  for (let d = -1; d <= 1; d += 1) {
-    const idx = frame + d;
-    if (idx >= 0 && idx < flux.length) best = Math.max(best, flux[idx]);
-  }
-  return best;
-}
-
-function buildChart(flux, durationMs, periodMs, phaseMs) {
-  const eighthMs = periodMs / 2;
-  const candidates = [];
-  for (let t = phaseMs; t < durationMs - 1500; t += eighthMs) {
-    if (t < 1500) continue; // 도입부 1.5초는 노트 없이 곡을 들려준다
-    candidates.push({ time: Math.round(t), strength: fluxAt(flux, t) });
-  }
-
-  // 상위 45%만 노트로 남긴다(너무 빽빽하지도, 휑하지도 않게).
-  const sorted = [...candidates].sort((a, b) => b.strength - a.strength);
-  const keepCount = Math.round(sorted.length * 0.45);
-  const threshold = sorted[Math.min(keepCount, sorted.length - 1)]?.strength ?? 0;
-
+/**
+ * 박자 격자 위에 프레이즈 패턴을 채워 채보를 만든다. 실제 온셋 세기로
+ * 노트를 골라내지 않으므로(조용한 구간이 통째로 비는 문제 회피), 격자에서
+ * 그대로 뽑힌 시각은 항상 박자와 정확히 맞는다.
+ */
+function buildChart(durationMs, periodMs, phaseMs, bpm) {
   const notes = [];
-  let lastTime = -Infinity;
-  let lastLane = -1;
   let id = 0;
-  let strongCounter = 0;
 
-  for (const c of candidates) {
-    if (c.strength < threshold) continue;
-    if (c.time - lastTime < MIN_NOTE_GAP_MS) continue;
+  // 도입부는 최소 1.5초 동안 노트 없이 곡을 들려주되, 그 시작점도 격자에
+  // 맞춥니다(그래야 첫 노트부터 박자가 어긋나지 않습니다).
+  const minStartMs = 1500;
+  const beatsToSkip = Math.max(0, Math.ceil((minStartMs - phaseMs) / periodMs));
+  const startMs = phaseMs + beatsToSkip * periodMs;
+  const outroMarginMs = 2500;
+  const usableMs = Math.max(0, durationMs - startMs - outroMarginMs);
+  const phrasesAvailable = Math.max(4, Math.floor(usableMs / periodMs / PHRASE_LENGTH_BEATS));
 
-    strongCounter += 1;
-    let lane = (lastLane + 1 + (strongCounter % 2)) % LANE_COUNT;
-    if (lane === lastLane) lane = (lane + 1) % LANE_COUNT;
+  // 느린 곡(BPM 100 미만)은 한 박이 물리적으로 길어서 기본 패턴만 쓰면
+  // 노트 사이 공백이 길게 느껴집니다. easy 비중을 줄이고 medium/hard
+  // 비중을 늘려 체감 밀도를 맞춥니다.
+  const isSlow = bpm < 100;
+  const proportions = isSlow
+    ? { easy: 0.05, medium: 0.35, hard: 0.55 }
+    : { easy: 0.15, medium: 0.45, hard: 0.35 };
 
-    notes.push({ id: id++, time: c.time, lane });
+  const outroRepeats = 1;
+  const easyRepeats = Math.max(isSlow ? 0 : 2, Math.round(phrasesAvailable * proportions.easy));
+  const hardRepeats = Math.max(2, Math.round(phrasesAvailable * proportions.hard));
+  const mediumRepeats = Math.max(2, phrasesAvailable - easyRepeats - hardRepeats - outroRepeats);
 
-    // 8마디마다 한 번 정도 화음(2레인)을 섞어 단조롭지 않게.
-    if (strongCounter % 16 === 0) {
-      const chordLane = (lane + 2) % LANE_COUNT;
-      notes.push({ id: id++, time: c.time, lane: chordLane });
+  const sections = [
+    { phrase: PHRASE_EASY, repeats: easyRepeats },
+    { phrase: PHRASE_MEDIUM, repeats: mediumRepeats },
+    { phrase: PHRASE_HARD, repeats: hardRepeats },
+    { phrase: PHRASE_OUTRO, repeats: outroRepeats },
+  ];
+
+  let startBeat = 0;
+  for (const section of sections) {
+    for (let rep = 0; rep < section.repeats; rep += 1) {
+      const shift = rep % LANE_COUNT;
+      for (const n of section.phrase) {
+        const beat = startBeat + rep * PHRASE_LENGTH_BEATS + n.beatOffset;
+        const time = Math.round(startMs + beat * periodMs);
+        for (const lane of n.lanes) {
+          notes.push({ id: id++, time, lane: (lane + shift) % LANE_COUNT });
+        }
+      }
     }
-
-    lastTime = c.time;
-    lastLane = lane;
+    startBeat += section.repeats * PHRASE_LENGTH_BEATS;
   }
 
-  return notes;
+  return notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
 }
 
 function analyzeSong(song) {
@@ -200,7 +268,7 @@ function analyzeSong(song) {
   const phaseMs = estimatePhaseMs(flux, periodMs);
   const bpm = 60000 / periodMs;
 
-  const notes = buildChart(flux, durationMs, periodMs, phaseMs);
+  const notes = buildChart(durationMs, periodMs, phaseMs, bpm);
   console.log(`[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 ${notes.length}개, 길이 ${(durationMs / 1000).toFixed(1)}초`);
 
   return { id: song.id, label: song.label, file: song.file, bpm, durationMs: Math.round(durationMs), notes };
