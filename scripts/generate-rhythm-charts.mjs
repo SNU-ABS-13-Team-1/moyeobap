@@ -82,7 +82,7 @@ const PHRASE_HARD = [
   { beatOffset: 2.5, lanes: [0] },
   { beatOffset: 2.75, lanes: [1, 3] },
   { beatOffset: 3, lanes: [2] },
-  { beatOffset: 3.5, lanes: [0, 1, 2, 3] },
+  { beatOffset: 3.5, lanes: [0, 3] },
 ];
 
 // 4분음표로 정리하며 마지막에 전체 화음으로 마무리하는 아웃트로.
@@ -90,7 +90,7 @@ const PHRASE_OUTRO = [
   { beatOffset: 0, lanes: [3] },
   { beatOffset: 1, lanes: [2] },
   { beatOffset: 2, lanes: [1] },
-  { beatOffset: 3, lanes: [0, 1, 2, 3] },
+  { beatOffset: 3, lanes: [0, 3] },
 ];
 
 function decodeToPcm(mp3Path) {
@@ -241,7 +241,9 @@ function buildChart(durationMs, periodMs, phaseMs, bpm) {
       for (const n of section.phrase) {
         const beat = startBeat + rep * PHRASE_LENGTH_BEATS + n.beatOffset;
         const time = Math.round(startMs + beat * periodMs);
-        for (const lane of n.lanes) {
+        // 폰에서는 엄지 두 개로 플레이하므로, 위 패턴에 실수로 3~4레인
+        // 동시치기를 넣더라도 여기서 항상 최대 2개까지만 남긴다.
+        for (const lane of n.lanes.slice(0, 2)) {
           notes.push({ id: id++, time, lane: (lane + shift) % LANE_COUNT });
         }
       }
