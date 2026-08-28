@@ -12,9 +12,15 @@
 //   2) 짧은 구간(93ms, 23ms hop)마다 에너지를 구하고, 그 증가분(flux)을
 //      자기상관(autocorrelation)해서 가장 우세한 박자 주기(BPM)를 찾는다.
 //      최고점 주변을 포물선 보간해 소수점 단위까지 다듬는다 — 정수 프레임
-//      (~23ms) 해상도 그대로 쓰면 3~4분짜리 곡 끝부분에서 박자가 눈에 띄게
-//      밀린다.
-//   3) 그 주기로 만든 박자 격자(beat grid) 위에, 사람이 짠 것과 같은
+//      (~23ms) 해상도 그대로 쓰면 오차가 누적된다.
+//      보컬곡은 처음부터 끝까지 완전히 일정한 BPM으로 연주되는 경우가
+//      드물어서(미묘한 템포 변화, 간주·브릿지의 리듬 변화 등), 곡 전체를
+//      한 번에 추정한 값 하나로 밀어붙이면 후반부에서 노트와 실제 박자가
+//      눈에 띄게 어긋난다. 그래서 15초 구간마다 박자 주기를 따로 다시
+//      추정해두고(estimateBeatSegments), 채보를 만들 때 그 구간의 로컬
+//      주기로 시간을 한 걸음씩 누적한다 — 구간이 바뀌는 지점에서 갑자기
+//      튀지 않고 템포가 서서히 따라간다.
+//   3) 그렇게 만든 박자 격자(beat grid) 위에, 사람이 짠 것과 같은
 //      "프레이즈 패턴"(4박 단위)을 그대로 얹는다. 실제 온셋 세기로 노트를
 //      골라내던 예전 방식은 조용한 구간이 통째로 비어버리는 문제가 있어서,
 //      이제는 격자 위에 항상 패턴을 채운다 — 그래서 "노트가 없는 지루한
@@ -197,6 +203,41 @@ function estimatePhaseMs(flux, periodMs) {
   return (bestFrame * hopMs) % periodMs;
 }
 
+const SEGMENT_MS = 15000; // 15초마다 박자 주기를 다시 추정한다.
+const MIN_SEGMENT_FRAMES = 50; // 이보다 짧은 조각(보통 마지막 세그먼트)은 자기상관이 못 미더우므로 직전 값을 재사용.
+
+/**
+ * 곡 전체를 하나의 BPM으로 보지 않고, 15초 구간마다 박자 주기를 따로
+ * 추정한다. 보컬곡은 완벽하게 일정한 BPM으로 연주되지 않는 경우가 많아서
+ * (미묘한 템포 변화, 브릿지·간주의 리듬 변화 등), 곡 전체를 한 BPM으로
+ * 고정하면 그 오차가 누적돼 후반부로 갈수록 노트와 실제 박자가 눈에 띄게
+ * 어긋난다. 구간마다 다시 추정하면 그 변화를 어느 정도 따라간다.
+ */
+function estimateBeatSegments(flux, durationMs, fallbackPeriodMs) {
+  const hopMs = (HOP_SIZE / SAMPLE_RATE) * 1000;
+  const segments = [];
+  let startMs = 0;
+  let lastPeriodMs = fallbackPeriodMs;
+  while (startMs < durationMs) {
+    const endMs = Math.min(durationMs, startMs + SEGMENT_MS);
+    const startFrame = Math.floor(startMs / hopMs);
+    const endFrame = Math.min(flux.length, Math.ceil(endMs / hopMs));
+    const slice = flux.subarray(startFrame, endFrame);
+    const periodMs = slice.length >= MIN_SEGMENT_FRAMES ? estimateBeatPeriodMs(slice) : lastPeriodMs;
+    lastPeriodMs = periodMs;
+    segments.push({ startMs, endMs, periodMs });
+    startMs = endMs;
+  }
+  return segments;
+}
+
+function localPeriodAt(segments, timeMs) {
+  for (const seg of segments) {
+    if (timeMs < seg.endMs) return seg.periodMs;
+  }
+  return segments[segments.length - 1].periodMs;
+}
+
 const DIFFICULTY_PHRASES = {
   easy: PHRASE_EASY,
   normal: PHRASE_MEDIUM,
@@ -208,42 +249,58 @@ const DIFFICULTY_PHRASES = {
  * 만든다. 실제 온셋 세기로 노트를 골라내지 않으므로(조용한 구간이 통째로
  * 비는 문제 회피), 격자에서 그대로 뽑힌 시각은 항상 박자와 정확히 맞는다.
  * 마지막 한 마디만 정리 느낌의 아웃트로로 마무리한다.
+ *
+ * 한 곡을 하나의 고정 period로 곱해서 시각을 구하지 않는다 — 그러면
+ * segments가 잡아낸 구간별 템포 변화가 반영이 안 된다. 대신 "다음 노트는
+ * 몇 박 뒤"라는 델타만큼, 그 시점의 로컬 period로 시간을 한 걸음씩
+ * 누적해서 나아간다(적분과 비슷한 방식). 그래서 구간이 바뀌는 지점에서도
+ * 갑자기 튀지 않고 템포가 서서히 따라간다.
  */
-function buildChart(durationMs, periodMs, phaseMs, mainPhrase) {
+function buildChart(durationMs, segments, phaseMs, mainPhrase) {
   const notes = [];
   let id = 0;
+
+  const firstPeriodMs = segments[0].periodMs;
 
   // 도입부는 최소 1.5초 동안 노트 없이 곡을 들려주되, 그 시작점도 격자에
   // 맞춥니다(그래야 첫 노트부터 박자가 어긋나지 않습니다).
   const minStartMs = 1500;
-  const beatsToSkip = Math.max(0, Math.ceil((minStartMs - phaseMs) / periodMs));
-  const startMs = phaseMs + beatsToSkip * periodMs;
+  const beatsToSkip = Math.max(0, Math.ceil((minStartMs - phaseMs) / firstPeriodMs));
+
+  let currentTimeMs = phaseMs + beatsToSkip * firstPeriodMs;
+  let lastVirtualBeat = beatsToSkip;
   const outroMarginMs = 2500;
-  const usableMs = Math.max(0, durationMs - startMs - outroMarginMs);
-  const phrasesAvailable = Math.max(4, Math.floor(usableMs / periodMs / PHRASE_LENGTH_BEATS));
+  const endLimitMs = durationMs - outroMarginMs;
 
-  const mainRepeats = Math.max(2, phrasesAvailable - 1);
-  const sections = [
-    { phrase: mainPhrase, repeats: mainRepeats },
-    { phrase: PHRASE_OUTRO, repeats: 1 },
-  ];
-
-  let startBeat = 0;
-  for (const section of sections) {
-    for (let rep = 0; rep < section.repeats; rep += 1) {
-      const shift = rep % LANE_COUNT;
-      for (const n of section.phrase) {
-        const beat = startBeat + rep * PHRASE_LENGTH_BEATS + n.beatOffset;
-        const time = Math.round(startMs + beat * periodMs);
-        // 폰에서는 엄지 두 개로 플레이하므로, 위 패턴에 실수로 3~4레인
-        // 동시치기를 넣더라도 여기서 항상 최대 2개까지만 남긴다.
-        for (const lane of n.lanes.slice(0, 2)) {
-          notes.push({ id: id++, time, lane: (lane + shift) % LANE_COUNT });
-        }
+  /** phrase의 rep번째 반복을 그리고, 곡 끝(outro 여유분 전)에 닿으면 false를 반환한다. */
+  function pushPhraseRep(phrase, repIndex) {
+    const shift = repIndex % LANE_COUNT;
+    for (const n of phrase) {
+      const virtualBeat = beatsToSkip + repIndex * PHRASE_LENGTH_BEATS + n.beatOffset;
+      const deltaBeats = virtualBeat - lastVirtualBeat;
+      currentTimeMs += deltaBeats * localPeriodAt(segments, currentTimeMs);
+      lastVirtualBeat = virtualBeat;
+      if (currentTimeMs >= endLimitMs) return false;
+      // 폰에서는 엄지 두 개로 플레이하므로, 위 패턴에 실수로 3~4레인
+      // 동시치기를 넣더라도 여기서 항상 최대 2개까지만 남긴다.
+      for (const lane of n.lanes.slice(0, 2)) {
+        notes.push({ id: id++, time: Math.round(currentTimeMs), lane: (lane + shift) % LANE_COUNT });
       }
     }
-    startBeat += section.repeats * PHRASE_LENGTH_BEATS;
+    return true;
   }
+
+  let rep = 0;
+  while (currentTimeMs < endLimitMs) {
+    if (!pushPhraseRep(mainPhrase, rep)) break;
+    rep += 1;
+  }
+  if (rep < 2) return notes.sort((a, b) => a.time - b.time || a.lane - b.lane); // 너무 짧은 곡 방어
+  // rep는 방금 끝(또는 중간)에서 멈춘 반복이라, 그 자리에 이어 붙이면
+  // 시각이 겹치거나 거꾸로 갈 수 있다. 한 마디 건너뛴 자리부터 아웃트로를
+  // 얹는다(그 사이엔 남는 마디가 없어도 pushPhraseRep이 바로 실패하며
+  // 조용히 끝나므로 안전하다).
+  pushPhraseRep(PHRASE_OUTRO, rep + 1);
 
   return notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
 }
@@ -260,13 +317,19 @@ function analyzeSong(song) {
   console.log(`[${song.id}] 온셋 분석 중... (${(durationMs / 1000).toFixed(1)}초)`);
   const energy = computeEnergy(samples);
   const flux = computeFlux(energy);
+  // 표시용 BPM(곡 선택 화면의 "130 BPM" 같은 라벨)은 곡 전체를 한 번에 본
+  // 전역 추정치입니다. 실제 채보 타이밍은 아래 segments로 구간마다 다시
+  // 잡습니다 — 보컬곡은 완벽하게 일정한 BPM이 아닌 경우가 많아서, 전역
+  // 추정치 하나로 곡 끝까지 밀어붙이면 후반부에서 노트가 눈에 띄게
+  // 어긋납니다.
   const periodMs = estimateBeatPeriodMs(flux);
   const phaseMs = estimatePhaseMs(flux, periodMs);
   const bpm = 60000 / periodMs;
+  const segments = estimateBeatSegments(flux, durationMs, periodMs);
 
   const charts = {};
   for (const [difficulty, phrase] of Object.entries(DIFFICULTY_PHRASES)) {
-    charts[difficulty] = buildChart(durationMs, periodMs, phaseMs, phrase);
+    charts[difficulty] = buildChart(durationMs, segments, phaseMs, phrase);
   }
   console.log(
     `[${song.id}] BPM ${bpm.toFixed(1)} 추정, 노트 수 easy ${charts.easy.length} / normal ${charts.normal.length} / hard ${charts.hard.length}, 길이 ${(durationMs / 1000).toFixed(1)}초`,
