@@ -407,9 +407,23 @@ export function RhythmGame() {
         {status === 'playing' && paused && (
           <div className="rhythm__overlay">
             <p className="rhythm__overlay-title">일시정지</p>
-            <button className="rhythm__restart-btn" onClick={togglePause} type="button">
-              계속하기 (P)
-            </button>
+            <div className="rhythm__overlay-actions">
+              <button className="rhythm__restart-btn" onClick={togglePause} type="button">
+                계속하기 (P)
+              </button>
+              <button
+                className="rhythm__secondary-btn"
+                onClick={() => {
+                  pausedRef.current = false;
+                  setPaused(false);
+                  setPickingSong(null);
+                  setStatus('idle');
+                }}
+                type="button"
+              >
+                곡 다시 고르기
+              </button>
+            </div>
           </div>
         )}
 
