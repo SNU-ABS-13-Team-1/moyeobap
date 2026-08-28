@@ -215,12 +215,15 @@ function buildChart(durationMs, periodMs, phaseMs, bpm) {
   const phrasesAvailable = Math.max(4, Math.floor(usableMs / periodMs / PHRASE_LENGTH_BEATS));
 
   // 느린 곡(BPM 100 미만)은 한 박이 물리적으로 길어서 기본 패턴만 쓰면
-  // 노트 사이 공백이 길게 느껴집니다. easy 비중을 줄이고 medium/hard
-  // 비중을 늘려 체감 밀도를 맞춥니다.
+  // 노트 사이 공백이 길게 느껴집니다. easy 비중을 줄이고 medium 비중을
+  // 늘려 체감 밀도를 맞춥니다. hard(16분음표+화음)는 정말 어려운
+  // 구간이라 곡 후반이 통째로 hard였을 때 "후반이 너무 어렵다"는 피드백을
+  // 받았습니다 — 곡 길이와 무관하게 짧은 클라이맥스 정도(20%)로만 두고,
+  // 나머지 밀도는 medium이 채웁니다.
   const isSlow = bpm < 100;
   const proportions = isSlow
-    ? { easy: 0.05, medium: 0.35, hard: 0.55 }
-    : { easy: 0.15, medium: 0.45, hard: 0.35 };
+    ? { easy: 0.05, medium: 0.75, hard: 0.2 }
+    : { easy: 0.15, medium: 0.65, hard: 0.2 };
 
   const outroRepeats = 1;
   const easyRepeats = Math.max(isSlow ? 0 : 2, Math.round(phrasesAvailable * proportions.easy));
