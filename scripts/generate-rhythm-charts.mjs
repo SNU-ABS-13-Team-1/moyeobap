@@ -40,9 +40,11 @@ const SAMPLE_RATE = 22050;
 const FRAME_SIZE = 2048; // ~93ms
 const HOP_SIZE = 512; // ~23ms
 
+// 모여밥 어쿠스틱은 뺐다 — 박자 추정이 특히 안 맞았다(느린 템포+리듬
+// 변화가 커서 온셋 기반 추정이 잘 안 먹힘). 나머지 두 곡은 댄스 비트라
+// 박자가 뚜렷해서 훨씬 안정적으로 맞는다.
 const SONGS = [
   { id: 'bgm', file: 'bgm.mp3', label: '모여밥 시그니처' },
-  { id: 'acoustic', file: 'bgm-acoustic.mp3', label: '모여밥 어쿠스틱' },
   { id: 'girlgroup', file: 'bgm-girlgroup.mp3', label: '모여밥 걸그룹' },
 ];
 
