@@ -315,7 +315,7 @@ export function RhythmGame() {
   return (
     <div className="rhythm">
       <p className="rhythm__desc">
-        D/F/J/K 또는 아래 버튼 탭으로 판정선에 닿는 순간 노트를 맞추세요. 모여밥 실제 BGM 3곡 중 골라서 플레이할 수 있어요.
+        D/F/J/K 또는 아래 버튼 탭으로 판정선에 닿는 순간 노트를 맞추세요. 모여밥 실제 BGM으로 플레이할 수 있어요.
       </p>
 
       <div className="rhythm__canvas-wrap">

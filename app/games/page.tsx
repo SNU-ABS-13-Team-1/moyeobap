@@ -63,8 +63,8 @@ const GAMES = [
   {
     href: '/games/rhythm',
     emoji: '🎹',
-    title: '정밀 노트 리듬게임',
-    desc: 'D/F/J/K로 판정선에 맞춰 노트를 눌러보세요. 모여밥 실제 BGM 3곡 중 골라서 플레이해요.',
+    title: '리듬게임',
+    desc: 'D/F/J/K로 판정선에 맞춰 노트를 눌러보세요. 모여밥 실제 BGM으로 플레이해요.',
   },
 ] as const;
 
