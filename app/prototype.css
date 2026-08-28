@@ -8893,3 +8893,13 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   line-height: 1.6;
   text-align: center;
 }
+
+/* ===== 정적 안내 페이지 공용 카드 (예: /privacy) ===== */
+.page-card {
+  max-width: 640px;
+  padding: var(--space-lg);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
