@@ -20,12 +20,16 @@ import {
 import { getJudgmentPoints, judgeHit } from '../../lib/rhythm/judgment';
 import type { JudgmentTier } from '../../lib/rhythm/types';
 import { useAuth } from './AuthProvider';
+import { HallOfFame, type HallWeek } from './HallOfFame';
+import { RankMedal, rankRowClass } from './RankMedal';
+import { WeekNote, type WeekInfo } from './WeekNote';
 
 const GAME_KEY = 'rhythm';
 const LEADERBOARD_URL = `/api/games/${GAME_KEY}/scores`;
 
-type ScoreEntry = { userId: string; userName: string; bestScore: number };
-type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null };
+/** rank는 서버가 매긴 공동 순위입니다. 점수가 같으면 같은 값이라, 목록의 몇 번째인지로 세면 안 됩니다. */
+type ScoreEntry = { userId: string; userName: string; bestScore: number; rank: number };
+type LeaderboardResponse = { leaderboard: ScoreEntry[]; myRank: number | null; week?: WeekInfo; hall?: HallWeek[] };
 type Status = 'idle' | 'loading' | 'playing' | 'over';
 
 type NoteState = { id: number; time: number; lane: number; judged: boolean; tier: JudgmentTier | null };
@@ -556,19 +560,20 @@ export function RhythmGame() {
       </div>
 
       <div className="rhythm__leaderboard">
-        <p className="rhythm__leaderboard-title">🏆 랭킹 (최고 점수 Top 10)</p>
+        <p className="rhythm__leaderboard-title">🏆 이번 주 랭킹 (최고 점수 Top 10)</p>
+        <WeekNote week={leaderboardData?.week} />
         {!currentUser && <p className="rhythm__leaderboard-note">로그인하면 내 최고 점수가 랭킹에 기록돼요.</p>}
         {leaderboardData && leaderboardData.leaderboard.length === 0 && (
           <p className="rhythm__leaderboard-note">아직 기록이 없어요. 첫 기록을 남겨보세요!</p>
         )}
         {leaderboardData && leaderboardData.leaderboard.length > 0 && (
           <ol className="rhythm__leaderboard-list">
-            {leaderboardData.leaderboard.map((entry, index) => (
+            {leaderboardData.leaderboard.map((entry) => (
               <li
-                className={`rhythm__leaderboard-item ${currentUser?.id === entry.userId ? 'rhythm__leaderboard-item--me' : ''}`}
+                className={`rhythm__leaderboard-item ${currentUser?.id === entry.userId ? 'rhythm__leaderboard-item--me' : ''} ${rankRowClass(entry.rank)}`}
                 key={entry.userId}
               >
-                <span className="rhythm__leaderboard-rank">{index + 1}</span>
+                <RankMedal rank={entry.rank} className="rhythm__leaderboard-rank" />
                 <span className="rhythm__leaderboard-name">{entry.userName}</span>
                 <span className="rhythm__leaderboard-score">{entry.bestScore}</span>
               </li>
@@ -578,6 +583,7 @@ export function RhythmGame() {
         {currentUser && leaderboardData?.myRank && (
           <p className="rhythm__leaderboard-my-rank">내 순위: {leaderboardData.myRank}위</p>
         )}
+        <HallOfFame hall={leaderboardData?.hall} unit="점" />
       </div>
     </div>
   );
