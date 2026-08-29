@@ -9522,14 +9522,6 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   animation: flappy-combo-pop 260ms ease-out;
 }
 
-/* rAF 실측 계측용 임시 표시. 원인 확인되면 이 규칙도 같이 지웁니다. */
-.rhythm__hud-fps {
-  font-size: 0.62rem;
-  font-weight: 500;
-  color: #9ca3af;
-  white-space: nowrap;
-}
-
 .rhythm__pause-btn {
   padding: 0 6px;
   background: rgba(255, 255, 255, 0.15);
