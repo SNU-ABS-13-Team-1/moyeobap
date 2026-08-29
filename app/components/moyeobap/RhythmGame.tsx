@@ -202,7 +202,10 @@ export function RhythmGame() {
   useEffect(() => {
     if (status !== 'playing') return undefined;
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    // alpha: false — 배경을 매 프레임 꽉 채워 그리므로 투명도 합성이 필요
+    // 없습니다. 이걸 꺼두면 브라우저가 매 프레임 알파 블렌딩을 건너뛸 수
+    // 있어 모바일에서 특히 체감되는 최적화입니다.
+    const ctx = canvas?.getContext('2d', { alpha: false });
     const engine = audioEngineRef.current;
     const song = selectedSongRef.current;
     if (!canvas || !ctx || !engine || !song) return undefined;

@@ -9471,18 +9471,25 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   max-width: 420px;
 }
 
+/* 캔버스는 매 프레임(60fps) 새로 그려지는데, border-radius를 캔버스에
+   직접 걸어두면 모바일 브라우저가 프레임마다 둥근 모서리 마스크를 다시
+   계산해야 해서 애니메이션이 뚝뚝 끊깁니다. 테두리·둥근 모서리·그림자는
+   한 번만 그려지는 이 래퍼로 옮기고, 캔버스 자체는 각진 사각형 그대로
+   두고 래퍼가 overflow: hidden으로 잘라냅니다(시각적으로는 동일합니다). */
 .rhythm__canvas-wrap {
   position: relative;
   line-height: 0;
   width: 100%;
   max-width: 360px;
+  border-radius: var(--radius-sm);
+  border: 2px solid #1f2937;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .rhythm__canvas {
   display: block;
-  border-radius: var(--radius-sm);
-  border: 2px solid #1f2937;
-  box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 100%;
   height: auto;
