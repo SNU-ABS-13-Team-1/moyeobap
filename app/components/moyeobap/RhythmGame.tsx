@@ -266,11 +266,15 @@ export function RhythmGame() {
       setStatus('over');
     }
 
-    function draw(now: number, currentTime: number) {
-      const gradient = ctx!.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      gradient.addColorStop(0, '#161221');
-      gradient.addColorStop(1, '#050308');
-      ctx!.fillStyle = gradient;
+    // 배경 그라디언트는 캔버스 크기가 안 바뀌니 한 번만 만들어 두고
+    // 매 프레임 재사용합니다(createLinearGradient는 프레임마다 부르면
+    // 그 자체로 할당 비용이 쌓입니다).
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    bgGradient.addColorStop(0, '#161221');
+    bgGradient.addColorStop(1, '#050308');
+
+    function draw(now: number, currentTime: number, drawStart: number) {
+      ctx!.fillStyle = bgGradient;
       ctx!.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
       for (let lane = 0; lane < LANE_COUNT; lane += 1) {
@@ -290,10 +294,14 @@ export function RhythmGame() {
       ctx!.lineTo(CANVAS_WIDTH, JUDGMENT_LINE_Y);
       ctx!.stroke();
 
-      for (const note of notes) {
+      for (let i = drawStart; i < notes.length; i += 1) {
+        const note = notes[i];
         if (note.judged) continue;
         const timeUntilHit = note.time - currentTime;
-        if (timeUntilHit > NOTE_TRAVEL_MS || timeUntilHit < -GOOD_WINDOW_MS) continue;
+        // notes는 시간순 정렬이라, 아직 화면에 나타날 시점도 안 된 노트를
+        // 만나면 그 뒤는 전부 더 나중 노트뿐입니다 — 더 볼 필요 없이 멈춥니다.
+        if (timeUntilHit > NOTE_TRAVEL_MS) break;
+        if (timeUntilHit < -GOOD_WINDOW_MS) continue;
         const progress = 1 - timeUntilHit / NOTE_TRAVEL_MS;
         const y = progress * JUDGMENT_LINE_Y;
         ctx!.fillStyle = LANE_COLORS[note.lane];
@@ -324,6 +332,13 @@ export function RhythmGame() {
       });
     }
 
+    // notes는 시간순 정렬이라, 이미 판정이 끝난 앞쪽 노트들은 매 프레임 다시
+    // 훑을 필요가 없습니다. 이 커서를 판정 끝난 만큼만 전진시켜, 곡 후반부로
+    // 갈수록(이미 지나간 노트가 수백 개씩 쌓일수록) 매 프레임 배열 전체를
+    // 스캔하던 비용을 없앱니다 — 저사양 폰에서 노트 애니메이션이 끊기던
+    // 원인 중 하나였습니다.
+    let activeStart = 0;
+
     let rafId = 0;
     function tick(now: number) {
       // suspend()로 오디오 클럭이 멈춰 있는 동안은 판정도 그리기도 건너뛰고
@@ -334,14 +349,18 @@ export function RhythmGame() {
       }
       const currentTime = engine!.currentSongTimeMs;
 
-      for (const note of notes) {
+      while (activeStart < notes.length && notes[activeStart].judged) activeStart += 1;
+
+      for (let i = activeStart; i < notes.length; i += 1) {
+        const note = notes[i];
         if (note.judged) continue;
+        if (note.time - currentTime > NOTE_TRAVEL_MS) break;
         if (currentTime - note.time > GOOD_WINDOW_MS) {
           applyJudgment(note, 'miss');
         }
       }
 
-      draw(now, currentTime);
+      draw(now, currentTime, activeStart);
 
       if (currentTime >= song!.durationMs) {
         endGame();
