@@ -348,22 +348,18 @@ export function RhythmGame() {
     // 원인 중 하나였습니다.
     let activeStart = 0;
 
-    // rAF가 실제로 초당 몇 번 불리는지 재는 임시 계측(위 fpsRef 설명 참고).
+    // rAF가 실제로 초당 몇 번 불리는지, 그리고 오디오 클럭(currentSongTimeMs)이
+    // 그 사이 실제로 몇 ms씩 전진하는지 같이 재는 임시 계측(위 fpsRef 설명
+    // 참고). rAF는 빠른데 오디오 클럭이 계단식으로만 갱신되면, 렌더링 자체는
+    // 빨라도 그 재료가 되는 시간값이 몇 프레임에 한 번만 바뀌어 화면이 끊겨
+    // 보일 수 있습니다 — 그걸 구분하기 위한 값입니다.
     let lastFrameAt = 0;
+    let lastSongTimeMs = 0;
     const recentFrameMs: number[] = [];
+    const recentClockDeltaMs: number[] = [];
 
     let rafId = 0;
     function tick(now: number) {
-      if (lastFrameAt > 0) {
-        recentFrameMs.push(now - lastFrameAt);
-        if (recentFrameMs.length > 30) recentFrameMs.shift();
-        if (fpsRef.current && recentFrameMs.length >= 5) {
-          const avg = recentFrameMs.reduce((a, b) => a + b, 0) / recentFrameMs.length;
-          fpsRef.current.textContent = `rAF ${avg.toFixed(0)}ms (${(1000 / avg).toFixed(0)}fps)`;
-        }
-      }
-      lastFrameAt = now;
-
       // suspend()로 오디오 클럭이 멈춰 있는 동안은 판정도 그리기도 건너뛰고
       // rAF만 유지합니다(resume() 즉시 매끄럽게 이어지도록).
       if (pausedRef.current) {
@@ -371,6 +367,23 @@ export function RhythmGame() {
         return;
       }
       const currentTime = engine!.currentSongTimeMs;
+
+      if (lastFrameAt > 0) {
+        recentFrameMs.push(now - lastFrameAt);
+        if (recentFrameMs.length > 30) recentFrameMs.shift();
+        recentClockDeltaMs.push(currentTime - lastSongTimeMs);
+        if (recentClockDeltaMs.length > 30) recentClockDeltaMs.shift();
+        if (fpsRef.current && recentFrameMs.length >= 5) {
+          const avgFrame = recentFrameMs.reduce((a, b) => a + b, 0) / recentFrameMs.length;
+          const avgClock = recentClockDeltaMs.reduce((a, b) => a + b, 0) / recentClockDeltaMs.length;
+          const minClock = Math.min(...recentClockDeltaMs);
+          const maxClock = Math.max(...recentClockDeltaMs);
+          fpsRef.current.textContent =
+            `rAF ${avgFrame.toFixed(0)}ms · clk avg${avgClock.toFixed(0)} min${minClock.toFixed(0)} max${maxClock.toFixed(0)}`;
+        }
+      }
+      lastFrameAt = now;
+      lastSongTimeMs = currentTime;
 
       while (activeStart < notes.length && notes[activeStart].judged) activeStart += 1;
 

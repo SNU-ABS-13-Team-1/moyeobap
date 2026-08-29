@@ -9504,6 +9504,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   left: 0;
   right: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
@@ -9522,8 +9523,11 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   animation: flappy-combo-pop 260ms ease-out;
 }
 
-/* rAF 실측 계측용 임시 표시. 원인 확인되면 이 규칙도 같이 지웁니다. */
+/* rAF 실측 계측용 임시 표시. 원인 확인되면 이 규칙도 같이 지웁니다.
+   flex-basis: 100%로 강제로 다음 줄로 내려서, 좁은 화면에서 다른 HUD
+   항목이 찌그러지거나 겹치지 않게 합니다. */
 .rhythm__hud-fps {
+  flex-basis: 100%;
   font-size: 0.62rem;
   font-weight: 500;
   color: #9ca3af;
