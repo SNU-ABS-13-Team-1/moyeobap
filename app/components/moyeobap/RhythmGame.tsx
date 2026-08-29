@@ -48,6 +48,12 @@ function laneX(lane: number): number {
 export function RhythmGame() {
   const { currentUser } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // 실제 기기에서 노트가 끊겨 보인다는 제보가 있어, rAF 콜백이 실제로 초당
+  // 몇 번 불리는지 화면에 바로 보이게 임시로 재는 계측입니다. React
+  // state로 만들면 이 값 자체가 매 프레임 리렌더를 일으켜 측정을 오염시켜서,
+  // ref로 DOM 텍스트만 직접 갱신합니다(리렌더 없음). 원인이 확인되면
+  // 지워도 됩니다.
+  const fpsRef = useRef<HTMLSpanElement>(null);
   const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
     LEADERBOARD_URL,
     fetcher,
@@ -342,8 +348,22 @@ export function RhythmGame() {
     // 원인 중 하나였습니다.
     let activeStart = 0;
 
+    // rAF가 실제로 초당 몇 번 불리는지 재는 임시 계측(위 fpsRef 설명 참고).
+    let lastFrameAt = 0;
+    const recentFrameMs: number[] = [];
+
     let rafId = 0;
     function tick(now: number) {
+      if (lastFrameAt > 0) {
+        recentFrameMs.push(now - lastFrameAt);
+        if (recentFrameMs.length > 30) recentFrameMs.shift();
+        if (fpsRef.current && recentFrameMs.length >= 5) {
+          const avg = recentFrameMs.reduce((a, b) => a + b, 0) / recentFrameMs.length;
+          fpsRef.current.textContent = `rAF ${avg.toFixed(0)}ms (${(1000 / avg).toFixed(0)}fps)`;
+        }
+      }
+      lastFrameAt = now;
+
       // suspend()로 오디오 클럭이 멈춰 있는 동안은 판정도 그리기도 건너뛰고
       // rAF만 유지합니다(resume() 즉시 매끄럽게 이어지도록).
       if (pausedRef.current) {
@@ -420,6 +440,8 @@ export function RhythmGame() {
               Combo x{combo}
             </span>
             <span>{accuracy.toFixed(1)}%</span>
+            {/* rAF 콜백 실측 계측(임시). 원인 확인되면 제거합니다. */}
+            <span className="rhythm__hud-fps" ref={fpsRef} />
             <button className="rhythm__pause-btn" onClick={togglePause} type="button">
               {paused ? '▶' : '⏸'}
             </button>
