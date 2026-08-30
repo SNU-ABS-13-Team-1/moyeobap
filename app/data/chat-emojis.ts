@@ -49,6 +49,27 @@ const CHAT_EMOJIS_V4: readonly ChatEmoji[] = [
   { id: 'speed-game', label: '스겜', src: '/emojis/speed-game.png' },
 ];
 
+// 공동주문 조율에 바로 쓸 수 있는 시간·자리·정산 표현 6종.
+const CHAT_EMOJIS_V5_POT: readonly ChatEmoji[] = [
+  { id: 'meet-time', label: '몇 시에?', src: '/emojis/kimplog-meet-time.png' },
+  { id: 'seat-ready', label: '자리 잡음!', src: '/emojis/kimplog-seat-ready.png' },
+  { id: 'receipt', label: '영수증이요!', src: '/emojis/kimplog-receipt.png' },
+  { id: 'split-bill', label: 'N빵 가자!', src: '/emojis/kimprat-split-bill.png' },
+  { id: 'spicy-check', label: '맵기 괜찮?', src: '/emojis/kimplog-spicy-check.png' },
+  { id: 'still-waiting', label: '아직 멀었어?', src: '/emojis/kimprat-still-waiting.png' },
+];
+
+// 미니게임 진행·관전·승부에 쓰는 표현 7종.
+const CHAT_EMOJIS_V5_GAME: readonly ChatEmoji[] = [
+  { id: 'rules-help', label: '룰 알려줘', src: '/emojis/kimplog-rules-help.png' },
+  { id: 'lagging', label: '렉이다 렉!', src: '/emojis/kimprat-lagging.png' },
+  { id: 'watching', label: '관전 중!', src: '/emojis/kimplog-watching.png' },
+  { id: 'next-time', label: '다음엔 이길거야…', src: '/emojis/kimprat-next-time.png' },
+  { id: 'bet', label: '내기 ㄱ?', src: '/emojis/kimprat-bet.png' },
+  { id: 'surrender', label: '기권!', src: '/emojis/kimplog-surrender.png' },
+  { id: 'champion', label: '내가 짱!', src: '/emojis/kimplog-champion.png' },
+];
+
 const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'volunteer', label: '저요!', src: '/emojis/volunteer.png' },
   { id: 'plus-one', label: '+1', src: '/emojis/plus-one.png' },
@@ -64,33 +85,37 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 46종을 한 격자에 다 깔면 원하는
+// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 59종을 한 격자에 다 깔면 원하는
 // 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
 // 이유도 없기 때문입니다.
 
 /** 게임방 피커에도 함께 둘 공용 이모티콘. 인사·감사는 어디서나 씁니다. */
 const SHARED_WITH_GAME = new Set(['hello', 'thank-you', 'good-job', 'wait']);
 
-/** 팟 채팅 피커: 주문·정산 맥락. 2차 개편분(15종) 먼저, 기존 12종이 뒤에. */
+/** 팟 채팅 피커: 주문·정산 맥락. 공용 15종, 신규 6종, 기존 12종 순서. */
 export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V2,
+  ...CHAT_EMOJIS_V5_POT,
   ...LEGACY_CHAT_EMOJIS,
 ];
 
-/** 게임방 피커: 승부·진행 표현 19종 먼저, 공용 몇 개가 뒤에. */
+/** 게임방 피커: 승부·진행 표현 26종 먼저, 공용 몇 개가 뒤에. */
 export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V3,
   ...CHAT_EMOJIS_V4,
+  ...CHAT_EMOJIS_V5_GAME,
   ...CHAT_EMOJIS_V2.filter((emoji) => SHARED_WITH_GAME.has(emoji.id)),
 ];
 
-// 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 46종을
+// 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 59종을
 // 전부 알아야 합니다 — 게임방에서 온 메시지를 나중에 어디서 보든, 또 피커
 // 구성을 바꾼 뒤에도 지난 메시지가 깨지지 않아야 하기 때문입니다.
 export const CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V2,
   ...CHAT_EMOJIS_V3,
   ...CHAT_EMOJIS_V4,
+  ...CHAT_EMOJIS_V5_POT,
+  ...CHAT_EMOJIS_V5_GAME,
   ...LEGACY_CHAT_EMOJIS,
 ];
 

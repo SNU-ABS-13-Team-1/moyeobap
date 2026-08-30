@@ -9,7 +9,7 @@ import {
   getChatEmojiBySrc,
 } from "./chat-emojis.ts";
 
-// 목록이 46종으로 늘면서 눈으로는 오타를 잡기 어려워졌습니다.
+// 목록이 59종으로 늘면서 눈으로는 오타를 잡기 어려워졌습니다.
 // id가 겹치면 뒤엣것이 영영 안 눌리고, 파일명이 한 글자 틀리면
 // 피커에는 깨진 그림이, 채팅에는 깨진 말풍선이 그대로 나갑니다.
 
@@ -47,6 +47,27 @@ const ids = (emojis: readonly { id: string }[]) => emojis.map((emoji) => emoji.i
 const FEEDBACK_GAME_EMOJI_IDS = [
   "interesting", "fighting", "nice", "ok", "dozing", "speed-game",
 ] as const;
+const NEW_POT_EMOJI_IDS = [
+  "meet-time", "seat-ready", "receipt", "split-bill", "spicy-check", "still-waiting",
+] as const;
+const NEW_GAME_EMOJI_IDS = [
+  "rules-help", "lagging", "watching", "next-time", "bet", "surrender", "champion",
+] as const;
+const NEW_EMOJI_LABELS = {
+  "meet-time": "몇 시에?",
+  "seat-ready": "자리 잡음!",
+  receipt: "영수증이요!",
+  "split-bill": "N빵 가자!",
+  "spicy-check": "맵기 괜찮?",
+  "still-waiting": "아직 멀었어?",
+  "rules-help": "룰 알려줘",
+  lagging: "렉이다 렉!",
+  watching: "관전 중!",
+  "next-time": "다음엔 이길거야…",
+  bet: "내기 ㄱ?",
+  surrender: "기권!",
+  champion: "내가 짱!",
+} as const;
 
 test("피드백으로 추가한 6종은 512px 정사각 알파 PNG다", () => {
   for (const id of FEEDBACK_GAME_EMOJI_IDS) {
@@ -60,14 +81,51 @@ test("피드백으로 추가한 6종은 512px 정사각 알파 PNG다", () => {
   }
 });
 
-test("게임방 피커에는 승부·진행 표현 19종이 모두 있다", () => {
+test("신규 공동주문·미니게임 이모티콘 13종은 512px 정사각 알파 PNG다", () => {
+  for (const id of [...NEW_POT_EMOJI_IDS, ...NEW_GAME_EMOJI_IDS]) {
+    const emoji = getChatEmojiById(id);
+    assert.ok(emoji, `${id}가 화이트리스트에 없습니다`);
+    const png = readFileSync(`public${emoji.src}`);
+    assert.equal(png.toString("ascii", 1, 4), "PNG", `${id}는 PNG가 아닙니다`);
+    assert.equal(png.readUInt32BE(16), 512, `${id} 너비가 512px이 아닙니다`);
+    assert.equal(png.readUInt32BE(20), 512, `${id} 높이가 512px이 아닙니다`);
+    assert.ok([4, 6].includes(png[25]), `${id}에 알파 채널이 없습니다`);
+  }
+});
+
+test("신규 이모티콘 13종은 이미지 문구와 같은 라벨을 쓴다", () => {
+  for (const [id, label] of Object.entries(NEW_EMOJI_LABELS)) {
+    assert.equal(getChatEmojiById(id)?.label, label, `${id} 라벨이 이미지 문구와 다릅니다`);
+  }
+});
+
+test("게임방 피커에는 승부·진행 표현 26종이 모두 있다", () => {
   const game = ids(GAME_CHAT_EMOJIS);
   for (const id of [
     "one-more-game", "bring-it-on", "you-sure", "swagger", "teasing", "smile",
     "i-admit", "no-way", "frustrated", "crying", "hold-on", "study-time", "peekaboo",
     ...FEEDBACK_GAME_EMOJI_IDS,
+    ...NEW_GAME_EMOJI_IDS,
   ]) {
     assert.ok(game.includes(id), `게임방 피커에 ${id}가 없습니다`);
+  }
+});
+
+test("신규 공동주문 이모티콘 6종은 팟 채팅에만 있다", () => {
+  const pot = ids(POT_CHAT_EMOJIS);
+  const game = ids(GAME_CHAT_EMOJIS);
+  for (const id of NEW_POT_EMOJI_IDS) {
+    assert.ok(pot.includes(id), `팟 채팅 피커에 ${id}가 없습니다`);
+    assert.ok(!game.includes(id), `게임방 피커에 ${id}가 섞여 있습니다`);
+  }
+});
+
+test("신규 미니게임 이모티콘 7종은 게임방 채팅에만 있다", () => {
+  const pot = ids(POT_CHAT_EMOJIS);
+  const game = ids(GAME_CHAT_EMOJIS);
+  for (const id of NEW_GAME_EMOJI_IDS) {
+    assert.ok(game.includes(id), `게임방 피커에 ${id}가 없습니다`);
+    assert.ok(!pot.includes(id), `팟 채팅 피커에 ${id}가 섞여 있습니다`);
   }
 });
 
