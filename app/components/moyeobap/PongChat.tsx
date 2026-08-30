@@ -6,6 +6,7 @@ import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { GAME_CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { useEmojiPickerOrder } from './useEmojiPickerOrder';
 import { isChatAtBottom } from '../../lib/chatScroll';
 import { useAuth } from './AuthProvider';
 
@@ -45,6 +46,12 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  // 최근에 쓴 네 개를 앞으로. 순서는 피커를 열 때 정해집니다.
+  const { emojis: pickerEmojis, remember: rememberEmoji } = useEmojiPickerOrder(
+    'game',
+    GAME_CHAT_EMOJIS,
+    isEmojiPickerOpen,
+  );
   const listRef = useRef<HTMLDivElement>(null);
   /** 하단을 보고 있는지. 이 값이 참일 때만 새 메시지를 따라 내려갑니다. */
   const followBottomRef = useRef(true);
@@ -126,6 +133,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
     setSendError(null);
     setIsEmojiPickerOpen(false);
     followBottomRef.current = true;
+    rememberEmoji(emoji.id);
 
     const optimisticMsg: PongChatMessage = {
       id: `temp-emoji-${crypto.randomUUID()}`,
@@ -188,7 +196,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
 
       {canPost && isEmojiPickerOpen && (
         <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id="pong-chat-emoji-picker">
-          {GAME_CHAT_EMOJIS.map((emoji) => (
+          {pickerEmojis.map((emoji) => (
             <button
               aria-label={`${emoji.label} 보내기`}
               className="chat-panel__emoji-option"

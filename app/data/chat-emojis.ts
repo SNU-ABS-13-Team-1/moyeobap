@@ -85,28 +85,6 @@ const LEGACY_CHAT_EMOJIS: readonly ChatEmoji[] = [
   { id: 'thanks-for-meal', label: '잘먹겠습니다', src: '/emojis/thanks-for-meal.png' },
 ];
 
-// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 59종을 한 격자에 다 깔면 원하는
-// 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
-// 이유도 없기 때문입니다.
-
-/** 게임방 피커에도 함께 둘 공용 이모티콘. 인사·감사는 어디서나 씁니다. */
-const SHARED_WITH_GAME = new Set(['hello', 'thank-you', 'good-job', 'wait']);
-
-/** 팟 채팅 피커: 주문·정산 맥락. 공용 15종, 신규 6종, 기존 12종 순서. */
-export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = [
-  ...CHAT_EMOJIS_V2,
-  ...CHAT_EMOJIS_V5_POT,
-  ...LEGACY_CHAT_EMOJIS,
-];
-
-/** 게임방 피커: 승부·진행 표현 26종 먼저, 공용 몇 개가 뒤에. */
-export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = [
-  ...CHAT_EMOJIS_V3,
-  ...CHAT_EMOJIS_V4,
-  ...CHAT_EMOJIS_V5_GAME,
-  ...CHAT_EMOJIS_V2.filter((emoji) => SHARED_WITH_GAME.has(emoji.id)),
-];
-
 // 전송 화이트리스트이자 렌더용 조회 대상입니다. 피커가 나뉘어도 이쪽은 59종을
 // 전부 알아야 합니다 — 게임방에서 온 메시지를 나중에 어디서 보든, 또 피커
 // 구성을 바꾼 뒤에도 지난 메시지가 깨지지 않아야 하기 때문입니다.
@@ -118,6 +96,51 @@ export const CHAT_EMOJIS: readonly ChatEmoji[] = [
   ...CHAT_EMOJIS_V5_GAME,
   ...LEGACY_CHAT_EMOJIS,
 ];
+
+const BY_ID = new Map(CHAT_EMOJIS.map((emoji) => [emoji.id, emoji]));
+
+/** 순서 목록의 id를 실제 이모티콘으로 바꿉니다. 오타는 즉시 터뜨립니다. */
+function pickInOrder(ids: readonly string[]): readonly ChatEmoji[] {
+  return ids.map((id) => {
+    const emoji = BY_ID.get(id);
+    if (!emoji) throw new Error(`피커 순서에 없는 이모티콘 id: ${id}`);
+    return emoji;
+  });
+}
+
+// 피커는 쓰는 자리에 맞춰 나눠 보여줍니다. 59종을 한 격자에 다 깔면 원하는
+// 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
+// 이유도 없기 때문입니다.
+//
+// 순서는 "추가한 순서"가 아니라 "쓰는 순서"로 둡니다. 격자 높이가 220px로
+// 묶여 있어(입력줄이 밀려나지 않게) 스크롤 없이 보이는 건 PC 7~10개,
+// 폰(3열) 5~6개뿐입니다. 그래서 앞 두 줄에 무엇을 두느냐가 사실상 전부입니다.
+// 아래 목록은 네 개씩 한 줄로 읽으면 됩니다.
+
+/** 팟 채팅 피커: 참여 → 시간·자리 → 정산 → 주문 → 마감 → 인사 순. */
+export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = pickInOrder([
+  'volunteer', 'plus-one', 'yes', 'like',
+  'meet-time', 'where-are-you', 'seat-ready', 'coming-down',
+  'price-question', 'split-bill', 'receipt', 'payment-complete',
+  'ill-order', 'menu-question', 'same-order', 'spicy-check',
+  'deadline-soon', 'closed', 'order-complete', 'arrived',
+  'still-waiting', 'lets-go', 'wait', 'cancel',
+  'hello', 'thank-you', 'good-job', 'thanks-for-meal',
+  'laugh', 'sorry', 'pickleball', 'sleepy',
+  'exam-over',
+]);
+
+/** 게임방 피커: 맞장구 → 도전 → 진행 → 승리 → 패배 → 감정 → 자리비움 순. */
+export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = pickInOrder([
+  'ok', 'teasing', 'smile', 'nice',
+  'one-more-game', 'bring-it-on', 'you-sure', 'bet',
+  'rules-help', 'watching', 'lagging', 'surrender',
+  'champion', 'swagger', 'fighting', 'interesting',
+  'i-admit', 'next-time', 'no-way', 'frustrated',
+  'crying', 'peekaboo', 'hold-on', 'speed-game',
+  'dozing', 'study-time', 'wait', 'good-job',
+  'hello', 'thank-you',
+]);
 
 export function getChatEmojiById(id: unknown): ChatEmoji | undefined {
   if (typeof id !== 'string') return undefined;

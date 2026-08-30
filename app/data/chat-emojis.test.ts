@@ -164,3 +164,34 @@ test("피커에 없는 이모티콘이 화이트리스트에 남아 있지 않�
     assert.ok(shown.has(emoji.id), `${emoji.id}는 어느 피커에도 안 보입니다`);
   }
 });
+
+// 앞 두 줄이 사실상 피커의 전부입니다(격자가 220px에 묶여 있어 PC 7~10개,
+// 폰 5~6개만 스크롤 없이 보입니다). 순서를 건드리면 여기서 걸리게 둡니다.
+
+test("팟 피커 첫 두 줄은 참여와 시간·자리 표현이다", () => {
+  assert.deepEqual(ids(POT_CHAT_EMOJIS).slice(0, 8), [
+    "volunteer", "plus-one", "yes", "like",
+    "meet-time", "where-are-you", "seat-ready", "coming-down",
+  ]);
+});
+
+test("게임방 피커 첫 두 줄은 맞장구와 도전 표현이다", () => {
+  assert.deepEqual(ids(GAME_CHAT_EMOJIS).slice(0, 8), [
+    "ok", "teasing", "smile", "nice",
+    "one-more-game", "bring-it-on", "you-sure", "bet",
+  ]);
+});
+
+test("순서를 바꿔도 피커에서 빠지거나 겹치는 이모티콘이 없다", () => {
+  for (const [name, picker, expected] of [
+    ["팟", POT_CHAT_EMOJIS, 33],
+    ["게임방", GAME_CHAT_EMOJIS, 30],
+  ] as const) {
+    const list = ids(picker);
+    assert.equal(list.length, expected, `${name} 피커 개수가 달라졌습니다`);
+    assert.equal(new Set(list).size, expected, `${name} 피커에 중복이 있습니다`);
+    for (const id of list) {
+      assert.ok(getChatEmojiById(id), `${name} 피커의 ${id}가 화이트리스트에 없습니다`);
+    }
+  }
+});

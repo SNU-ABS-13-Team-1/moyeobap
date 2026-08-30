@@ -12,6 +12,7 @@ import {
   type ChatEmoji,
 } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
+import { useEmojiPickerOrder } from './useEmojiPickerOrder';
 
 interface ChatPanelProps {
   potId: string;
@@ -58,6 +59,12 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  // 최근에 쓴 네 개를 앞으로. 순서는 피커를 열 때 정해집니다.
+  const { emojis: pickerEmojis, remember: rememberEmoji } = useEmojiPickerOrder(
+    'pot',
+    POT_CHAT_EMOJIS,
+    isEmojiPickerOpen,
+  );
   const [orderLinkUrl, setOrderLinkUrl] = useState('');
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -348,6 +355,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     setSendError(null);
     followBottomRef.current = true;
     setIsEmojiPickerOpen(false);
+    rememberEmoji(emoji.id);
 
     const optimisticMsg: ChatMessageView = {
       id: `temp-emoji-${emoji.id}`,
@@ -567,7 +575,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
           id="chat-emoji-picker"
           aria-label="모여밥 이모티콘 선택"
         >
-          {POT_CHAT_EMOJIS.map((emoji) => (
+          {pickerEmojis.map((emoji) => (
             <button
               type="button"
               className="chat-panel__emoji-option"
