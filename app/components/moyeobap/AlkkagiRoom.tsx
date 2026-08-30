@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/alkkagiMatch';
@@ -52,7 +53,7 @@ export function AlkkagiRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: AlkkagiRoomData }>(
     `/api/games/alkkagi/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
 
