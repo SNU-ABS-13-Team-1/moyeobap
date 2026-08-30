@@ -14,10 +14,14 @@ type Track = {
   startSec: number;
 };
 
+// 원본이 m4a(AAC)인 곡은 그대로 둡니다. mp3로 다시 인코딩하면 손실을 한 번 더
+// 얹으면서 파일만 커지고, Safari·Chrome·Whale 모두 m4a를 그대로 재생합니다.
 const TRACKS: Track[] = [
   { id: 'moyeobap', title: '다같이 모여밥', src: '/bgm.mp3', startSec: 64.5 },
   { id: 'girlgroup', title: '걸그룹모여', src: '/bgm-girlgroup.mp3', startSec: 0 },
   { id: 'acoustic', title: '모여쿠스틱', src: '/bgm-acoustic.mp3', startSec: 0 },
+  { id: 'adventure', title: '김프랫의 대모험', src: '/bgm-adventure.m4a', startSec: 0 },
+  { id: 'daily', title: '김프로그의 일상', src: '/bgm-daily.m4a', startSec: 0 },
 ];
 
 /**
