@@ -112,35 +112,78 @@ function pickInOrder(ids: readonly string[]): readonly ChatEmoji[] {
 // 걸 찾기 어렵고, "입금완료!"를 체스 방에서, "꺼드럭"을 정산 대화에서 볼
 // 이유도 없기 때문입니다.
 //
-// 순서는 "추가한 순서"가 아니라 "쓰는 순서"로 둡니다. 격자 높이가 220px로
-// 묶여 있어(입력줄이 밀려나지 않게) 스크롤 없이 보이는 건 PC 7~10개,
-// 폰(3열) 5~6개뿐입니다. 그래서 앞 두 줄에 무엇을 두느냐가 사실상 전부입니다.
-// 아래 목록은 네 개씩 한 줄로 읽으면 됩니다.
+// 피커 안에서는 캐릭터 테마로 한 번 더 나눕니다(사용자 피드백). 흰 밥공기
+// (모여밥)와 개구리·쥐(김프랫·김프로그)는 그림체가 달라 섞여 있으면 산만하고,
+// 묶어 두면 "김프로그 것 중에서 고르기"가 됩니다. 각 테마 안의 순서는
+// "추가한 순서"가 아니라 "쓰는 순서"입니다. 격자 높이가 220px로 묶여 있어
+// (입력줄이 밀려나지 않게) 스크롤 없이 보이는 건 PC 7~10개, 폰(3열) 5~6개
+// 뿐이라 앞 두 줄에 무엇을 두느냐가 사실상 전부입니다. 아래 목록은 네 개씩
+// 한 줄로 읽으면 됩니다.
 
-/** 팟 채팅 피커: 참여 → 시간·자리 → 정산 → 주문 → 마감 → 인사 순. */
-export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = pickInOrder([
-  'volunteer', 'plus-one', 'yes', 'like',
-  'meet-time', 'where-are-you', 'seat-ready', 'coming-down',
-  'price-question', 'split-bill', 'receipt', 'payment-complete',
-  'ill-order', 'menu-question', 'same-order', 'spicy-check',
-  'deadline-soon', 'closed', 'order-complete', 'arrived',
-  'still-waiting', 'lets-go', 'wait', 'cancel',
-  'hello', 'thank-you', 'good-job', 'thanks-for-meal',
-  'laugh', 'sorry', 'pickleball', 'sleepy',
-  'exam-over',
-]);
+export interface ChatEmojiSection {
+  title: string;
+  emojis: readonly ChatEmoji[];
+}
 
-/** 게임방 피커: 맞장구 → 도전 → 진행 → 승리 → 패배 → 감정 → 자리비움 순. */
-export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = pickInOrder([
-  'ok', 'teasing', 'smile', 'nice',
-  'one-more-game', 'bring-it-on', 'you-sure', 'bet',
-  'rules-help', 'watching', 'lagging', 'surrender',
-  'champion', 'swagger', 'fighting', 'interesting',
-  'i-admit', 'next-time', 'no-way', 'frustrated',
-  'crying', 'peekaboo', 'hold-on', 'speed-game',
-  'dozing', 'study-time', 'wait', 'good-job',
-  'hello', 'thank-you',
-]);
+/** 팟 채팅 피커: 모여밥(참여→위치→주문·정산→마감→인사) / 김프랫·김프로그(약속→기다림→정산). */
+export const POT_CHAT_EMOJI_SECTIONS: readonly ChatEmojiSection[] = [
+  {
+    title: '모여밥',
+    emojis: pickInOrder([
+      'volunteer', 'plus-one', 'yes', 'like',
+      'where-are-you', 'coming-down', 'ill-order', 'menu-question',
+      'same-order', 'price-question', 'payment-complete', 'order-complete',
+      'deadline-soon', 'closed', 'arrived', 'lets-go',
+      'wait', 'cancel', 'hello', 'thank-you',
+      'good-job', 'thanks-for-meal', 'laugh', 'sorry',
+      'pickleball', 'sleepy', 'exam-over',
+    ]),
+  },
+  {
+    title: '김프랫·김프로그',
+    emojis: pickInOrder([
+      'meet-time', 'seat-ready', 'still-waiting', 'spicy-check',
+      'split-bill', 'receipt',
+    ]),
+  },
+];
+
+/**
+ * 게임방 피커: 모여밥(맞장구→도전→반응→감정→자리비움) / 김프랫·김프로그(진행→승부).
+ *
+ * '기다려(hold-on)'는 사용자 피드백으로 피커에서 뺐습니다. 화이트리스트에는
+ * 남아 있어 이미 보낸 메시지는 계속 그려집니다.
+ */
+export const GAME_CHAT_EMOJI_SECTIONS: readonly ChatEmojiSection[] = [
+  {
+    title: '모여밥',
+    emojis: pickInOrder([
+      'ok', 'teasing', 'smile', 'nice',
+      'one-more-game', 'bring-it-on', 'you-sure', 'speed-game',
+      'fighting', 'interesting', 'swagger', 'i-admit',
+      'no-way', 'frustrated', 'crying', 'peekaboo',
+      'dozing', 'study-time', 'wait', 'good-job',
+      'hello', 'thank-you',
+    ]),
+  },
+  {
+    title: '김프랫·김프로그',
+    emojis: pickInOrder([
+      'rules-help', 'watching', 'bet', 'lagging',
+      'champion', 'next-time', 'surrender',
+    ]),
+  },
+];
+
+/** 팟 채팅 피커의 평평한 목록. 검사와 개수 확인에 씁니다. */
+export const POT_CHAT_EMOJIS: readonly ChatEmoji[] = POT_CHAT_EMOJI_SECTIONS.flatMap(
+  (section) => section.emojis,
+);
+
+/** 게임방 피커의 평평한 목록. 검사와 개수 확인에 씁니다. */
+export const GAME_CHAT_EMOJIS: readonly ChatEmoji[] = GAME_CHAT_EMOJI_SECTIONS.flatMap(
+  (section) => section.emojis,
+);
 
 export function getChatEmojiById(id: unknown): ChatEmoji | undefined {
   if (typeof id !== 'string') return undefined;

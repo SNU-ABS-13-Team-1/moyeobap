@@ -6,13 +6,14 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { isChatAtBottom } from '../../lib/chatScroll';
 import {
-  POT_CHAT_EMOJIS,
+  POT_CHAT_EMOJI_SECTIONS,
   getChatEmojiBySrc,
   isChatEmojiPath,
   type ChatEmoji,
 } from '../../data/chat-emojis';
 import { useAuth } from './AuthProvider';
 import { useEmojiPickerOrder } from './useEmojiPickerOrder';
+import { EmojiPickerGrid } from './EmojiPickerGrid';
 
 interface ChatPanelProps {
   potId: string;
@@ -59,10 +60,10 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
   const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const [isOrderLinkModalOpen, setIsOrderLinkModalOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  // 최근에 쓴 네 개를 앞으로. 순서는 피커를 열 때 정해집니다.
-  const { emojis: pickerEmojis, remember: rememberEmoji } = useEmojiPickerOrder(
+  // 최근에 쓴 네 개를 "최근 사용" 줄로. 순서는 피커를 열 때 정해집니다.
+  const { sections: pickerSections, remember: rememberEmoji } = useEmojiPickerOrder(
     'pot',
-    POT_CHAT_EMOJIS,
+    POT_CHAT_EMOJI_SECTIONS,
     isEmojiPickerOpen,
   );
   const [orderLinkUrl, setOrderLinkUrl] = useState('');
@@ -570,26 +571,12 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
       )}
 
       {isEmojiPickerOpen && (
-        <div
-          className="chat-panel__emoji-picker"
+        <EmojiPickerGrid
+          disabled={sending}
           id="chat-emoji-picker"
-          aria-label="모여밥 이모티콘 선택"
-        >
-          {pickerEmojis.map((emoji) => (
-            <button
-              type="button"
-              className="chat-panel__emoji-option"
-              key={emoji.id}
-              onClick={() => handleSendEmoji(emoji)}
-              disabled={sending}
-              title={`${emoji.label} 보내기`}
-              aria-label={`${emoji.label} 보내기`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={emoji.src} alt={emoji.label} />
-            </button>
-          ))}
-        </div>
+          onPick={handleSendEmoji}
+          sections={pickerSections}
+        />
       )}
 
       <input

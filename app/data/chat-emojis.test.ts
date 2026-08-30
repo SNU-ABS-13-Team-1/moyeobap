@@ -7,6 +7,8 @@ import {
   POT_CHAT_EMOJIS,
   getChatEmojiById,
   getChatEmojiBySrc,
+  POT_CHAT_EMOJI_SECTIONS,
+  GAME_CHAT_EMOJI_SECTIONS,
 } from "./chat-emojis.ts";
 
 // 목록이 59종으로 늘면서 눈으로는 오타를 잡기 어려워졌습니다.
@@ -99,16 +101,24 @@ test("신규 이모티콘 13종은 이미지 문구와 같은 라벨을 쓴다",
   }
 });
 
-test("게임방 피커에는 승부·진행 표현 26종이 모두 있다", () => {
+test("게임방 피커에는 승부·진행 표현 25종이 모두 있다", () => {
   const game = ids(GAME_CHAT_EMOJIS);
   for (const id of [
     "one-more-game", "bring-it-on", "you-sure", "swagger", "teasing", "smile",
-    "i-admit", "no-way", "frustrated", "crying", "hold-on", "study-time", "peekaboo",
+    "i-admit", "no-way", "frustrated", "crying", "study-time", "peekaboo",
     ...FEEDBACK_GAME_EMOJI_IDS,
     ...NEW_GAME_EMOJI_IDS,
   ]) {
     assert.ok(game.includes(id), `게임방 피커에 ${id}가 없습니다`);
   }
+});
+
+test("'기다려'는 피커에서 뺐지만 지난 메시지는 계속 그려진다", () => {
+  // 사용자 피드백으로 게임방 피커에서 제외. 전송 화이트리스트에는 남겨
+  // 이미 보낸 메시지의 렌더와 알림 미리보기가 깨지지 않게 합니다.
+  assert.ok(!ids(GAME_CHAT_EMOJIS).includes("hold-on"), "게임방 피커에 hold-on이 남아 있습니다");
+  assert.ok(!ids(POT_CHAT_EMOJIS).includes("hold-on"), "팟 피커에 hold-on이 들어갔습니다");
+  assert.equal(getChatEmojiById("hold-on")?.label, "기다려");
 });
 
 test("신규 공동주문 이모티콘 6종은 팟 채팅에만 있다", () => {
@@ -158,34 +168,67 @@ test("전송 화이트리스트는 두 피커의 이모티콘을 모두 안다",
   }
 });
 
-test("피커에 없는 이모티콘이 화이트리스트에 남아 있지 않다", () => {
+// 피커에서 뺐지만 화이트리스트에 남긴 것들. 지난 메시지의 렌더를 지키기
+// 위한 자리이므로, 여기에 없는 이모티콘이 피커에서 빠지면 실수로 봅니다.
+const RETIRED_FROM_PICKERS = new Set(["hold-on"]);
+
+test("피커에 없는 이모티콘은 은퇴 목록에 있는 것뿐이다", () => {
   const shown = new Set([...ids(POT_CHAT_EMOJIS), ...ids(GAME_CHAT_EMOJIS)]);
   for (const emoji of CHAT_EMOJIS) {
-    assert.ok(shown.has(emoji.id), `${emoji.id}는 어느 피커에도 안 보입니다`);
+    if (RETIRED_FROM_PICKERS.has(emoji.id)) {
+      assert.ok(!shown.has(emoji.id), `${emoji.id}는 은퇴했는데 피커에 다시 나타났습니다`);
+    } else {
+      assert.ok(shown.has(emoji.id), `${emoji.id}는 어느 피커에도 안 보입니다`);
+    }
   }
 });
 
 // 앞 두 줄이 사실상 피커의 전부입니다(격자가 220px에 묶여 있어 PC 7~10개,
 // 폰 5~6개만 스크롤 없이 보입니다). 순서를 건드리면 여기서 걸리게 둡니다.
 
-test("팟 피커 첫 두 줄은 참여와 시간·자리 표현이다", () => {
+test("팟 피커 첫 두 줄은 참여와 위치·주문 표현이다", () => {
   assert.deepEqual(ids(POT_CHAT_EMOJIS).slice(0, 8), [
     "volunteer", "plus-one", "yes", "like",
-    "meet-time", "where-are-you", "seat-ready", "coming-down",
+    "where-are-you", "coming-down", "ill-order", "menu-question",
   ]);
 });
 
 test("게임방 피커 첫 두 줄은 맞장구와 도전 표현이다", () => {
   assert.deepEqual(ids(GAME_CHAT_EMOJIS).slice(0, 8), [
     "ok", "teasing", "smile", "nice",
-    "one-more-game", "bring-it-on", "you-sure", "bet",
+    "one-more-game", "bring-it-on", "you-sure", "speed-game",
   ]);
+});
+
+// 두 캐릭터는 그림체가 달라 섞여 있으면 산만합니다(사용자 피드백).
+// 밥공기(모여밥) 묶음과 개구리·쥐(김프랫·김프로그) 묶음을 파일명으로 가릅니다.
+const isKimChar = (emoji: { src: string }) =>
+  emoji.src.startsWith("/emojis/kimplog-") || emoji.src.startsWith("/emojis/kimprat-");
+
+test("피커는 모여밥 테마와 김프랫·김프로그 테마로 나뉜다", () => {
+  for (const [name, sections] of [
+    ["팟", POT_CHAT_EMOJI_SECTIONS],
+    ["게임방", GAME_CHAT_EMOJI_SECTIONS],
+  ] as const) {
+    assert.deepEqual(
+      sections.map((section) => section.title),
+      ["모여밥", "김프랫·김프로그"],
+      `${name} 피커의 섹션 구성이 달라졌습니다`,
+    );
+    const [moyeobap, kim] = sections;
+    for (const emoji of moyeobap.emojis) {
+      assert.ok(!isKimChar(emoji), `${name} 모여밥 묶음에 ${emoji.id}(김프랫·김프로그)가 섞여 있습니다`);
+    }
+    for (const emoji of kim.emojis) {
+      assert.ok(isKimChar(emoji), `${name} 김프랫·김프로그 묶음에 ${emoji.id}(모여밥)가 섞여 있습니다`);
+    }
+  }
 });
 
 test("순서를 바꿔도 피커에서 빠지거나 겹치는 이모티콘이 없다", () => {
   for (const [name, picker, expected] of [
     ["팟", POT_CHAT_EMOJIS, 33],
-    ["게임방", GAME_CHAT_EMOJIS, 30],
+    ["게임방", GAME_CHAT_EMOJIS, 29],
   ] as const) {
     const list = ids(picker);
     assert.equal(list.length, expected, `${name} 피커 개수가 달라졌습니다`);

@@ -48,20 +48,20 @@ export function rememberEmojiUse(scope: EmojiPickerScope, id: string): string[] 
 }
 
 /**
- * 최근 쓴 것을 앞으로 당깁니다. 나머지는 원래 순서 그대로입니다.
+ * 기록된 id를 실제 이모티콘으로 바꿉니다. 최근 쓴 순서 그대로입니다.
+ *
+ * 피커는 이 결과를 별도의 "최근 사용" 줄로 얹습니다. 원래 자리에서 빼 오면
+ * 테마 묶음이 흐트러지기 때문에, 테마 안의 자리는 그대로 두고 위에 한 줄
+ * 복사해 보여줍니다.
  *
  * 피커에서 빠진 이모티콘 id가 기록에 남아 있을 수 있어(게임방에서 쓴 걸
- * 팟에서 읽는 경우, 목록을 정리한 경우) 실제 목록에 있는 것만 씁니다.
+ * 팟에서 읽는 경우, 목록을 정리한 경우) 실제 목록에 있는 것만 돌려줍니다.
  */
-export function orderByRecent<T extends { id: string }>(
+export function pickRecent<T extends { id: string }>(
   list: readonly T[],
   recentIds: readonly string[],
 ): readonly T[] {
-  if (recentIds.length === 0) return list;
-  const wanted = new Set(recentIds);
-  const recent = recentIds
+  return recentIds
     .map((id) => list.find((item) => item.id === id))
     .filter((item): item is T => item !== undefined);
-  if (recent.length === 0) return list;
-  return [...recent, ...list.filter((item) => !wanted.has(item.id))];
 }
