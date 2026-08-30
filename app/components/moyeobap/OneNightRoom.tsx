@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import {
@@ -131,7 +132,7 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: Room; view: PrivateView | null }>(
     `/api/games/onenight/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
   const view = data?.view ?? null;
