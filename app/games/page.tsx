@@ -60,6 +60,13 @@ const GAMES = [
     title: '플래피 버드',
     desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
   },
+  {
+    href: '/games/rhythm',
+    emoji: '🎹',
+    title: '리듬게임',
+    desc: 'D/F/J/K로 판정선에 맞춰 노트를 눌러보세요. 모여밥 실제 BGM으로 플레이해요.',
+    flag: 'rhythm',
+  },
 ] as const;
 
 export default async function GamesPage() {
