@@ -20,6 +20,7 @@ import {
 import { getJudgmentPoints, judgeHit } from '../../lib/rhythm/judgment';
 import type { JudgmentTier } from '../../lib/rhythm/types';
 import { useAuth } from './AuthProvider';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { HallOfFame, type HallWeek } from './HallOfFame';
 import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
@@ -55,6 +56,7 @@ export function RhythmGame() {
   const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
     LEADERBOARD_URL,
     fetcher,
+    POLLING_PRESETS.GAME_RANKING,
   );
 
   const [status, setStatus] = useState<Status>('idle');
