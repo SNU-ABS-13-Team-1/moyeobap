@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, mutate: mutateMe } = useSWR<{ user: User | null }>(
     '/api/auth/me',
     fetcher,
+    // 탭을 오갈 때 /api/auth/me가 연달아 나가는 것은 dedupingInterval로 묶습니다.
+    // focus 재검증 자체를 끄면 세션이 만료되거나 다른 탭에서 로그아웃해도
+    // 새로고침 전까지 로그인 상태로 남아 있게 되므로 끄지 않습니다.
+    { dedupingInterval: 10000 },
   );
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);

@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { END_REASON_LABEL, type ChessEndReason } from '../../lib/chessMatch';
 import { GameRanking } from './GameRanking';
 
@@ -26,12 +27,11 @@ function reasonLabel(reason: string | null): string {
 
 // ELO 표(공용) 아래에 체스만의 "최근 대국" 목록을 덧붙입니다.
 export function ChessRanking() {
-  const { data } = useSWR<{ recent: RecentMatch[] }>('/api/games/chess/ranking', fetcher, {
-    refreshInterval: 30000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 5000,
-  });
+  const { data } = useSWR<{ recent: RecentMatch[] }>(
+    '/api/games/chess/ranking',
+    fetcher,
+    POLLING_PRESETS.GAME_RANKING,
+  );
   const recent = data?.recent ?? [];
 
   return (

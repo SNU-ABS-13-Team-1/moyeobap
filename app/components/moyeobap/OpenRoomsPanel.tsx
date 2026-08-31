@@ -31,10 +31,10 @@ export function OpenRoomsPanel() {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
   const { data, isLoading, mutate } = useSWR<{ rooms: OpenRoom[] }>('/api/games/rooms', fetcher, {
-    refreshInterval: 10000,
+    refreshInterval: 20000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 5000,
   });
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

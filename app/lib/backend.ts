@@ -219,6 +219,17 @@ export async function listEvents(): Promise<PotEvent[]> {
 }
 
 export async function savePot(pot: ServerPot): Promise<boolean> {
+  // 캐시는 쓰기가 "끝난 뒤"에 비웁니다. 쓰기 전에 비우면, 커밋되기 직전에
+  // 끼어든 listPots()가 옛 데이터를 다시 캐시에 앉혀 놓아 저장이 끝난 뒤로도
+  // TTL 내내 옛 목록이 내려갑니다.
+  try {
+    return await writePot(pot);
+  } finally {
+    invalidatePotsCache();
+  }
+}
+
+async function writePot(pot: ServerPot): Promise<boolean> {
   const normalized = normalizePot(pot);
   try {
     const supabase = getSupabase();
@@ -479,6 +490,9 @@ export async function deletePot(id: string): Promise<boolean> {
   } catch (error) {
     console.error("deletePot exception:", error);
     return false;
+  } finally {
+    // savePot과 같은 이유로 삭제가 끝난 뒤에 비웁니다.
+    invalidatePotsCache();
   }
 }
 
@@ -561,10 +575,21 @@ export async function getPot(id: string): Promise<ServerPot | null> {
   return pot ? normalizePot(pot) : null;
 }
 
+let cachedPots: { data: ServerPot[]; cachedAt: number } | null = null;
+const POTS_CACHE_TTL_MS = 3_000;
+
+export function invalidatePotsCache(): void {
+  cachedPots = null;
+}
+
 /** 마감/정원 도달로 상태가 바뀐 팟은 목록 조회 시점에 계산해서 반영(저장)합니다. */
 export async function listPots(): Promise<ServerPot[]> {
-  const supabase = getSupabase();
   const now = new Date();
+  if (cachedPots && now.getTime() - cachedPots.cachedAt < POTS_CACHE_TTL_MS) {
+    return cachedPots.data;
+  }
+
+  const supabase = getSupabase();
 
   let pots: ServerPot[];
 
@@ -680,35 +705,38 @@ export async function listPots(): Promise<ServerPot[]> {
     }),
   );
 
-  return resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+  const finalPots = resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+  cachedPots = { data: finalPots, cachedAt: now.getTime() };
+  return finalPots;
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
   try {
     const supabase = getSupabase();
     if (supabase) {
-    const { error } = await supabase.from("restaurants").upsert({
-      id: restaurant.id,
-      name: restaurant.name,
-      emoji: restaurant.emoji,
-      category: restaurant.category,
-      sub_category: restaurant.subCategory ?? null,
-      min_order: restaurant.minOrder,
-      delivery_time: restaurant.deliveryTime,
-      menus: restaurant.menus,
-      address: restaurant.address ?? null,
-      phone: restaurant.phone ?? null,
-      business_hours: restaurant.businessHours ?? null,
-      closed_days: restaurant.closedDays ?? null,
-      rating: restaurant.rating ?? 5.0,
-      is_custom: true,
-      is_one_time: restaurant.isOneTime ?? false,
-    });
-      if (error) {
-        console.error("Supabase saveCustomRestaurant error:", error);
-        return false;
+      const { error } = await supabase.from("restaurants").upsert({
+        id: restaurant.id,
+        name: restaurant.name,
+        emoji: restaurant.emoji,
+        category: restaurant.category,
+        sub_category: restaurant.subCategory ?? null,
+        min_order: restaurant.minOrder,
+        delivery_time: restaurant.deliveryTime,
+        menus: restaurant.menus,
+        address: restaurant.address ?? null,
+        phone: restaurant.phone ?? null,
+        business_hours: restaurant.businessHours ?? null,
+        closed_days: restaurant.closedDays ?? null,
+        rating: restaurant.rating ?? 5.0,
+        is_custom: true,
+        is_one_time: restaurant.isOneTime ?? false,
+      });
+      if (!error) {
+        cachedCustomRestaurants = null;
+        return true;
       }
-      return true;
+      console.error("Supabase saveCustomRestaurant error:", error);
+      return false;
     }
 
     const client = getRedis();
@@ -726,7 +754,15 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
   }
 }
 
+let cachedCustomRestaurants: { data: Restaurant[]; cachedAt: number } | null = null;
+const CUSTOM_RESTAURANTS_TTL_MS = 60_000;
+
 export async function listCustomRestaurants(): Promise<Restaurant[]> {
+  const now = Date.now();
+  if (cachedCustomRestaurants && now - cachedCustomRestaurants.cachedAt < CUSTOM_RESTAURANTS_TTL_MS) {
+    return cachedCustomRestaurants.data;
+  }
+
   try {
     const supabase = getSupabase();
     if (supabase) {
@@ -736,7 +772,7 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
         .eq("is_custom", true);
 
       if (error || !data) return [];
-      return data.map((r) => ({
+      const result = data.map((r) => ({
         id: r.id,
         name: r.name,
         emoji: r.emoji,
@@ -753,6 +789,8 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
         isCustom: true,
         isOneTime: r.is_one_time ?? false,
       }));
+      cachedCustomRestaurants = { data: result, cachedAt: now };
+      return result;
     }
   } catch (err) {
     console.error("listCustomRestaurants error:", err);
@@ -1074,8 +1112,16 @@ export async function markPotMessagesRead(
   memoryMessageReads.set(key, latestMessage.createdAt);
 }
 
+let cachedCampusStats: { data: CampusStats; cachedAt: number } | null = null;
+const STATS_CACHE_TTL_MS = 60_000;
+
 /** 전체 캠퍼스 식사 트렌드 및 통계 집계 */
 export async function getCampusStats(): Promise<CampusStats> {
+  const nowMs = Date.now();
+  if (cachedCampusStats && nowMs - cachedCampusStats.cachedAt < STATS_CACHE_TTL_MS) {
+    return cachedCampusStats.data;
+  }
+
   const pots = await listPots();
   const customList = await listCustomRestaurants();
   const customMap = new Map(customList.map((r) => [r.id, r]));
@@ -1231,7 +1277,7 @@ export async function getCampusStats(): Promise<CampusStats> {
   const lunchRatio = Math.round((lunchPotCount / totalTypePots) * 100);
   const cafeRatio = 100 - lunchRatio;
 
-  return {
+  const result: CampusStats = {
     totalPots: pots.length,
     totalCompletedPots,
     totalParticipants,
@@ -1245,6 +1291,9 @@ export async function getCampusStats(): Promise<CampusStats> {
     categoryDistribution,
     topRestaurants,
   };
+
+  cachedCampusStats = { data: result, cachedAt: nowMs };
+  return result;
 }
 
 /**

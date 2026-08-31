@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import {
@@ -24,6 +25,14 @@ import { useAuth } from './AuthProvider';
 import { GameChat, type GameChatConfig } from './GameChat';
 import { Spectators } from './Spectators';
 import { OneNightRulebook } from './OneNightRulebook';
+
+/** 지금 페이즈에 주어진 시간(초). 대기·종료 화면에는 타이머가 없습니다. */
+function phaseSeconds(room: Room): number {
+  if (room.status === 'night') return room.settings.nightSec;
+  if (room.status === 'day') return room.settings.daySec;
+  if (room.status === 'voting') return room.settings.voteSec;
+  return 0;
+}
 
 const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
   apiBase: '/api/games/onenight/rooms',
@@ -131,7 +140,7 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: Room; view: PrivateView | null }>(
     `/api/games/onenight/rooms/${roomId}`,
     fetcher,
-    { refreshInterval: 2000 },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
   const view = data?.view ?? null;
@@ -207,6 +216,25 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
     return () => clearInterval(timer);
   }, []);
 
+  // 페이즈 전환(토론 시간 종료 등)은 서버가 방을 "읽을 때" 계산합니다. 그래서
+  // 아무도 부르지 않으면 타이머가 0:00을 찍고도 다음 폴링(8초)까지 화면이 멈춰
+  // 보입니다. 만료된 순간 한 번 더 불러 전환을 앞당깁니다 — 알까기가 턴 시간을
+  // 넘겼을 때 /timeout을 부르는 것과 같은 방식입니다.
+  //
+  // 한 페이즈당 한 번만 부릅니다. 전환에 성공하면 status가 바뀌어 다음 페이즈
+  // 키가 되고, 실패했다면 원래대로 폴링이 받아 갑니다.
+  const expiredPhaseRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!room?.phaseStartedAt) return;
+    const seconds = phaseSeconds(room);
+    if (seconds <= 0) return;
+    const key = `${room.status}:${room.phaseStartedAt}`;
+    if (expiredPhaseRef.current === key) return;
+    if ((remainingMs(room.phaseStartedAt, seconds, now) ?? 1) > 0) return;
+    expiredPhaseRef.current = key;
+    void mutate();
+  }, [room, now, mutate]);
+
   if (error) return <p className="onenight__notice">방을 불러오지 못했어요.</p>;
   if (!room) return <p className="onenight__notice">불러오는 중…</p>;
 
@@ -216,11 +244,7 @@ export function OneNightRoom({ roomId }: { roomId: string }) {
   const isPlayer = !!currentUser && seated.some((p) => p.id === currentUser.id);
   const mySeat = view?.seat ?? -1;
 
-  const phaseSec =
-    room.status === 'night' ? room.settings.nightSec
-      : room.status === 'day' ? room.settings.daySec
-        : room.status === 'voting' ? room.settings.voteSec
-          : 0;
+  const phaseSec = phaseSeconds(room);
   const left = room.status === 'waiting' || room.status === 'finished' ? null : remainingMs(room.phaseStartedAt, phaseSec, now);
 
   async function call(path: string, body?: unknown) {
