@@ -5,7 +5,9 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
-import { GAME_CHAT_EMOJIS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { GAME_CHAT_EMOJI_SECTIONS, isChatEmojiPath, type ChatEmoji } from '../../data/chat-emojis';
+import { useEmojiPickerOrder } from './useEmojiPickerOrder';
+import { EmojiPickerGrid } from './EmojiPickerGrid';
 import { isChatAtBottom } from '../../lib/chatScroll';
 import { useAuth } from './AuthProvider';
 
@@ -67,6 +69,12 @@ export function GameChat<Role extends string>({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  // 최근에 쓴 네 개를 "최근 사용" 줄로. 순서는 피커를 열 때 정해집니다.
+  const { sections: pickerSections, remember: rememberEmoji } = useEmojiPickerOrder(
+    'game',
+    GAME_CHAT_EMOJI_SECTIONS,
+    isEmojiPickerOpen,
+  );
   const listRef = useRef<HTMLDivElement>(null);
   /** 하단을 보고 있는지. 이 값이 참일 때만 새 메시지를 따라 내려갑니다. */
   const followBottomRef = useRef(true);
@@ -149,6 +157,7 @@ export function GameChat<Role extends string>({
     setSendError(null);
     setIsEmojiPickerOpen(false);
     followBottomRef.current = true;
+    rememberEmoji(emoji.id);
 
     const optimisticMsg: GameChatMessage<Role> = {
       id: `temp-emoji-${crypto.randomUUID()}`,
@@ -211,22 +220,12 @@ export function GameChat<Role extends string>({
       {sendError && <p className="omok-chat__error">{sendError}</p>}
 
       {config.emojis && isEmojiPickerOpen && (
-        <div aria-label="모여밥 이모티콘 선택" className="chat-panel__emoji-picker" id={`${config.channelPrefix}-emoji-picker`}>
-          {GAME_CHAT_EMOJIS.map((emoji) => (
-            <button
-              aria-label={`${emoji.label} 보내기`}
-              className="chat-panel__emoji-option"
-              disabled={sending}
-              key={emoji.id}
-              onClick={() => handleSendEmoji(emoji)}
-              title={`${emoji.label} 보내기`}
-              type="button"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt={emoji.label} src={emoji.src} />
-            </button>
-          ))}
-        </div>
+        <EmojiPickerGrid
+          disabled={sending}
+          id={`${config.channelPrefix}-emoji-picker`}
+          onPick={handleSendEmoji}
+          sections={pickerSections}
+        />
       )}
 
       <form className="omok-chat__form" onSubmit={handleSubmit}>

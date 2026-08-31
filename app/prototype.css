@@ -3489,6 +3489,21 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   overscroll-behavior: contain;
 }
 
+/* 피커 안의 테마 구분 제목("최근 사용" / "모여밥" / "김프랫·김프로그").
+   격자 한 줄을 통째로 차지해 캐릭터 묶음이 어디서 바뀌는지 보여줍니다. */
+.chat-panel__emoji-picker-title {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(146, 64, 14, 0.55);
+}
+
+.chat-panel__emoji-picker-title:first-child {
+  margin-top: 0;
+}
+
 .chat-panel__emoji-option {
   display: flex;
   align-items: center;
