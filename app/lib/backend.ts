@@ -219,7 +219,17 @@ export async function listEvents(): Promise<PotEvent[]> {
 }
 
 export async function savePot(pot: ServerPot): Promise<boolean> {
-  invalidatePotsCache();
+  // 캐시는 쓰기가 "끝난 뒤"에 비웁니다. 쓰기 전에 비우면, 커밋되기 직전에
+  // 끼어든 listPots()가 옛 데이터를 다시 캐시에 앉혀 놓아 저장이 끝난 뒤로도
+  // TTL 내내 옛 목록이 내려갑니다.
+  try {
+    return await writePot(pot);
+  } finally {
+    invalidatePotsCache();
+  }
+}
+
+async function writePot(pot: ServerPot): Promise<boolean> {
   const normalized = normalizePot(pot);
   try {
     const supabase = getSupabase();
@@ -448,7 +458,6 @@ export async function pinPotMessage(
 }
 
 export async function deletePot(id: string): Promise<boolean> {
-  invalidatePotsCache();
   try {
     memoryPots.delete(id);
     memoryPotIndex.delete(id);
@@ -481,6 +490,9 @@ export async function deletePot(id: string): Promise<boolean> {
   } catch (error) {
     console.error("deletePot exception:", error);
     return false;
+  } finally {
+    // savePot과 같은 이유로 삭제가 끝난 뒤에 비웁니다.
+    invalidatePotsCache();
   }
 }
 

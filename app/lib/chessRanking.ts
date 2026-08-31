@@ -53,7 +53,6 @@ function expectedScore(ratingA: number, ratingB: number): number {
 }
 
 export async function recordChessMatchResult(room: ChessRoom, winner: "white" | "black" | "draw"): Promise<void> {
-  cachedChessRanking = null;
   const supabase = getSupabase();
   if (!supabase || !room.whiteId || !room.whiteName || !room.blackId || !room.blackName) return;
 
@@ -103,6 +102,9 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
     },
   ], { onConflict: "user_id,week_key" });
   if (ratingError) console.error("recordChessMatchResult(rating) error:", ratingError);
+
+  // 오목과 같은 이유로 기록이 끝난 뒤에 비웁니다.
+  cachedChessRanking = null;
 }
 
 /**

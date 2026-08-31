@@ -58,7 +58,6 @@ export async function recordMatchResult(
   room: OmokRoom,
   winner: "black" | "white" | "draw",
 ): Promise<void> {
-  cachedOmokRanking = null;
   const supabase = getSupabase();
   if (!supabase || !room.blackId || !room.blackName || !room.whiteId || !room.whiteName) return;
 
@@ -108,6 +107,10 @@ export async function recordMatchResult(
     },
   ], { onConflict: "user_id,week_key" });
   if (ratingError) console.error("recordMatchResult(rating) error:", ratingError);
+
+  // 캐시는 기록이 "끝난 뒤"에 비웁니다. 먼저 비우면 쓰기 도중에 끼어든
+  // getRanking()이 옛 순위를 다시 10초짜리 캐시에 앉혀 놓습니다.
+  cachedOmokRanking = null;
 }
 
 let cachedOmokRanking: { data: RankingEntry[]; cachedAt: number; weekKey: string } | null = null;
