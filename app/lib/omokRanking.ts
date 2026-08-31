@@ -58,6 +58,7 @@ export async function recordMatchResult(
   room: OmokRoom,
   winner: "black" | "white" | "draw",
 ): Promise<void> {
+  cachedOmokRanking = null;
   const supabase = getSupabase();
   if (!supabase || !room.blackId || !room.blackName || !room.whiteId || !room.whiteName) return;
 
@@ -109,6 +110,9 @@ export async function recordMatchResult(
   if (ratingError) console.error("recordMatchResult(rating) error:", ratingError);
 }
 
+let cachedOmokRanking: { data: RankingEntry[]; cachedAt: number; weekKey: string } | null = null;
+const OMOK_RANKING_TTL_MS = 10_000;
+
 /**
  * 이번 주 랭킹을 rating 내림차순으로 돌려줍니다.
  *
@@ -116,6 +120,11 @@ export async function recordMatchResult(
  * 전당 스냅샷처럼 상위 몇 명만 필요한 곳에서만 값을 넘깁니다.
  */
 export async function getRanking(limit?: number, weekKey = currentWeekKey()): Promise<RankingEntry[]> {
+  const now = Date.now();
+  if (limit === undefined && cachedOmokRanking && cachedOmokRanking.weekKey === weekKey && now - cachedOmokRanking.cachedAt < OMOK_RANKING_TTL_MS) {
+    return cachedOmokRanking.data;
+  }
+
   const supabase = getSupabase();
   if (!supabase) return [];
 
@@ -138,7 +147,7 @@ export async function getRanking(limit?: number, weekKey = currentWeekKey()): Pr
     return [];
   }
 
-  return (data as RatingRow[]).map((row) => ({
+  const result = (data as RatingRow[]).map((row) => ({
     userId: row.user_id,
     userName: row.user_name,
     rating: row.rating,
@@ -146,4 +155,9 @@ export async function getRanking(limit?: number, weekKey = currentWeekKey()): Pr
     losses: row.losses,
     draws: row.draws,
   }));
+
+  if (limit === undefined) {
+    cachedOmokRanking = { data: result, cachedAt: now, weekKey };
+  }
+  return result;
 }

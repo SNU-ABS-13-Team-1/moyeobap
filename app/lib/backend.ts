@@ -219,6 +219,7 @@ export async function listEvents(): Promise<PotEvent[]> {
 }
 
 export async function savePot(pot: ServerPot): Promise<boolean> {
+  invalidatePotsCache();
   const normalized = normalizePot(pot);
   try {
     const supabase = getSupabase();
@@ -447,6 +448,7 @@ export async function pinPotMessage(
 }
 
 export async function deletePot(id: string): Promise<boolean> {
+  invalidatePotsCache();
   try {
     memoryPots.delete(id);
     memoryPotIndex.delete(id);
@@ -561,10 +563,21 @@ export async function getPot(id: string): Promise<ServerPot | null> {
   return pot ? normalizePot(pot) : null;
 }
 
+let cachedPots: { data: ServerPot[]; cachedAt: number } | null = null;
+const POTS_CACHE_TTL_MS = 3_000;
+
+export function invalidatePotsCache(): void {
+  cachedPots = null;
+}
+
 /** 마감/정원 도달로 상태가 바뀐 팟은 목록 조회 시점에 계산해서 반영(저장)합니다. */
 export async function listPots(): Promise<ServerPot[]> {
-  const supabase = getSupabase();
   const now = new Date();
+  if (cachedPots && now.getTime() - cachedPots.cachedAt < POTS_CACHE_TTL_MS) {
+    return cachedPots.data;
+  }
+
+  const supabase = getSupabase();
 
   let pots: ServerPot[];
 
@@ -680,7 +693,9 @@ export async function listPots(): Promise<ServerPot[]> {
     }),
   );
 
-  return resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+  const finalPots = resolved.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+  cachedPots = { data: finalPots, cachedAt: now.getTime() };
+  return finalPots;
 }
 
 export async function saveCustomRestaurant(restaurant: Restaurant): Promise<boolean> {
@@ -1085,8 +1100,16 @@ export async function markPotMessagesRead(
   memoryMessageReads.set(key, latestMessage.createdAt);
 }
 
+let cachedCampusStats: { data: CampusStats; cachedAt: number } | null = null;
+const STATS_CACHE_TTL_MS = 60_000;
+
 /** 전체 캠퍼스 식사 트렌드 및 통계 집계 */
 export async function getCampusStats(): Promise<CampusStats> {
+  const nowMs = Date.now();
+  if (cachedCampusStats && nowMs - cachedCampusStats.cachedAt < STATS_CACHE_TTL_MS) {
+    return cachedCampusStats.data;
+  }
+
   const pots = await listPots();
   const customList = await listCustomRestaurants();
   const customMap = new Map(customList.map((r) => [r.id, r]));
@@ -1242,7 +1265,7 @@ export async function getCampusStats(): Promise<CampusStats> {
   const lunchRatio = Math.round((lunchPotCount / totalTypePots) * 100);
   const cafeRatio = 100 - lunchRatio;
 
-  return {
+  const result: CampusStats = {
     totalPots: pots.length,
     totalCompletedPots,
     totalParticipants,
@@ -1256,6 +1279,9 @@ export async function getCampusStats(): Promise<CampusStats> {
     categoryDistribution,
     topRestaurants,
   };
+
+  cachedCampusStats = { data: result, cachedAt: nowMs };
+  return result;
 }
 
 /**

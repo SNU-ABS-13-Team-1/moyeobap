@@ -53,6 +53,7 @@ function expectedScore(ratingA: number, ratingB: number): number {
 }
 
 export async function recordChessMatchResult(room: ChessRoom, winner: "white" | "black" | "draw"): Promise<void> {
+  cachedChessRanking = null;
   const supabase = getSupabase();
   if (!supabase || !room.whiteId || !room.whiteName || !room.blackId || !room.blackName) return;
 
@@ -108,7 +109,15 @@ export async function recordChessMatchResult(room: ChessRoom, winner: "white" | 
  * 이번 주 랭킹을 rating 내림차순으로 돌려줍니다. `limit`을 주지 않으면 자르지
  * 않고 그 주에 둔 사람을 전부 내려줍니다.
  */
+let cachedChessRanking: { data: ChessRankingEntry[]; cachedAt: number; weekKey: string } | null = null;
+const CHESS_RANKING_TTL_MS = 10_000;
+
 export async function getChessRanking(limit?: number, weekKey = currentWeekKey()): Promise<ChessRankingEntry[]> {
+  const now = Date.now();
+  if (limit === undefined && cachedChessRanking && cachedChessRanking.weekKey === weekKey && now - cachedChessRanking.cachedAt < CHESS_RANKING_TTL_MS) {
+    return cachedChessRanking.data;
+  }
+
   const supabase = getSupabase();
   if (!supabase) return [];
 
@@ -129,7 +138,7 @@ export async function getChessRanking(limit?: number, weekKey = currentWeekKey()
     if (error) console.error("getChessRanking error:", error);
     return [];
   }
-  return (data as RatingRow[]).map((row) => ({
+  const result = (data as RatingRow[]).map((row) => ({
     userId: row.user_id,
     userName: row.user_name,
     rating: row.rating,
@@ -137,6 +146,11 @@ export async function getChessRanking(limit?: number, weekKey = currentWeekKey()
     losses: row.losses,
     draws: row.draws,
   }));
+
+  if (limit === undefined) {
+    cachedChessRanking = { data: result, cachedAt: now, weekKey };
+  }
+  return result;
 }
 
 /** 최근 끝난 대국 목록(랭킹 페이지의 "최근 대국"). */
