@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { HallOfFame, type HallWeek } from './HallOfFame';
 import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
@@ -15,12 +16,11 @@ type RankingEntry = {
 };
 
 export function PongRanking() {
-  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>('/api/games/pong/ranking', fetcher, {
-    refreshInterval: 30000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 5000,
-  });
+  const { data, error } = useSWR<{ ranking: RankingEntry[]; hall?: HallWeek[]; week?: WeekInfo }>(
+    '/api/games/pong/ranking',
+    fetcher,
+    POLLING_PRESETS.GAME_RANKING,
+  );
   const ranking = data?.ranking ?? [];
 
   if (error) {

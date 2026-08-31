@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isLoading, mutate: mutateMe } = useSWR<{ user: User | null }>(
     '/api/auth/me',
     fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 10000,
+    },
   );
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);

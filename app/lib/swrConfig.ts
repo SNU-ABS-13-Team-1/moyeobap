@@ -52,13 +52,13 @@ export const POLLING_PRESETS = {
 
   /**
    * 게임 랭킹 / 명예의 전당
-   * - 20초 폴링
+   * - 60초 폴링 (랭킹은 자주 안 바뀌므로 Egress 방어를 위해 60초 적용)
    */
   GAME_RANKING: {
-    refreshInterval: 20000,
+    refreshInterval: 60000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 5000,
+    dedupingInterval: 10000,
   } satisfies SWRConfiguration,
 
   /**

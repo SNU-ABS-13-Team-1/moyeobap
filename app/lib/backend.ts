@@ -687,28 +687,29 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
   try {
     const supabase = getSupabase();
     if (supabase) {
-    const { error } = await supabase.from("restaurants").upsert({
-      id: restaurant.id,
-      name: restaurant.name,
-      emoji: restaurant.emoji,
-      category: restaurant.category,
-      sub_category: restaurant.subCategory ?? null,
-      min_order: restaurant.minOrder,
-      delivery_time: restaurant.deliveryTime,
-      menus: restaurant.menus,
-      address: restaurant.address ?? null,
-      phone: restaurant.phone ?? null,
-      business_hours: restaurant.businessHours ?? null,
-      closed_days: restaurant.closedDays ?? null,
-      rating: restaurant.rating ?? 5.0,
-      is_custom: true,
-      is_one_time: restaurant.isOneTime ?? false,
-    });
-      if (error) {
-        console.error("Supabase saveCustomRestaurant error:", error);
-        return false;
+      const { error } = await supabase.from("restaurants").upsert({
+        id: restaurant.id,
+        name: restaurant.name,
+        emoji: restaurant.emoji,
+        category: restaurant.category,
+        sub_category: restaurant.subCategory ?? null,
+        min_order: restaurant.minOrder,
+        delivery_time: restaurant.deliveryTime,
+        menus: restaurant.menus,
+        address: restaurant.address ?? null,
+        phone: restaurant.phone ?? null,
+        business_hours: restaurant.businessHours ?? null,
+        closed_days: restaurant.closedDays ?? null,
+        rating: restaurant.rating ?? 5.0,
+        is_custom: true,
+        is_one_time: restaurant.isOneTime ?? false,
+      });
+      if (!error) {
+        cachedCustomRestaurants = null;
+        return true;
       }
-      return true;
+      console.error("Supabase saveCustomRestaurant error:", error);
+      return false;
     }
 
     const client = getRedis();
@@ -726,7 +727,15 @@ export async function saveCustomRestaurant(restaurant: Restaurant): Promise<bool
   }
 }
 
+let cachedCustomRestaurants: { data: Restaurant[]; cachedAt: number } | null = null;
+const CUSTOM_RESTAURANTS_TTL_MS = 60_000;
+
 export async function listCustomRestaurants(): Promise<Restaurant[]> {
+  const now = Date.now();
+  if (cachedCustomRestaurants && now - cachedCustomRestaurants.cachedAt < CUSTOM_RESTAURANTS_TTL_MS) {
+    return cachedCustomRestaurants.data;
+  }
+
   try {
     const supabase = getSupabase();
     if (supabase) {
@@ -736,7 +745,7 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
         .eq("is_custom", true);
 
       if (error || !data) return [];
-      return data.map((r) => ({
+      const result = data.map((r) => ({
         id: r.id,
         name: r.name,
         emoji: r.emoji,
@@ -753,6 +762,8 @@ export async function listCustomRestaurants(): Promise<Restaurant[]> {
         isCustom: true,
         isOneTime: r.is_one_time ?? false,
       }));
+      cachedCustomRestaurants = { data: result, cachedAt: now };
+      return result;
     }
   } catch (err) {
     console.error("listCustomRestaurants error:", err);
