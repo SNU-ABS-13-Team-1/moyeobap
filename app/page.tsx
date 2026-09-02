@@ -15,6 +15,7 @@ import { PotCard } from './components/moyeobap/PotCard';
 import { ToastNotice } from './components/moyeobap/ToastNotice';
 
 import { groupPotsByDate } from './lib/moyeobap-utils';
+import { POLLING_PRESETS } from './lib/swrConfig';
 
 function toPot(serverPot: SerializedPot): Pot {
   return { ...serverPot, deadline: new Date(serverPot.deadline) };
@@ -35,12 +36,7 @@ export default function HomePage() {
   }>('/api/restaurants', fetcher);
   const { data: potsData, error: potsError, mutate: mutatePots } = useSWR<{
     pots: SerializedPot[];
-  }>('/api/pots', fetcher, {
-    refreshInterval: 12000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  }>('/api/pots', fetcher, POLLING_PRESETS.POT_LIST);
 
   const restaurants = useMemo(() => restaurantsData?.restaurants ?? [], [restaurantsData]);
   const pots = useMemo(() => (potsData?.pots ?? []).map(toPot), [potsData]);

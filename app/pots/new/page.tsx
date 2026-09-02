@@ -9,6 +9,7 @@ import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { fetcher } from '../../lib/fetcher';
 import { useAuth } from '../../components/moyeobap/AuthProvider';
 import { CreatePotForm } from '../../components/moyeobap/CreatePotModal';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 
 function NewPotContent() {
   const router = useRouter();
@@ -22,12 +23,7 @@ function NewPotContent() {
   const { data: potsData, error: potsError } = useSWR<{ pots: SerializedPot[] }>(
     '/api/pots',
     fetcher,
-    {
-      refreshInterval: 12000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.POT_LIST,
   );
 
   async function handleCreateCustomRestaurant(input: {

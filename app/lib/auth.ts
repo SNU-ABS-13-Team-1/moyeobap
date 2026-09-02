@@ -3,11 +3,20 @@ import type { User } from "../types/moyeobap";
 import { getSupabaseConfig } from "./supabase/config";
 import { createSupabaseServerClient } from "./supabase/server";
 
+import { cookies } from "next/headers";
+
 interface ProfileRow {
   display_name: string | null;
   avatar_url: string | null;
   bank_name: string | null;
   account_number: string | null;
+}
+
+const cachedSessions = new Map<string, { user: User | null; cachedAt: number }>();
+const SESSION_CACHE_TTL_MS = 15_000;
+
+export function invalidateSessionCache(): void {
+  cachedSessions.clear();
 }
 
 function metadataString(user: SupabaseUser, key: string): string | undefined {
@@ -42,9 +51,23 @@ function toAppUser(authUser: SupabaseUser, profile: ProfileRow | null): User {
 export async function getSession(): Promise<User | null> {
   if (!getSupabaseConfig()) return null;
 
+  const cookieStore = await cookies();
+  const all = cookieStore.getAll();
+  if (all.length === 0) return null;
+  const authCookie = all.map((c) => `${c.name}=${c.value}`).join(";");
+
+  const now = Date.now();
+  const cached = cachedSessions.get(authCookie);
+  if (cached && now - cached.cachedAt < SESSION_CACHE_TTL_MS) {
+    return cached.user;
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
+  if (error || !data.user) {
+    cachedSessions.set(authCookie, { user: null, cachedAt: now });
+    return null;
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -52,11 +75,14 @@ export async function getSession(): Promise<User | null> {
     .eq("id", data.user.id)
     .maybeSingle<ProfileRow>();
 
-  return toAppUser(data.user, profile ?? null);
+  const appUser = toAppUser(data.user, profile ?? null);
+  cachedSessions.set(authCookie, { user: appUser, cachedAt: now });
+  return appUser;
 }
 
 export async function clearSession(): Promise<void> {
   if (!getSupabaseConfig()) return;
+  invalidateSessionCache();
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut({ scope: "local" });
 }

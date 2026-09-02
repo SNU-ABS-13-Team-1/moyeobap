@@ -882,6 +882,7 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
         console.error("Supabase addMessage error:", error);
         return false;
       }
+      cachedPotChatSummaries.clear();
       return true;
     }
 
@@ -988,6 +989,9 @@ export type PotChatSummary = {
   unreadMessageCount: number;
 };
 
+let cachedPotChatSummaries = new Map<string, { data: Map<string, PotChatSummary>; cachedAt: number }>();
+const CHAT_SUMMARIES_TTL_MS = 10_000;
+
 /** 내 참여 목록에 필요한 최근 메시지와 읽지 않은 수를 한 번에 계산합니다. */
 export async function getPotChatSummaries(
   pots: ServerPot[],
@@ -997,10 +1001,19 @@ export async function getPotChatSummaries(
   const summaries = new Map<string, PotChatSummary>();
   if (!user) return summaries;
 
+  const now = Date.now();
+  const cached = cachedPotChatSummaries.get(user.id);
+  if (cached && now - cached.cachedAt < CHAT_SUMMARIES_TTL_MS) {
+    return cached.data;
+  }
+
   const participatingPots = pots.filter((pot) =>
     pot.participants.some((participant) => participant.id === user.id),
   );
-  if (participatingPots.length === 0) return summaries;
+  if (participatingPots.length === 0) {
+    cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now });
+    return summaries;
+  }
 
   const potIds = participatingPots.map((pot) => pot.id);
   const joinedAtByPot = new Map(
@@ -1019,7 +1032,7 @@ export async function getPotChatSummaries(
           .select("pot_id, author_id, author_name, text, kind, created_at")
           .in("pot_id", potIds)
           .order("created_at", { ascending: false })
-          .limit(1000),
+          .limit(100),
         supabase
           .from("message_reads")
           .select("pot_id, last_read_at")
@@ -1058,6 +1071,7 @@ export async function getPotChatSummaries(
           ).length;
       summaries.set(pot.id, { latestMessage, unreadMessageCount });
     }
+    cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now });
     return summaries;
   }
 
@@ -1077,6 +1091,7 @@ export async function getPotChatSummaries(
     ).length;
     summaries.set(pot.id, { latestMessage, unreadMessageCount });
   }
+  cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now });
   return summaries;
 }
 
@@ -1087,6 +1102,7 @@ export async function markPotMessagesRead(
   messages: ChatMessage[],
   sessionSupabase?: SupabaseClient,
 ): Promise<void> {
+  cachedPotChatSummaries.delete(userId);
   const latestMessage = messages[messages.length - 1];
   if (!latestMessage) return;
 
