@@ -68,6 +68,7 @@ export async function recordMatchResult(
     white_id: room.whiteId,
     white_name: room.whiteName,
     winner,
+    moves: room.moves ?? [],
     started_at: room.startedAt ?? room.createdAt,
   });
   if (matchError) console.error("recordMatchResult(match) error:", matchError);

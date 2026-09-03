@@ -16,6 +16,13 @@ export type Stone = "black" | "white" | null;
 export type RoomStatus = "waiting" | "playing" | "finished";
 export type Winner = "black" | "white" | "draw" | null;
 
+export type OmokMove = {
+  move: number;
+  row: number;
+  col: number;
+  color: "black" | "white";
+};
+
 export type OmokRoom = {
   id: string;
   status: RoomStatus;
@@ -25,6 +32,7 @@ export type OmokRoom = {
   whiteId: string | null;
   whiteName: string | null;
   board: Stone[][];
+  moves: OmokMove[];
   turn: "black" | "white";
   winner: Winner;
   moveCount: number;
@@ -45,6 +53,7 @@ type OmokRoomRow = {
   white_id: string | null;
   white_name: string | null;
   board: Stone[][];
+  moves?: OmokMove[];
   turn: "black" | "white";
   winner: Winner;
   move_count: number;
@@ -95,6 +104,7 @@ function mapRow(row: OmokRoomRow): OmokRoom {
     whiteId: row.white_id,
     whiteName: row.white_name,
     board: row.board,
+    moves: Array.isArray(row.moves) ? row.moves : [],
     turn: row.turn,
     winner: row.winner,
     moveCount: row.move_count,
@@ -124,6 +134,7 @@ export async function createRoom(
       black_name: userName,
       room_name: trimmedName || `${userName}님의 방`,
       board: createEmptyBoard(),
+      moves: [],
     })
     .select()
     .single();
@@ -461,6 +472,7 @@ export async function acceptRematch(
     .update({
       ...swappedColors(room),
       board: createEmptyBoard(),
+      moves: [],
       turn: "black",
       winner: null,
       status: "playing",
@@ -585,6 +597,14 @@ export async function submitMove(
   const isDraw = !won && nextBoard.every((r) => r.every((cell) => cell !== null));
   const finished = won || isDraw;
 
+  const nextMove: OmokMove = {
+    move: room.moveCount + 1,
+    row,
+    col,
+    color: myColor,
+  };
+  const nextMoves = [...room.moves, nextMove];
+
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
 
@@ -596,6 +616,7 @@ export async function submitMove(
     .from("omok_rooms")
     .update({
       board: nextBoard,
+      moves: nextMoves,
       turn: myColor === "black" ? "white" : "black",
       status: finished ? "finished" : "playing",
       winner: won ? myColor : isDraw ? "draw" : null,
