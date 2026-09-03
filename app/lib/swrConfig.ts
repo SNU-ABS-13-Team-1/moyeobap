@@ -18,6 +18,20 @@ export const POLLING_PRESETS = {
   } satisfies SWRConfiguration,
 
   /**
+   * 방 상태를 Realtime(postgres_changes)으로 구독하는 게임 룸 (오목, 체스, 바둑)
+   * - 갱신은 웹소켓이 담당하므로 폴링을 30초까지 늦춥니다.
+   * - 0으로 두지는 않습니다. postgres_changes는 끊겨 있던 동안의 이벤트를
+   *   다시 보내주지 않아서, 순단으로 상대의 착수 한 번을 놓치면 양쪽이 서로를
+   *   기다리며 판이 멈춥니다. 재구독 시 재동기화와 함께 두는 최후의 안전망입니다.
+   */
+  REALTIME_GAME_ROOM: {
+    refreshInterval: 30000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  } satisfies SWRConfiguration,
+
+  /**
    * 팟 상세 화면 (/pots/[id])
    * - 참여자 변동 및 상태 확인을 위한 15초 폴링
    */
