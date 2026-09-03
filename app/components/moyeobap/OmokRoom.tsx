@@ -29,6 +29,8 @@ type OmokRoomData = {
   lastCol: number | null;
   turnStartedAt: string | null;
   rematchBy: string | null;
+  startedAt?: string | null;
+  createdAt?: string;
 };
 
 const CELL_SIZE = 26;
@@ -52,11 +54,13 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [moveError, setMoveError] = useState<string | null>(null);
   const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
+
+  // Egress 절감을 위해 웹소켓이 살아있는 동안 불필요한 주기 폴링(8초)을 0으로 설정합니다.
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
     {
-      refreshInterval: 8000,
+      refreshInterval: 0,
       refreshWhenHidden: false,
       revalidateOnFocus: true,
       dedupingInterval: 2000,

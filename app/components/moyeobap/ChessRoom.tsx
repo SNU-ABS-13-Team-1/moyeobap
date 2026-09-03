@@ -74,7 +74,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const [reconnectNotice, setReconnectNotice] = useState<string | null>(null);
   const { data, error, mutate } = useSWR<{ room: ChessRoomData }>(`/api/games/chess/rooms/${roomId}`, fetcher, {
-    refreshInterval: 8000,
+    refreshInterval: 0,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
     dedupingInterval: 2000,
