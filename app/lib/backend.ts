@@ -989,7 +989,7 @@ export type PotChatSummary = {
   unreadMessageCount: number;
 };
 
-let cachedPotChatSummaries = new Map<string, { data: Map<string, PotChatSummary>; cachedAt: number }>();
+const cachedPotChatSummaries = new Map<string, { data: Map<string, PotChatSummary>; cachedAt: number }>();
 const CHAT_SUMMARIES_TTL_MS = 10_000;
 
 /** 내 참여 목록에 필요한 최근 메시지와 읽지 않은 수를 한 번에 계산합니다. */
