@@ -11,12 +11,12 @@ import { listRooms as listPhoneRooms } from "@/app/lib/phoneOnline";
 import { listRooms as listOneNightRooms } from "@/app/lib/onenightOnline";
 
 let cachedRooms: { data: unknown; cachedAt: number } | null = null;
-const ROOMS_CACHE_TTL_MS = 5_000;
+const ROOMS_CACHE_TTL_MS = 15_000;
 
 // 미니게임 현황판(/games 하단)이 쓰는 통합 방 목록입니다. 게임별 로비 API는
 // 그대로 두고, 여기서 각 게임의 목록을 합쳐 공통 형태로만 내려줍니다.
 // 퐁은 미니게임 목록에서 빠져 있어(#30) 부르지 않습니다.
-// Supabase DB Egress 방어를 위해 5초 동안 결과를 메모리에 캐싱합니다.
+// Supabase DB Egress 방어를 위해 15초 동안 결과를 메모리에 캐싱합니다.
 export async function GET() {
   const now = Date.now();
   if (cachedRooms && now - cachedRooms.cachedAt < ROOMS_CACHE_TTL_MS) {

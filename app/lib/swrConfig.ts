@@ -8,10 +8,24 @@ import type { SWRConfiguration } from 'swr';
 export const POLLING_PRESETS = {
   /**
    * 실시간 게임 룸 (바둑, 체스, 오목, 알까기, 원나잇 인랑, 퐁, 루미큐브, 폰 등)
-   * - 주요 상태 변경은 Supabase Realtime으로 즉시 수신하되, 네트워크 순단 fallback으로 8초 폴링을 둡니다.
+   * - 주요 상태 변경은 Supabase Realtime으로 즉시 수신하되, 네트워크 순단 fallback으로 12초 폴링을 둡니다.
    */
   GAME_ROOM: {
-    refreshInterval: 8000,
+    refreshInterval: 12000,
+    refreshWhenHidden: false,
+    revalidateOnFocus: true,
+    dedupingInterval: 3000,
+  } satisfies SWRConfiguration,
+
+  /**
+   * 방 상태를 Realtime(postgres_changes)으로 구독하는 게임 룸 (오목, 체스, 바둑)
+   * - 갱신은 웹소켓이 담당하므로 폴링을 30초까지 늦춥니다.
+   * - 0으로 두지는 않습니다. postgres_changes는 끊겨 있던 동안의 이벤트를
+   *   다시 보내주지 않아서, 순단으로 상대의 착수 한 번을 놓치면 양쪽이 서로를
+   *   기다리며 판이 멈춥니다. 재구독 시 재동기화와 함께 두는 최후의 안전망입니다.
+   */
+  REALTIME_GAME_ROOM: {
+    refreshInterval: 30000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
     dedupingInterval: 2000,
@@ -19,35 +33,35 @@ export const POLLING_PRESETS = {
 
   /**
    * 팟 상세 화면 (/pots/[id])
-   * - 참여자 변동 및 상태 확인을 위한 10초 폴링
+   * - 참여자 변동 및 상태 확인을 위한 15초 폴링
    */
   POT_DETAIL: {
-    refreshInterval: 10000,
+    refreshInterval: 15000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 4000,
   } satisfies SWRConfiguration,
 
   /**
    * 메인 팟 목록/현황판 (/)
-   * - 12초 폴링
+   * - 20초 폴링
    */
   POT_LIST: {
-    refreshInterval: 12000,
+    refreshInterval: 20000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 5000,
   } satisfies SWRConfiguration,
 
   /**
    * 게임 로비 / 열린 방 목록
-   * - 8초 폴링
+   * - 15초 폴링
    */
   GAME_LOBBY: {
-    refreshInterval: 8000,
+    refreshInterval: 15000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 5000,
   } satisfies SWRConfiguration,
 
   /**
@@ -63,23 +77,23 @@ export const POLLING_PRESETS = {
 
   /**
    * 팟 및 게임 채팅 fallback
-   * - 6초 폴링
+   * - 10초 폴링
    */
   CHAT_FALLBACK: {
-    refreshInterval: 6000,
+    refreshInterval: 10000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 3000,
   } satisfies SWRConfiguration,
 
   /**
    * 내 참여 팟 목록 (/my) 및 알림
-   * - 15초 폴링
+   * - 25초 폴링
    */
   USER_HUB: {
-    refreshInterval: 15000,
+    refreshInterval: 25000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 3000,
+    dedupingInterval: 5000,
   } satisfies SWRConfiguration,
 } as const;

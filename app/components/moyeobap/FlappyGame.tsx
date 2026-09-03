@@ -22,6 +22,7 @@ import { applyGravity, circleCollides, circleRectCollides, flapVelocity, getBird
 import { getPipeSpeed } from '../../lib/flappy/difficulty';
 import { createObstacleGenerator, type Pipe } from '../../lib/flappy/obstacles';
 import { evaluatePass, getComboMultiplier } from '../../lib/flappy/scoring';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 
 const GAME_KEY = 'flappy';
@@ -51,6 +52,7 @@ export function FlappyGame() {
   const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
     LEADERBOARD_URL,
     fetcher,
+    POLLING_PRESETS.GAME_RANKING,
   );
 
   const [status, setStatus] = useState<Status>('idle');

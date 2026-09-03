@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/badukMatch';
 import { computeScore } from '../../lib/badukScoring';
 import { KOMI } from '../../lib/badukConstants';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { BadukChat } from './BadukChat';
 
@@ -58,12 +59,7 @@ export function BadukRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: BadukRoomData }>(
     `/api/games/baduk/rooms/${roomId}`,
     fetcher,
-    {
-      refreshInterval: 8000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.REALTIME_GAME_ROOM,
   );
   const room = data?.room;
 
@@ -75,6 +71,8 @@ export function BadukRoom({ roomId }: { roomId: string }) {
       return;
     }
 
+    // 첫 구독은 SWR의 최초 조회와 겹치므로 건너뛰고, 재구독일 때만 다시 받아옵니다.
+    let rejoined = false;
     const channel = supabase
       .channel(`baduk-room-${roomId}`)
       .on(
@@ -82,7 +80,13 @@ export function BadukRoom({ roomId }: { roomId: string }) {
         { event: 'UPDATE', schema: 'public', table: 'baduk_rooms', filter: `id=eq.${roomId}` },
         () => mutate(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        // postgres_changes는 끊겨 있던 동안의 변경을 다시 보내주지 않습니다.
+        // 채널이 다시 붙는 순간 방 상태를 한 번 받아와 놓친 수를 메웁니다.
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
 
     return () => {
       supabase.removeChannel(channel);

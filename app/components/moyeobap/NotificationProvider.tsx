@@ -20,8 +20,8 @@ import { useAuth } from './AuthProvider';
 // SELECT가 열려 있지 않아 구독할 수 없고, messages는 참여자에게 열려 있어
 // 구독할 수 있기 때문입니다.
 
-/** 새 팟 폴링 주기. 트래픽 방어를 위해 30초로 설정합니다. */
-const POLL_INTERVAL_MS = 30_000;
+/** 새 팟 폴링 주기. 트래픽 방어를 위해 60초로 설정합니다. */
+const POLL_INTERVAL_MS = 60_000;
 /** 토스트가 화면에 머무는 시간. */
 const TOAST_TTL_MS = 3_000;
 /** 화면을 덮지 않도록 동시에 띄우는 토스트 수를 제한합니다. */
@@ -110,7 +110,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       refreshInterval: POLL_INTERVAL_MS,
       refreshWhenHidden: false,
       revalidateOnFocus: true,
-      dedupingInterval: 3000,
+      dedupingInterval: 10000,
     },
   );
 

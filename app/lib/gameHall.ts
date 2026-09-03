@@ -26,8 +26,17 @@ export async function ensurePrevWeekSnapshot(game: string, compute: (weekKey: st
   }
 }
 
+const cachedHalls = new Map<string, { data: HallWeek[]; cachedAt: number }>();
+const HALL_TTL_MS = 60_000;
+
 /** 최근 몇 주의 명예의 전당(최신 주부터). */
 export async function getHall(game: string, limit = 8): Promise<HallWeek[]> {
+  const now = Date.now();
+  const cached = cachedHalls.get(game);
+  if (limit === 8 && cached && now - cached.cachedAt < HALL_TTL_MS) {
+    return cached.data;
+  }
+
   const supabase = getSupabase();
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -37,9 +46,13 @@ export async function getHall(game: string, limit = 8): Promise<HallWeek[]> {
     .order("week_key", { ascending: false })
     .limit(limit);
   if (error || !data) return [];
-  return (data as HallRow[]).map((row) => ({
+  const result = (data as HallRow[]).map((row) => ({
     weekKey: row.week_key,
     label: weekLabel(row.week_key),
     entries: Array.isArray(row.entries) ? row.entries : [],
   }));
+  if (limit === 8) {
+    cachedHalls.set(game, { data: result, cachedAt: now });
+  }
+  return result;
 }

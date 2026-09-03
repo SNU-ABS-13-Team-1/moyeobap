@@ -7,6 +7,7 @@ import { HallOfFame, type HallWeek } from './HallOfFame';
 import { RankMedal, rankRowClass } from './RankMedal';
 import { WeekNote, type WeekInfo } from './WeekNote';
 import { requestJson } from '../../lib/api-client';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 
 const GAME_KEY = 'snake';
@@ -64,6 +65,7 @@ export function SnakeGame() {
   const { data: leaderboardData, mutate: mutateLeaderboard } = useSWR<LeaderboardResponse>(
     LEADERBOARD_URL,
     fetcher,
+    POLLING_PRESETS.GAME_RANKING,
   );
 
   const [status, setStatus] = useState<Status>('idle');

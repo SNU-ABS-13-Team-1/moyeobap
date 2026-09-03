@@ -11,6 +11,9 @@ export type ScoreEntry = {
   rank: number;
 };
 
+const cachedLeaderboards = new Map<string, { data: ScoreEntry[]; cachedAt: number; weekKey: string }>();
+const LEADERBOARD_TTL_MS = 10_000;
+
 export async function submitGameScore(
   game: string,
   userId: string,
@@ -31,6 +34,9 @@ export async function submitGameScore(
     console.error("submitGameScore error:", error);
     return false;
   }
+
+  // 캐시는 쓰기가 끝난 뒤에 비웁니다.
+  cachedLeaderboards.delete(game);
   return true;
 }
 
@@ -75,9 +81,20 @@ async function leaderboardForWeek(game: string, weekKey: string, limit: number):
 
 /** 이번 주 랭킹. 겸사겸사 지난주 상위 3명을 명예의 전당에 남깁니다(이미 있으면 통과). */
 export async function getLeaderboard(game: string, limit = 10): Promise<ScoreEntry[]> {
+  const now = Date.now();
+  const currentWeek = currentWeekKey();
+  const cached = cachedLeaderboards.get(game);
+  if (limit === 10 && cached && cached.weekKey === currentWeek && now - cached.cachedAt < LEADERBOARD_TTL_MS) {
+    return cached.data;
+  }
+
   await ensurePrevWeekSnapshot(game, async (weekKey) => {
     const top: HallEntry[] = (await leaderboardForWeek(game, weekKey, 3)).map((e) => ({ userId: e.userId, userName: e.userName, value: e.bestScore }));
     return top;
   });
-  return leaderboardForWeek(game, currentWeekKey(), limit);
+  const res = await leaderboardForWeek(game, currentWeek, limit);
+  if (limit === 10) {
+    cachedLeaderboards.set(game, { data: res, cachedAt: now, weekKey: currentWeek });
+  }
+  return res;
 }

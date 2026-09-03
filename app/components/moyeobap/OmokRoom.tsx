@@ -7,6 +7,7 @@ import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { isForbiddenMove } from '../../lib/omokForbidden';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
@@ -29,6 +30,8 @@ type OmokRoomData = {
   lastCol: number | null;
   turnStartedAt: string | null;
   rematchBy: string | null;
+  startedAt?: string | null;
+  createdAt?: string;
 };
 
 const CELL_SIZE = 26;
@@ -52,20 +55,17 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const [now, setNow] = useState(() => Date.now());
   const [moveError, setMoveError] = useState<string | null>(null);
   const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
+
+  // Egress 절감을 위해 갱신은 웹소켓에 맡기고, 폴링은 순단 대비 안전망으로만 남깁니다.
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
-    {
-      refreshInterval: 8000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.REALTIME_GAME_ROOM,
   );
   const room = data?.room;
 
-  // 방 상태(보드/턴/승패) 실시간 구독 — 참여자에게는 즉시 반영되고,
-  // 관전자는 위 2초 polling으로 따라잡습니다.
+  // 방 상태(보드/턴/승패) 실시간 구독 — 참여자와 관전자 모두 즉시 반영되고,
+  // 웹소켓이 끊긴 동안 놓친 변경은 재구독 시 재동기화와 위 폴링이 메웁니다.
   useEffect(() => {
     let supabase;
     try {
@@ -74,6 +74,8 @@ export function OmokRoom({ roomId }: { roomId: string }) {
       return;
     }
 
+    // 첫 구독은 SWR의 최초 조회와 겹치므로 건너뛰고, 재구독일 때만 다시 받아옵니다.
+    let rejoined = false;
     const channel = supabase
       .channel(`omok-room-${roomId}`)
       .on(
@@ -81,7 +83,13 @@ export function OmokRoom({ roomId }: { roomId: string }) {
         { event: 'UPDATE', schema: 'public', table: 'omok_rooms', filter: `id=eq.${roomId}` },
         () => mutate(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        // postgres_changes는 끊겨 있던 동안의 변경을 다시 보내주지 않습니다.
+        // 채널이 다시 붙는 순간 방 상태를 한 번 받아와 놓친 수를 메웁니다.
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
 
     return () => {
       supabase.removeChannel(channel);

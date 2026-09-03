@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSession } from "@/app/lib/auth";
+import { getSession, invalidateSessionCache } from "@/app/lib/auth";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 
 function optionalText(value: unknown, maxLength: number): string | null {
@@ -46,6 +46,8 @@ export async function PUT(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: "프로필을 저장하지 못했어요." }, { status: 500 });
   }
+
+  invalidateSessionCache();
 
   return NextResponse.json({
     user: {

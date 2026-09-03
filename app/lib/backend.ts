@@ -882,6 +882,7 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
         console.error("Supabase addMessage error:", error);
         return false;
       }
+      cachedPotChatSummaries.clear();
       return true;
     }
 
@@ -890,11 +891,13 @@ export async function addMessage(message: ChatMessage): Promise<boolean> {
       const list = memoryMessages.get(message.potId) ?? [];
       list.push(message);
       memoryMessages.set(message.potId, list.slice(-MAX_MESSAGES_PER_POT));
+      cachedPotChatSummaries.clear();
       return true;
     }
     const key = potMessagesKey(message.potId);
     await client.rpush(key, JSON.stringify(message));
     await client.ltrim(key, -MAX_MESSAGES_PER_POT, -1);
+    cachedPotChatSummaries.clear();
     return true;
   } catch (error) {
     console.error("채팅 메시지 저장 실패", error);
@@ -988,6 +991,19 @@ export type PotChatSummary = {
   unreadMessageCount: number;
 };
 
+const cachedPotChatSummaries = new Map<
+  string,
+  { data: Map<string, PotChatSummary>; cachedAt: number; potKey: string }
+>();
+const CHAT_SUMMARIES_TTL_MS = 10_000;
+/**
+ * 참여 팟 전체를 한 번에 훑는 조회의 상한입니다. 팟별이 아니라 합계라서,
+ * 너무 낮으면 수다스러운 팟 하나가 조용한 팟들을 밀어내 그 팟의 최근 메시지와
+ * 안 읽음 배지가 통째로 사라집니다. 트래픽은 위 TTL 캐시로 막고, 상한은
+ * 배지가 틀리지 않을 만큼 남겨 둡니다.
+ */
+const CHAT_SUMMARIES_MESSAGE_LIMIT = 500;
+
 /** 내 참여 목록에 필요한 최근 메시지와 읽지 않은 수를 한 번에 계산합니다. */
 export async function getPotChatSummaries(
   pots: ServerPot[],
@@ -1000,9 +1016,22 @@ export async function getPotChatSummaries(
   const participatingPots = pots.filter((pot) =>
     pot.participants.some((participant) => participant.id === user.id),
   );
-  if (participatingPots.length === 0) return summaries;
-
   const potIds = participatingPots.map((pot) => pot.id);
+
+  // 결과는 넘겨받은 팟 목록에 딸린 값이라, 호출부가 서로 다른 부분 목록을
+  // 넘기면 캐시를 그대로 재사용해선 안 됩니다. 참여 팟 집합까지 키로 봅니다.
+  const potKey = [...potIds].sort().join(",");
+  const now = Date.now();
+  const cached = cachedPotChatSummaries.get(user.id);
+  if (cached && cached.potKey === potKey && now - cached.cachedAt < CHAT_SUMMARIES_TTL_MS) {
+    return cached.data;
+  }
+
+  if (participatingPots.length === 0) {
+    cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now, potKey });
+    return summaries;
+  }
+
   const joinedAtByPot = new Map(
     participatingPots.map((pot) => [
       pot.id,
@@ -1019,7 +1048,7 @@ export async function getPotChatSummaries(
           .select("pot_id, author_id, author_name, text, kind, created_at")
           .in("pot_id", potIds)
           .order("created_at", { ascending: false })
-          .limit(1000),
+          .limit(CHAT_SUMMARIES_MESSAGE_LIMIT),
         supabase
           .from("message_reads")
           .select("pot_id, last_read_at")
@@ -1058,6 +1087,7 @@ export async function getPotChatSummaries(
           ).length;
       summaries.set(pot.id, { latestMessage, unreadMessageCount });
     }
+    cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now, potKey });
     return summaries;
   }
 
@@ -1077,6 +1107,7 @@ export async function getPotChatSummaries(
     ).length;
     summaries.set(pot.id, { latestMessage, unreadMessageCount });
   }
+  cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now, potKey });
   return summaries;
 }
 
@@ -1100,6 +1131,9 @@ export async function markPotMessagesRead(
     if (error && error.code !== "PGRST205") {
       console.error("Supabase markPotMessagesRead error:", error);
     }
+    // 캐시는 쓰기가 끝난 뒤에 비웁니다. 먼저 비우면 upsert가 끝나기 전에 들어온
+    // 조회가 낡은 안 읽음 수를 그대로 다시 캐싱합니다.
+    cachedPotChatSummaries.delete(userId);
     return;
   }
 
@@ -1107,9 +1141,11 @@ export async function markPotMessagesRead(
   const key = potMessageReadKey(potId, userId);
   if (client) {
     await client.set(key, latestMessage.createdAt);
+    cachedPotChatSummaries.delete(userId);
     return;
   }
   memoryMessageReads.set(key, latestMessage.createdAt);
+  cachedPotChatSummaries.delete(userId);
 }
 
 let cachedCampusStats: { data: CampusStats; cachedAt: number } | null = null;
