@@ -59,7 +59,7 @@ export function BadukRoom({ roomId }: { roomId: string }) {
     `/api/games/baduk/rooms/${roomId}`,
     fetcher,
     {
-      refreshInterval: 8000,
+      refreshInterval: 0,
       refreshWhenHidden: false,
       revalidateOnFocus: true,
       dedupingInterval: 2000,
