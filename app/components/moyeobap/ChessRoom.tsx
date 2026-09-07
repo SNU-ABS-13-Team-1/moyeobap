@@ -7,7 +7,7 @@ import { Chess, type Square } from 'chess.js';
 import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
-import { POLLING_PRESETS } from '../../lib/swrConfig';
+import { POLLING_PRESETS, getSmartGameRoomPollingInterval } from '../../lib/swrConfig';
 import {
   END_REASON_LABEL,
   TIME_CONTROL_LABEL,
@@ -74,7 +74,26 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const [selected, setSelected] = useState<Square | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Square; to: Square } | null>(null);
   const [reconnectNotice, setReconnectNotice] = useState<string | null>(null);
-  const { data, error, mutate } = useSWR<{ room: ChessRoomData }>(`/api/games/chess/rooms/${roomId}`, fetcher, POLLING_PRESETS.REALTIME_GAME_ROOM);
+
+  const { data, error, mutate } = useSWR<{ room: ChessRoomData }>(
+    `/api/games/chess/rooms/${roomId}`,
+    fetcher,
+    {
+      ...POLLING_PRESETS.REALTIME_GAME_ROOM,
+      refreshInterval: (latestData) => {
+        const r = latestData?.room;
+        const color: 'w' | 'b' | null =
+          currentUser?.id === r?.whiteId ? 'w' : currentUser?.id === r?.blackId ? 'b' : null;
+        const myTurn = Boolean(r) && color !== null && r?.status === 'playing' && r?.turn === color;
+        const spectator = Boolean(r) && color === null;
+        return getSmartGameRoomPollingInterval({
+          status: r?.status,
+          isMyTurn: myTurn,
+          isSpectator: spectator,
+        });
+      },
+    },
+  );
   const room = data?.room;
 
   useEffect(() => {

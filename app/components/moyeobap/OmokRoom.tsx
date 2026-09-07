@@ -7,7 +7,7 @@ import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { isForbiddenMove } from '../../lib/omokForbidden';
-import { POLLING_PRESETS } from '../../lib/swrConfig';
+import { POLLING_PRESETS, getSmartGameRoomPollingInterval } from '../../lib/swrConfig';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
@@ -56,11 +56,25 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const [moveError, setMoveError] = useState<string | null>(null);
   const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
 
-  // Egress 절감을 위해 갱신은 웹소켓에 맡기고, 폴링은 순단 대비 안전망으로만 남깁니다.
+  // Egress 절감을 위해 웹소켓을 우선하되, 상대 턴일 때만 3.5초 스마트 폴링으로 안전망을 둡니다.
+  // 내가 둘 때는 상대가 둘 수 없으므로 폴링이 0B로 멈춰 트래픽을 아낍니다.
   const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
     `/api/games/omok/rooms/${roomId}`,
     fetcher,
-    POLLING_PRESETS.REALTIME_GAME_ROOM,
+    {
+      ...POLLING_PRESETS.REALTIME_GAME_ROOM,
+      refreshInterval: (latestData) => {
+        const r = latestData?.room;
+        const color = currentUser?.id === r?.blackId ? 'black' : currentUser?.id === r?.whiteId ? 'white' : null;
+        const myTurn = Boolean(r) && color !== null && r?.status === 'playing' && r?.turn === color;
+        const spectator = Boolean(r) && color === null;
+        return getSmartGameRoomPollingInterval({
+          status: r?.status,
+          isMyTurn: myTurn,
+          isSpectator: spectator,
+        });
+      },
+    },
   );
   const room = data?.room;
 
