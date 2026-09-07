@@ -18,17 +18,14 @@ export const POLLING_PRESETS = {
   } satisfies SWRConfiguration,
 
   /**
-   * 방 상태를 Realtime(postgres_changes)으로 구독하는 게임 룸 (오목, 체스, 바둑)
-   * - 갱신은 웹소켓이 담당하므로 폴링을 30초까지 늦춥니다.
-   * - 0으로 두지는 않습니다. postgres_changes는 끊겨 있던 동안의 이벤트를
-   *   다시 보내주지 않아서, 순단으로 상대의 착수 한 번을 놓치면 양쪽이 서로를
-   *   기다리며 판이 멈춥니다. 재구독 시 재동기화와 함께 두는 최후의 안전망입니다.
+   * 방 상태를 Realtime(postgres_changes)으로 구독하는 게임 룸 (오목, 체스, 바둑) 기본 설정
+   * - 탭 비활성화 시 정지(refreshWhenHidden: false) 및 중복 방지
    */
   REALTIME_GAME_ROOM: {
-    refreshInterval: 30000,
+    refreshInterval: 0,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 1500,
   } satisfies SWRConfiguration,
 
   /**
@@ -97,3 +94,31 @@ export const POLLING_PRESETS = {
     dedupingInterval: 5000,
   } satisfies SWRConfiguration,
 } as const;
+
+/**
+ * 실시간 대전 게임(오목, 체스, 바둑)을 위한 조건부 스마트 폴링 간격 계산
+ * - 상대방 턴일 때: 웹소켓 누락/지연 시에도 즉시 넘어가도록 3.5초 안전망 폴링
+ * - 내 턴일 때: 상대가 둘 수 없으므로 0초 (폴링 완전 정지 -> DB Egress 0B)
+ * - 관전자: 5초 폴링
+ * - 대기 중(waiting): 상대 입장 감지 6초
+ * - 대국 종료(finished): 재대국 신청 감지 8초
+ */
+export function getSmartGameRoomPollingInterval({
+  status,
+  isMyTurn,
+  isSpectator,
+}: {
+  status?: string;
+  isMyTurn: boolean;
+  isSpectator: boolean;
+}): number {
+  if (status === 'playing' || status === 'scoring') {
+    if (isMyTurn) return 0; // 내가 생각하는 동안은 DB 요청 0B
+    if (isSpectator) return 5000;
+    return 3500; // 상대 턴일 때는 최대 3.5초 안에 자동 갱신
+  }
+  if (status === 'waiting') return 6000;
+  if (status === 'finished') return 8000;
+  return 10000;
+}
+
