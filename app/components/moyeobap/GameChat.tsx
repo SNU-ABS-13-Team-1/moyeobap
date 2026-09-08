@@ -10,6 +10,7 @@ import { useEmojiPickerOrder } from './useEmojiPickerOrder';
 import { EmojiPickerGrid } from './EmojiPickerGrid';
 import { isChatAtBottom } from '../../lib/chatScroll';
 import { useAuth } from './AuthProvider';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 
 // 실시간 대전 방 공용 채팅. 오목·체스가 API 경로·Realtime 테이블·역할 이름만 다르게
 // 넘겨서 같이 씁니다(OmokChat / ChessChat은 이 컴포넌트의 얇은 껍데기).
@@ -59,12 +60,11 @@ export function GameChat<Role extends string>({
 }) {
   const { currentUser } = useAuth();
   const url = `${config.apiBase}/${roomId}/chat`;
-  const { data, error, mutate } = useSWR<{ messages: GameChatMessage<Role>[] }>(url, fetcher, {
-    refreshInterval: 10000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  const { data, error, mutate } = useSWR<{ messages: GameChatMessage<Role>[] }>(
+    url,
+    fetcher,
+    POLLING_PRESETS.CHAT_FALLBACK,
+  );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -92,6 +92,7 @@ export function GameChat<Role extends string>({
       return undefined;
     }
 
+    let rejoined = false;
     const channel = supabase
       .channel(`${config.channelPrefix}-${roomId}`)
       .on(
@@ -99,7 +100,11 @@ export function GameChat<Role extends string>({
         { event: 'INSERT', schema: 'public', table: config.table, filter: `room_id=eq.${roomId}` },
         () => mutate(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
 
     return () => {
       supabase.removeChannel(channel);
