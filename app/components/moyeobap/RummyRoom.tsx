@@ -8,6 +8,7 @@ import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { INITIAL_MELD, type Tile } from '../../lib/rummy';
 import { END_REASON_LABEL, MAX_PLAYERS, MAX_TIMEOUT_STRIKES, MIN_PLAYERS, TURN_GRACE_MS, type EndReason, type RoomPlayer, type RoomStatus } from '../../lib/rummyMatch';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
 import { GameChat, type GameChatConfig } from './GameChat';
@@ -24,10 +25,10 @@ type RoomData = {
   deckCount: number;
   passStreak: number;
   winnerId: string | null;
-  endReason: EndReason;
+  endReason: EndReason | null;
+  turnStartedAt: string | null;
   turnLimitSec: number;
   version: number;
-  turnStartedAt: string | null;
 };
 
 const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
@@ -45,12 +46,11 @@ type Draft = { version: number; table: Tile[][]; hand: Tile[] };
 export function RummyRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { data, error, mutate } = useSWR<{ room: RoomData; myHand: Tile[] | null }>(`/api/games/rummy/rooms/${roomId}`, fetcher, {
-    refreshInterval: 8000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  const { data, error, mutate } = useSWR<{ room: RoomData; myHand: Tile[] | null }>(
+    `/api/games/rummy/rooms/${roomId}`,
+    fetcher,
+    POLLING_PRESETS.GAME_ROOM,
+  );
   const room = data?.room;
   const serverHand = useMemo(() => data?.myHand ?? [], [data?.myHand]);
 
@@ -69,10 +69,19 @@ export function RummyRoom({ roomId }: { roomId: string }) {
     } catch {
       return;
     }
+    let rejoined = false;
     const channel = supabase
       .channel(`rummy-room-${roomId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rummy_rooms', filter: `id=eq.${roomId}` }, () => mutate())
-      .subscribe();
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rummy_rooms', filter: `id=eq.${roomId}` },
+        () => mutate(),
+      )
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
     return () => {
       supabase.removeChannel(channel);
     };
