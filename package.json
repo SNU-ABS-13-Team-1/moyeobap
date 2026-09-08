@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern '_archive_*'",
     "typecheck": "tsc --noEmit --incremental false",
-    "test": "node --experimental-strip-types --test 'app/**/*.test.ts'",
+    "test": "node --import tsx --test 'app/**/*.test.ts'",
     "data:build": "node scripts/csv-to-ts.mjs",
     "rhythm:build": "node scripts/generate-rhythm-charts.mjs"
   },
@@ -27,12 +27,15 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.0",
+    "jsdom": "^26.1.0",
     "tailwindcss": "4.2.1",
+    "tsx": "^4.23.13",
     "typescript": "5.9.3"
   },
   "type": "module"

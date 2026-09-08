@@ -9,7 +9,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/badukMatch';
 import { computeScore } from '../../lib/badukScoring';
 import { KOMI } from '../../lib/badukConstants';
-import { POLLING_PRESETS, getSmartGameRoomPollingInterval } from '../../lib/swrConfig';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { BadukChat } from './BadukChat';
 
@@ -60,20 +60,7 @@ export function BadukRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: BadukRoomData }>(
     `/api/games/baduk/rooms/${roomId}`,
     fetcher,
-    {
-      ...POLLING_PRESETS.REALTIME_GAME_ROOM,
-      refreshInterval: (latestData) => {
-        const r = latestData?.room;
-        const color = currentUser?.id === r?.blackId ? 'black' : currentUser?.id === r?.whiteId ? 'white' : null;
-        const myTurn = Boolean(r) && color !== null && (r?.status === 'playing' || r?.status === 'scoring') && r?.turn === color;
-        const spectator = Boolean(r) && color === null;
-        return getSmartGameRoomPollingInterval({
-          status: r?.status,
-          isMyTurn: myTurn,
-          isSpectator: spectator,
-        });
-      },
-    },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
 

@@ -12,49 +12,8 @@ const WIN_LENGTH = 5;
  * 1시간 멈춘 방은 전원이 창을 닫고 떠난 버려진 방입니다. */
 const STALE_ROOM_TTL_MS = 1 * 60 * 60 * 1000;
 
-export type Stone = "black" | "white" | null;
-export type RoomStatus = "waiting" | "playing" | "finished";
-export type Winner = "black" | "white" | "draw" | null;
-
-export type OmokRoom = {
-  id: string;
-  status: RoomStatus;
-  roomName: string;
-  blackId: string | null;
-  blackName: string | null;
-  whiteId: string | null;
-  whiteName: string | null;
-  board: Stone[][];
-  turn: "black" | "white";
-  winner: Winner;
-  moveCount: number;
-  lastRow: number | null;
-  lastCol: number | null;
-  startedAt: string | null;
-  turnStartedAt: string | null;
-  rematchBy: string | null;
-  createdAt: string;
-};
-
-type OmokRoomRow = {
-  id: string;
-  status: RoomStatus;
-  room_name: string;
-  black_id: string | null;
-  black_name: string | null;
-  white_id: string | null;
-  white_name: string | null;
-  board: Stone[][];
-  turn: "black" | "white";
-  winner: Winner;
-  move_count: number;
-  last_row: number | null;
-  last_col: number | null;
-  started_at: string | null;
-  turn_started_at: string | null;
-  rematch_by: string | null;
-  created_at: string;
-};
+export type { Stone, RoomStatus, Winner, OmokRoom } from './omokRoomState';
+import { mapOmokRoomRow as mapRow, type Stone, type OmokRoom, type OmokRoomRow } from './omokRoomState';
 
 function createEmptyBoard(): Stone[][] {
   return Array.from({ length: BOARD_SIZE }, () => Array<Stone>(BOARD_SIZE).fill(null));
@@ -83,28 +42,6 @@ function checkWin(board: Stone[][], row: number, col: number, player: Stone): bo
     if (count >= WIN_LENGTH) return true;
   }
   return false;
-}
-
-function mapRow(row: OmokRoomRow): OmokRoom {
-  return {
-    id: row.id,
-    status: row.status,
-    roomName: row.room_name,
-    blackId: row.black_id,
-    blackName: row.black_name,
-    whiteId: row.white_id,
-    whiteName: row.white_name,
-    board: row.board,
-    turn: row.turn,
-    winner: row.winner,
-    moveCount: row.move_count,
-    lastRow: row.last_row,
-    lastCol: row.last_col,
-    startedAt: row.started_at,
-    turnStartedAt: row.turn_started_at,
-    rematchBy: row.rematch_by,
-    createdAt: row.created_at,
-  };
 }
 
 export async function createRoom(
