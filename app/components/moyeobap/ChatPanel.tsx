@@ -25,14 +25,15 @@ interface ChatPanelProps {
 function renderMessageText(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/);
   return parts.map((part, index) => {
-    if (part.match(/^https?:\/\//)) {
+    if (/^https?:\/\//i.test(part)) {
       return (
         <a
           key={index}
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#ff7b39] underline underline-offset-2 hover:opacity-80 break-all"
+          className="chat-panel__link"
+          onClick={(e) => e.stopPropagation()}
         >
           {part}
         </a>
