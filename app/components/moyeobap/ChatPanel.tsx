@@ -11,6 +11,7 @@ import {
   isChatEmojiPath,
   type ChatEmoji,
 } from '../../data/chat-emojis';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { useEmojiPickerOrder } from './useEmojiPickerOrder';
 import { EmojiPickerGrid } from './EmojiPickerGrid';
@@ -24,15 +25,14 @@ interface ChatPanelProps {
 function renderMessageText(text: string) {
   const parts = text.split(/(https?:\/\/[^\s]+)/);
   return parts.map((part, index) => {
-    if (/^https?:\/\//i.test(part)) {
+    if (part.match(/^https?:\/\//)) {
       return (
         <a
           key={index}
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="chat-panel__link"
-          onClick={(e) => e.stopPropagation()}
+          className="text-[#ff7b39] underline underline-offset-2 hover:opacity-80 break-all"
         >
           {part}
         </a>
@@ -47,12 +47,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
   const { data, error: loadError, mutate } = useSWR<{ messages: ChatMessageView[] }>(
     `/api/pots/${potId}/messages`,
     fetcher,
-    {
-      refreshInterval: 10000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.CHAT_FALLBACK,
   );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -98,10 +93,11 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     try {
       supabase = createSupabaseBrowserClient();
     } catch {
-      // Supabase 미설정 로컬 환경에서는 기존 3초 polling만 사용합니다.
+      // Supabase 미설정 로컬 환경에서는 fallback polling만 사용합니다.
       return;
     }
 
+    let rejoined = false;
     const channel = supabase
       .channel(`chat-pot-${potId}`)
       .on(
@@ -116,7 +112,11 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
           mutate();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
 
     return () => {
       supabase.removeChannel(channel);
