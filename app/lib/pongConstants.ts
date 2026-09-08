@@ -18,6 +18,6 @@ export const BALL_SPEED_INCREMENT = 34; // 패들에 맞을 때마다 증가폭
 
 export const TARGET_SCORE = 5;
 
-export const BROADCAST_INTERVAL_MS = 50; // 호스트 → 상대 상태 방송 주기(~20Hz)
+export const BROADCAST_INTERVAL_MS = 100; // 호스트 → 상대 상태 방송 주기(~10Hz, Egress 방어)
 export const COUNTDOWN_SECONDS = 3;
 export const DISCONNECT_CLAIM_DELAY_MS = 60_000;
