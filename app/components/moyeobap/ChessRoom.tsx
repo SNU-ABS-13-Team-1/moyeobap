@@ -7,7 +7,7 @@ import { Chess, type Square } from 'chess.js';
 import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
-import { POLLING_PRESETS, getSmartGameRoomPollingInterval } from '../../lib/swrConfig';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import {
   END_REASON_LABEL,
   TIME_CONTROL_LABEL,
@@ -56,7 +56,7 @@ function formatClock(ms: number): string {
   return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 }
 
-// 오목 방(OmokRoom)과 같은 구조입니다: 2초 폴링 + Realtime 구독으로 방 상태를
+// 오목 방(OmokRoom)과 같은 구조입니다: 조건부 폴링 + Realtime 구독으로 방 상태를
 // 받고, Presence로 상대 접속 여부와 관전자를 추적합니다. 보드 규칙은 chess.js가
 // 담당하고, 실제 착수 검증은 서버(app/lib/chessOnline.ts)가 다시 합니다.
 export function ChessRoom({ roomId }: { roomId: string }) {
@@ -78,21 +78,7 @@ export function ChessRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: ChessRoomData }>(
     `/api/games/chess/rooms/${roomId}`,
     fetcher,
-    {
-      ...POLLING_PRESETS.REALTIME_GAME_ROOM,
-      refreshInterval: (latestData) => {
-        const r = latestData?.room;
-        const color: 'w' | 'b' | null =
-          currentUser?.id === r?.whiteId ? 'w' : currentUser?.id === r?.blackId ? 'b' : null;
-        const myTurn = Boolean(r) && color !== null && r?.status === 'playing' && r?.turn === color;
-        const spectator = Boolean(r) && color === null;
-        return getSmartGameRoomPollingInterval({
-          status: r?.status,
-          isMyTurn: myTurn,
-          isSpectator: spectator,
-        });
-      },
-    },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
 

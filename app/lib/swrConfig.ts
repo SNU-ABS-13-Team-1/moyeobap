@@ -8,32 +8,21 @@ import type { SWRConfiguration } from 'swr';
 export const POLLING_PRESETS = {
   /**
    * 실시간 게임 룸 (바둑, 체스, 오목, 알까기, 원나잇 인랑, 퐁, 루미큐브, 폰 등)
-   * - 주요 상태 변경은 Supabase Realtime으로 즉시 수신하되, 네트워크 순단 fallback으로 12초 폴링을 둡니다.
+   * - 주요 상태 변경은 Supabase Realtime으로 즉시 수신하되, 네트워크 순단 fallback으로 20초 폴링을 둡니다.
    */
   GAME_ROOM: {
-    refreshInterval: 12000,
+    refreshInterval: 20000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
     dedupingInterval: 3000,
   } satisfies SWRConfiguration,
 
   /**
-   * 방 상태를 Realtime(postgres_changes)으로 구독하는 게임 룸 (오목, 체스, 바둑) 기본 설정
-   * - 탭 비활성화 시 정지(refreshWhenHidden: false) 및 중복 방지
-   */
-  REALTIME_GAME_ROOM: {
-    refreshInterval: 0,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 1500,
-  } satisfies SWRConfiguration,
-
-  /**
    * 팟 상세 화면 (/pots/[id])
-   * - 참여자 변동 및 상태 확인을 위한 15초 폴링
+   * - 참여자 변동 및 상태 확인을 위한 25초 폴링
    */
   POT_DETAIL: {
-    refreshInterval: 15000,
+    refreshInterval: 25000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
     dedupingInterval: 4000,
@@ -74,10 +63,10 @@ export const POLLING_PRESETS = {
 
   /**
    * 팟 및 게임 채팅 fallback
-   * - 10초 폴링
+   * - 30초 폴링
    */
   CHAT_FALLBACK: {
-    refreshInterval: 10000,
+    refreshInterval: 30000,
     refreshWhenHidden: false,
     revalidateOnFocus: true,
     dedupingInterval: 3000,
@@ -95,30 +84,5 @@ export const POLLING_PRESETS = {
   } satisfies SWRConfiguration,
 } as const;
 
-/**
- * 실시간 대전 게임(오목, 체스, 바둑)을 위한 조건부 스마트 폴링 간격 계산
- * - 상대방 턴일 때: 웹소켓 누락/지연 시에도 즉시 넘어가도록 3.5초 안전망 폴링
- * - 내 턴일 때: 상대가 둘 수 없으므로 0초 (폴링 완전 정지 -> DB Egress 0B)
- * - 관전자: 5초 폴링
- * - 대기 중(waiting): 상대 입장 감지 6초
- * - 대국 종료(finished): 재대국 신청 감지 8초
- */
-export function getSmartGameRoomPollingInterval({
-  status,
-  isMyTurn,
-  isSpectator,
-}: {
-  status?: string;
-  isMyTurn: boolean;
-  isSpectator: boolean;
-}): number {
-  if (status === 'playing' || status === 'scoring') {
-    if (isMyTurn) return 0; // 내가 생각하는 동안은 DB 요청 0B
-    if (isSpectator) return 5000;
-    return 3500; // 상대 턴일 때는 최대 3.5초 안에 자동 갱신
-  }
-  if (status === 'waiting') return 6000;
-  if (status === 'finished') return 8000;
-  return 10000;
-}
-
+/** 연결 장애 때만 쓰는 제한된 재연결 대기 시간입니다. 상시 폴링이 아닙니다. */
+export const GAME_ROOM_RECOVERY_DELAYS = [1000, 3000, 10000] as const;

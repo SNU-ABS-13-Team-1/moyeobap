@@ -2,37 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import useSWR from 'swr';
-import { fetcher } from '../../lib/fetcher';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { isForbiddenMove } from '../../lib/omokForbidden';
-import { POLLING_PRESETS, getSmartGameRoomPollingInterval } from '../../lib/swrConfig';
+import { useOmokRoom } from '../../hooks/useOmokRoom';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
 import { OmokChat } from './OmokChat';
-
-type Stone = 'black' | 'white' | null;
-type OmokRoomData = {
-  id: string;
-  roomName: string;
-  status: 'waiting' | 'playing' | 'finished';
-  blackId: string | null;
-  blackName: string | null;
-  whiteId: string | null;
-  whiteName: string | null;
-  board: Stone[][];
-  turn: 'black' | 'white';
-  winner: 'black' | 'white' | 'draw' | null;
-  moveCount: number;
-  lastRow: number | null;
-  lastCol: number | null;
-  turnStartedAt: string | null;
-  rematchBy: string | null;
-  startedAt?: string | null;
-  createdAt?: string;
-};
 
 const CELL_SIZE = 26;
 const PADDING = 24;
@@ -56,65 +33,13 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   const [moveError, setMoveError] = useState<string | null>(null);
   const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
 
-  // Egress 절감을 위해 웹소켓을 우선하되, 상대 턴일 때만 3.5초 스마트 폴링으로 안전망을 둡니다.
-  // 내가 둘 때는 상대가 둘 수 없으므로 폴링이 0B로 멈춰 트래픽을 아낍니다.
-  const { data, error, mutate } = useSWR<{ room: OmokRoomData }>(
-    `/api/games/omok/rooms/${roomId}`,
-    fetcher,
-    {
-      ...POLLING_PRESETS.REALTIME_GAME_ROOM,
-      refreshInterval: (latestData) => {
-        const r = latestData?.room;
-        const color = currentUser?.id === r?.blackId ? 'black' : currentUser?.id === r?.whiteId ? 'white' : null;
-        const myTurn = Boolean(r) && color !== null && r?.status === 'playing' && r?.turn === color;
-        const spectator = Boolean(r) && color === null;
-        return getSmartGameRoomPollingInterval({
-          status: r?.status,
-          isMyTurn: myTurn,
-          isSpectator: spectator,
-        });
-      },
-    },
-  );
-  const room = data?.room;
-
-  // 방 상태(보드/턴/승패) 실시간 구독 — 참여자와 관전자 모두 즉시 반영되고,
-  // 웹소켓이 끊긴 동안 놓친 변경은 재구독 시 재동기화와 위 폴링이 메웁니다.
-  useEffect(() => {
-    let supabase;
-    try {
-      supabase = createSupabaseBrowserClient();
-    } catch {
-      return;
-    }
-
-    // 첫 구독은 SWR의 최초 조회와 겹치므로 건너뛰고, 재구독일 때만 다시 받아옵니다.
-    let rejoined = false;
-    const channel = supabase
-      .channel(`omok-room-${roomId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'omok_rooms', filter: `id=eq.${roomId}` },
-        () => mutate(),
-      )
-      .subscribe((status) => {
-        // postgres_changes는 끊겨 있던 동안의 변경을 다시 보내주지 않습니다.
-        // 채널이 다시 붙는 순간 방 상태를 한 번 받아와 놓친 수를 메웁니다.
-        if (status !== 'SUBSCRIBED') return;
-        if (rejoined) mutate();
-        rejoined = true;
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [roomId, mutate]);
+  const { room, error, reconnecting, synchronize, sendAction } = useOmokRoom(roomId, currentUser?.id);
 
   const myColor = currentUser?.id === room?.blackId ? 'black' : currentUser?.id === room?.whiteId ? 'white' : null;
   const isMyTurn = Boolean(room) && myColor !== null && room!.status === 'playing' && room!.turn === myColor;
 
   // Presence: 접속 중인 사람 목록(참여자 온라인 여부 + 관전자 수)을
-  // 추적합니다. 방 자체를 의존성에 두면 2초 polling마다 채널이
+  // 추적합니다. 방 자체를 의존성에 두면 착수마다 채널이
   // 재구독되므로, 사람이 바뀔 때만 갱신되는 blackId/whiteId만 의존성으로
   // 둡니다.
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
@@ -208,8 +133,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
 
     reportedTurnRef.current = turnKey;
     let retryTimer: number | undefined;
-    requestJson(`/api/games/omok/rooms/${roomId}/timeout`, { method: 'POST' })
-      .then(() => mutate())
+    sendAction('timeout')
       .catch(() => {
         retryTimer = window.setTimeout(() => {
           if (reportedTurnRef.current === turnKey) reportedTurnRef.current = null;
@@ -219,7 +143,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     return () => {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [room, now, myColor, roomId, mutate]);
+  }, [room, now, myColor, sendAction]);
 
   // 캔버스에 격자판 + 돌을 그립니다. 방금 놓인 돌은 살짝 확대되며
   // 나타나는 간단한 애니메이션과 강조 테두리를 추가로 그립니다.
@@ -373,8 +297,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     setSitting(true);
     setMoveError(null);
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/join`, { method: 'POST' });
-      mutate();
+      await sendAction('join');
     } catch (err) {
       setMoveError(getErrorMessage(err, '자리에 앉지 못했어요.'));
     } finally {
@@ -389,29 +312,23 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   async function handleResign() {
     setResigning(true);
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/resign`, { method: 'POST' });
+      await sendAction('resign');
       setConfirmingResign(false);
       setMoveError(null);
     } catch (err) {
       setMoveError(getErrorMessage(err, '기권하지 못했어요.'));
     } finally {
       setResigning(false);
-      mutate();
     }
   }
 
   async function handleRematch(action: 'request' | 'accept' | 'decline') {
     setRematchPending(true);
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/rematch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      mutate();
+      await sendAction('rematch', { action });
     } catch (err) {
       setMoveError(getErrorMessage(err, '재대국 요청을 처리하지 못했어요.'));
-      mutate();
+      void synchronize().catch(() => {});
     } finally {
       setRematchPending(false);
     }
@@ -420,8 +337,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   async function handleClaimWin() {
     setClaiming(true);
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/claim-win`, { method: 'POST' });
-      mutate();
+      await sendAction('claim-win');
     } catch {
       // 무시
     } finally {
@@ -431,13 +347,8 @@ export function OmokRoom({ roomId }: { roomId: string }) {
 
   async function handleMove(row: number, col: number) {
     try {
-      await requestJson(`/api/games/omok/rooms/${roomId}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row, col }),
-      });
+      await sendAction('move', { row, col });
       setMoveError(null);
-      mutate();
     } catch (err) {
       // 상대 차례이거나 이미 놓인 자리, 동시 착수로 인한 재시도 케이스는
       // 별도 알림 없이 무시하고 다음 polling/realtime 갱신에서 자연스럽게
@@ -446,7 +357,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
       if (message.startsWith('금수입니다')) {
         setMoveError(message);
       }
-      mutate();
+      void synchronize().catch(() => {});
     }
   }
 
@@ -507,7 +418,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     if (hoverForbiddenCell) setHoverForbiddenCell(null);
   }
 
-  if (error) {
+  if (error && !room) {
     return <div className="omok-room__state">방을 불러오지 못했어요.</div>;
   }
   if (!room) {
@@ -580,6 +491,11 @@ export function OmokRoom({ roomId }: { roomId: string }) {
           </div>
 
           <p className="omok-room__status">{statusText}</p>
+          {(reconnecting || error) && (
+            <p className="omok-room__status" role="status">
+              실시간 연결을 복구하고 있어요. 인터넷 연결을 확인해 주세요.
+            </p>
+          )}
 
           {showClock && (
             <p className={`omok-room__clock ${clockUrgent ? 'omok-room__clock--urgent' : ''}`}>
