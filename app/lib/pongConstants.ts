@@ -18,6 +18,7 @@ export const BALL_SPEED_INCREMENT = 34; // 패들에 맞을 때마다 증가폭
 
 export const TARGET_SCORE = 5;
 
-export const BROADCAST_INTERVAL_MS = 50; // 호스트 → 상대 상태 방송 주기(~20Hz)
+export const BROADCAST_INTERVAL_MS = 50; // 호스트 → 상대 상태 방송 주기(~20Hz). 게스트 렌더링에 보간이 없어
+// 낮추면 공이 눈에 띄게 끊기고, player2 패들 입력 지연도 같이 늘어납니다.
 export const COUNTDOWN_SECONDS = 3;
 export const DISCONNECT_CLAIM_DELAY_MS = 60_000;

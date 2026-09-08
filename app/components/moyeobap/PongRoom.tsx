@@ -23,6 +23,7 @@ import {
   PADDLE_WIDTH,
   TARGET_SCORE,
 } from '../../lib/pongConstants';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
 import { PongChat } from './PongChat';
@@ -70,17 +71,12 @@ export function PongRoom({ roomId }: { roomId: string }) {
   const { data, error, mutate } = useSWR<{ room: PongRoomData }>(
     `/api/games/pong/rooms/${roomId}`,
     fetcher,
-    {
-      refreshInterval: 8000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.GAME_ROOM,
   );
   const room = data?.room;
 
   // 방 상태(점수/승패) 실시간 구독 — 참여자에게는 즉시 반영되고, 관전자는
-  // 위 2초 polling으로 따라잡습니다. 공/패들 위치는 이 채널이 아니라
+  // fallback polling으로 따라잡습니다. 공/패들 위치는 이 채널이 아니라
   // Broadcast로 별도 전달됩니다(아래 게임 루프 effect 참고).
   useEffect(() => {
     let supabase;
@@ -89,6 +85,7 @@ export function PongRoom({ roomId }: { roomId: string }) {
     } catch {
       return undefined;
     }
+    let rejoined = false;
     const channel = supabase
       .channel(`pong-room-${roomId}`)
       .on(
@@ -96,7 +93,11 @@ export function PongRoom({ roomId }: { roomId: string }) {
         { event: 'UPDATE', schema: 'public', table: 'pong_rooms', filter: `id=eq.${roomId}` },
         () => mutate(),
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
     return () => {
       supabase.removeChannel(channel);
     };

@@ -20,6 +20,7 @@ import {
   type RoomPlayer,
 } from '../../lib/phoneMatch';
 import type { AlbumSummary, PlayerTask } from '../../lib/phoneOnline';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
 import { DrawingCanvas, type DrawingCanvasHandle } from './DrawingCanvas';
@@ -55,12 +56,11 @@ function entryPlaceholder(entry: AlbumEntry): string {
 export function PhoneRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { data, error, mutate } = useSWR<{ room: Room; albums: AlbumSummary[] }>(`/api/games/phone/rooms/${roomId}`, fetcher, {
-    refreshInterval: 8000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  const { data, error, mutate } = useSWR<{ room: Room; albums: AlbumSummary[] }>(
+    `/api/games/phone/rooms/${roomId}`,
+    fetcher,
+    POLLING_PRESETS.GAME_ROOM,
+  );
   const room = data?.room;
   const albums = data?.albums ?? [];
 
@@ -78,10 +78,15 @@ export function PhoneRoom({ roomId }: { roomId: string }) {
     } catch {
       return;
     }
+    let rejoined = false;
     const channel = supabase
       .channel(`phone-room-${roomId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'phone_rooms', filter: `id=eq.${roomId}` }, () => mutate())
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (rejoined) mutate();
+        rejoined = true;
+      });
     return () => {
       supabase.removeChannel(channel);
     };
