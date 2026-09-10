@@ -912,7 +912,9 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
       .from("messages")
       .select("*")
       .eq("pot_id", potId)
-      .order("created_at", { ascending: true })
+      // 최신순으로 상한만큼 받아 온 뒤 아래에서 뒤집습니다. 오래된 순으로 잘라내면
+      // 메시지가 상한을 넘긴 팟에서 새 메시지가 영영 창 밖으로 밀려납니다.
+      .order("created_at", { ascending: false })
       .limit(MAX_MESSAGES_PER_POT);
 
     if (error || !data) return [];
@@ -943,7 +945,9 @@ export async function listMessages(potId: string): Promise<ChatMessage[]> {
         imageUrl,
         createdAt: m.created_at,
       };
-    });
+    })
+    // 화면은 오래된 메시지가 위에 오는 순서를 기대합니다.
+    .reverse();
   }
 
   const client = getRedis();
