@@ -10,5 +10,12 @@ export async function GET() {
   );
   // 20위에서 자르지 않고 이번 주에 둔 사람을 전부 보여줍니다.
   const [ranking, hall] = await Promise.all([getRanking(), getHall("omok")]);
-  return NextResponse.json({ ranking, hall, week: currentWeekInfo() });
+  return NextResponse.json(
+    { ranking, hall, week: currentWeekInfo() },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+      },
+    },
+  );
 }
