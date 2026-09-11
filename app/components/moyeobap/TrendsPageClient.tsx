@@ -9,10 +9,11 @@ export function TrendsPageClient() {
     campus: CampusStats;
     my: MyStatsReport | null;
   }>("/api/stats", fetcher, {
-    refreshInterval: 30000,
+    refreshInterval: 0,
     refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 5000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
   });
 
   if (isLoading) {

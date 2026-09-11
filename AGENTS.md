@@ -318,7 +318,8 @@ Supabase Free Plan의 월간 Egress(아웃바운드 전송량, 5GB) 및 Vercel F
   - 팟 상세 화면: 25초 (`POT_DETAIL`)
   - 메인 팟 목록/현황판: 20초 (`POT_LIST`)
   - 게임 로비/방 목록: 15초 (`GAME_LOBBY`)
-  - 랭킹/명예의 전당: 60초 (`GAME_RANKING`)
+  - 랭킹/명예의 전당: 상시 폴링 없음(0초, 진입 시 1회만 조회) (`GAME_RANKING`)
+  - 트렌드 통계 / 새 팟 작성: 상시 폴링 없음(0초, 진입 시 1회만 조회)
   - 채팅 비상 폴링: 30초 (`CHAT_FALLBACK`)
 - **실시간 반응과 복구**:
   - 착수 등 서버가 확정한 변경은 실시간 메시지와 API 응답으로 바로 반영한다.
@@ -337,6 +338,9 @@ Supabase Free Plan의 월간 Egress(아웃바운드 전송량, 5GB) 및 Vercel F
 - **정적 데이터 캐싱**:
   - 식당 및 메뉴 기준 데이터(112곳, 548개)는 DB를 실시간 조회하지 않고
     프론트 정적 데이터(`restaurants.ts`)를 사용하여 DB Egress를 0으로 유지한다.
+- **Vercel Edge CDN 캐싱 (Function Invocations & Origin Transfer 방어)**:
+  - 공개된 정적/준정적 읽기 API는 `Cache-Control: public, s-maxage=..., stale-while-revalidate=...` 헤더를 적용하여 Vercel Serverless Function 호출을 최소화하고 CDN에서 직접 응답하게 한다 (매장 목록 1시간, 열린 방 목록 5초, 주간 랭킹 30초).
+  - 인게임 실시간 대전(오목·바둑·체스·알까기 등), 착수(`/move`), 팟 상세(`/pots/[id]`) 등 실시간 상태 동기화나 개인화가 필요한 API에는 CDN 캐시를 절대 적용하지 않는다.
 - **서버 인메모리 TTL 캐시**:
   - 반복되는 읽기 쿼리는 모듈 스코프 TTL 캐시로 감싼다(팟 목록 3초, 열린 방
     목록 5초, 랭킹 10초, 플래그·커스텀 매장·트렌드 통계 60초).

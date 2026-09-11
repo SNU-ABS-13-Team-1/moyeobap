@@ -18,9 +18,12 @@ const ROOMS_CACHE_TTL_MS = 15_000;
 // 퐁은 미니게임 목록에서 빠져 있어(#30) 부르지 않습니다.
 // Supabase DB Egress 방어를 위해 15초 동안 결과를 메모리에 캐싱합니다.
 export async function GET() {
+  const headers = {
+    "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15",
+  };
   const now = Date.now();
   if (cachedRooms && now - cachedRooms.cachedAt < ROOMS_CACHE_TTL_MS) {
-    return NextResponse.json({ rooms: cachedRooms.data });
+    return NextResponse.json({ rooms: cachedRooms.data }, { headers });
   }
 
   // 한 게임이 실패해도 나머지는 보여줍니다. 각 listRooms()는 Supabase가 없거나
@@ -48,5 +51,5 @@ export async function GET() {
   );
 
   cachedRooms = { data: rooms, cachedAt: now };
-  return NextResponse.json({ rooms });
+  return NextResponse.json({ rooms }, { headers });
 }
