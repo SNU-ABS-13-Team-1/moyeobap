@@ -4661,21 +4661,21 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     width: 100%;
   }
 
-  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않고 카드 내부에서 부드럽게 가로 스크롤되도록 처리 */
+  /* 시간대 막대가 화면 폭에 맞춰 카드 전폭을 고르게 채우도록 처리 (초소형 화면 가로 스크롤 보호 포함) */
   .trends-bar-chart__bars {
     display: flex;
+    justify-content: space-between;
+    width: 100%;
     overflow-x: auto;
-    justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     padding-bottom: 6px;
-    width: 100%;
-    max-width: 100%;
+    gap: 4px;
   }
 
   .trends-bar-col {
-    flex: 0 0 auto;
-    min-width: 24px;
+    flex: 1 1 0;
+    min-width: 22px;
     padding-inline: 2px;
   }
 }
