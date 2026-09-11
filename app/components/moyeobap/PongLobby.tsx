@@ -7,6 +7,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { requestJson, getErrorMessage } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 
 type LobbyRoom = {
   id: string;
@@ -27,12 +28,11 @@ const STATUS_LABEL: Record<LobbyRoom['status'], string> = {
 export function PongLobby() {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
-  const { data, mutate } = useSWR<{ rooms: LobbyRoom[] }>('/api/games/pong/rooms', fetcher, {
-    refreshInterval: 10000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  const { data, mutate } = useSWR<{ rooms: LobbyRoom[] }>(
+    '/api/games/pong/rooms',
+    fetcher,
+    POLLING_PRESETS.GAME_LOBBY,
+  );
   const [roomName, setRoomName] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
