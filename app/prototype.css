@@ -494,9 +494,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 960px) {
+  .header {
+    gap: 8px;
+  }
+
+  .header__auth {
+    gap: 6px;
+  }
+
   .header__bgm-marquee {
-    width: 76px;
+    display: none;
+  }
+
+  .header__bgm-text {
+    display: none;
+  }
+
+  .header__bgm-btn {
+    padding: 0 8px;
+    gap: 0;
   }
 
   .header__profile {
@@ -509,8 +526,40 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .header__auth-btn {
-    padding: 6px 14px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .site-nav {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .site-nav__link {
+    padding: 6px 9px;
     font-size: 0.82rem;
+    gap: 4px;
+  }
+
+  .site-nav__label-full {
+    display: none;
+  }
+
+  .site-nav__label-mobile {
+    display: inline;
+  }
+
+  .site-nav__badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+  }
+
+  .site-nav__count {
+    min-width: 15px;
+    height: 15px;
+    font-size: 0.6rem;
+    padding: 0 4px;
+    margin-left: 2px;
   }
 }
 
