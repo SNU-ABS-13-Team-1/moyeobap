@@ -293,6 +293,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .header__profile-name {
   font-weight: 500;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .header__auth {
@@ -1653,12 +1654,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .detail__participant-name {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .detail__participant-me-badge {
@@ -1668,6 +1674,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-radius: var(--radius-full);
   background: var(--primary);
   color: #fff;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .detail__participant-badge {
@@ -1677,6 +1685,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   background: rgba(255, 107, 53, 0.12);
   color: var(--primary);
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .detail__participant-memo-tag {
@@ -2633,16 +2643,23 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .detail__participant-name {
     font-size: 0.82rem;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .detail__participant-me-badge {
     font-size: 0.62rem;
     padding: 1px 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .detail__participant-badge {
     font-size: 0.62rem;
     padding: 1px 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .detail__participant-info {
@@ -2657,7 +2674,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .detail__participant-memo-tag {
@@ -3240,6 +3258,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.72rem;
   color: var(--text-muted);
   padding: 0 4px;
+  white-space: nowrap;
 }
 
 .chat-panel__bubble {
