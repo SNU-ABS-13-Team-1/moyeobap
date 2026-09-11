@@ -776,6 +776,15 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   padding: var(--space-xl);
 }
 
+@media (max-width: 960px) {
+  .pot-page__layout {
+    gap: var(--space-md);
+  }
+  .pot-page__info {
+    padding: var(--space-lg);
+  }
+}
+
 .pot-page__hero {
   display: flex;
   align-items: center;
@@ -1703,16 +1712,19 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .detail__my-memo-form {
   margin-top: 10px;
   padding-top: 8px;
+  width: 100%;
 }
 
 .detail__my-memo-input-wrap {
   display: flex;
   gap: 6px;
   align-items: center;
+  width: 100%;
 }
 
 .detail__my-memo-input {
   flex: 1;
+  min-width: 0;
   padding: 7px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -1729,6 +1741,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .detail__my-memo-submit {
+  flex-shrink: 0;
   padding: 7px 14px;
   border-radius: var(--radius-sm);
   background: var(--primary);
@@ -2639,20 +2652,23 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .detail__my-memo-input-wrap {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     width: 100%;
   }
 
   .detail__my-memo-input {
+    flex: 1;
+    min-width: 0;
     padding: 6px 10px;
     font-size: 0.78rem;
   }
 
   .detail__my-memo-submit {
-    width: 100%;
-    padding: 7px;
+    width: auto;
+    flex-shrink: 0;
+    padding: 6px 12px;
     font-size: 0.78rem;
   }
 
