@@ -23,7 +23,13 @@ function NewPotContent() {
   const { data: potsData, error: potsError } = useSWR<{ pots: SerializedPot[] }>(
     '/api/pots',
     fetcher,
-    POLLING_PRESETS.POT_LIST,
+    {
+      refreshInterval: 0,
+      refreshWhenHidden: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 10000,
+    },
   );
 
   async function handleCreateCustomRestaurant(input: {

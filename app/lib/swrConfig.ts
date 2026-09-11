@@ -52,13 +52,14 @@ export const POLLING_PRESETS = {
 
   /**
    * 게임 랭킹 / 명예의 전당
-   * - 60초 폴링 (랭킹은 자주 안 바뀌므로 Egress 방어를 위해 60초 적용)
+   * - 주간 랭킹은 실시간으로 바뀌지 않으므로 상시 폴링을 끄고(0), 진입 시 1회만 조회합니다.
    */
   GAME_RANKING: {
-    refreshInterval: 60000,
+    refreshInterval: 0,
     refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 10000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
   } satisfies SWRConfiguration,
 
   /**
