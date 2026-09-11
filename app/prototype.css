@@ -293,6 +293,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .header__profile-name {
   font-weight: 500;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .header__auth {
@@ -494,9 +495,26 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 960px) {
+  .header {
+    gap: 8px;
+  }
+
+  .header__auth {
+    gap: 6px;
+  }
+
   .header__bgm-marquee {
-    width: 76px;
+    display: none;
+  }
+
+  .header__bgm-text {
+    display: none;
+  }
+
+  .header__bgm-btn {
+    padding: 0 8px;
+    gap: 0;
   }
 
   .header__profile {
@@ -509,8 +527,40 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .header__auth-btn {
-    padding: 6px 14px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .site-nav {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .site-nav__link {
+    padding: 6px 9px;
     font-size: 0.82rem;
+    gap: 4px;
+  }
+
+  .site-nav__label-full {
+    display: none;
+  }
+
+  .site-nav__label-mobile {
+    display: inline;
+  }
+
+  .site-nav__badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+  }
+
+  .site-nav__count {
+    min-width: 15px;
+    height: 15px;
+    font-size: 0.6rem;
+    padding: 0 4px;
+    margin-left: 2px;
   }
 }
 
@@ -774,6 +824,15 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .pot-page__info {
   padding: var(--space-xl);
+}
+
+@media (max-width: 960px) {
+  .pot-page__layout {
+    gap: var(--space-md);
+  }
+  .pot-page__info {
+    padding: var(--space-lg);
+  }
 }
 
 .pot-page__hero {
@@ -1595,12 +1654,17 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .detail__participant-name {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .detail__participant-me-badge {
@@ -1610,6 +1674,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   border-radius: var(--radius-full);
   background: var(--primary);
   color: #fff;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .detail__participant-badge {
@@ -1619,6 +1685,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   background: rgba(255, 107, 53, 0.12);
   color: var(--primary);
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .detail__participant-memo-tag {
@@ -1703,16 +1771,19 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 .detail__my-memo-form {
   margin-top: 10px;
   padding-top: 8px;
+  width: 100%;
 }
 
 .detail__my-memo-input-wrap {
   display: flex;
   gap: 6px;
   align-items: center;
+  width: 100%;
 }
 
 .detail__my-memo-input {
   flex: 1;
+  min-width: 0;
   padding: 7px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -1729,6 +1800,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .detail__my-memo-submit {
+  flex-shrink: 0;
   padding: 7px 14px;
   border-radius: var(--radius-sm);
   background: var(--primary);
@@ -2571,16 +2643,23 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   .detail__participant-name {
     font-size: 0.82rem;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .detail__participant-me-badge {
     font-size: 0.62rem;
     padding: 1px 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .detail__participant-badge {
     font-size: 0.62rem;
     padding: 1px 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .detail__participant-info {
@@ -2595,7 +2674,8 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   .detail__participant-memo-tag {
@@ -2639,20 +2719,23 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   }
 
   .detail__my-memo-input-wrap {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     width: 100%;
   }
 
   .detail__my-memo-input {
+    flex: 1;
+    min-width: 0;
     padding: 6px 10px;
     font-size: 0.78rem;
   }
 
   .detail__my-memo-submit {
-    width: 100%;
-    padding: 7px;
+    width: auto;
+    flex-shrink: 0;
+    padding: 6px 12px;
     font-size: 0.78rem;
   }
 
@@ -3175,6 +3258,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   font-size: 0.72rem;
   color: var(--text-muted);
   padding: 0 4px;
+  white-space: nowrap;
 }
 
 .chat-panel__bubble {
@@ -4315,7 +4399,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .trends-bar-value {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #ea580c;
   margin-bottom: 2px;
@@ -4323,7 +4407,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 
 .trends-bar-fill {
   width: 70%;
-  max-width: 22px;
+  max-width: 30px;
   border-radius: 4px 4px 0 0;
   background: #cbd5e1;
   transition: height 0.4s ease, background 0.2s ease;
@@ -4339,7 +4423,7 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
 }
 
 .trends-bar-label {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #64748b;
   margin-top: 6px;
   white-space: nowrap;
@@ -4577,21 +4661,27 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
     width: 100%;
   }
 
-  /* 시간대 막대 13개가 좁은 화면에서 카드를 넘치지 않고 카드 내부에서 부드럽게 가로 스크롤되도록 처리 */
+  /* 시간대 막대가 화면 폭에 맞춰 과도하게 벌어지지 않도록 최적 너비(520px)로 정돈 */
+  .trends-bar-chart {
+    width: 100%;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
   .trends-bar-chart__bars {
     display: flex;
+    justify-content: space-between;
+    width: 100%;
     overflow-x: auto;
-    justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     padding-bottom: 6px;
-    width: 100%;
-    max-width: 100%;
+    gap: 4px;
   }
 
   .trends-bar-col {
-    flex: 0 0 auto;
-    min-width: 24px;
+    flex: 1 1 0;
+    min-width: 22px;
     padding-inline: 2px;
   }
 }
