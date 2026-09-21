@@ -8,6 +8,7 @@ import { fetcher } from '../../lib/fetcher';
 import { requestJson, getErrorMessage } from '../../lib/api-client';
 import { useAuth } from './AuthProvider';
 import { GameRanking } from './GameRanking';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 
 // 실시간 대전 공용 로비(방 목록·방 만들기·참여/관전). 오목·체스가 경로와
 // "누가 방장이고 빈 자리가 있는지"를 읽는 방법만 다르게 넘겨서 같이 씁니다.
@@ -58,12 +59,11 @@ const STATUS_LABEL: Record<LobbyRoomBase['status'], string> = {
 export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: GameLobbyConfig<Room> }) {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
-  const { data, mutate } = useSWR<{ rooms: Room[] }>(config.apiRooms, fetcher, {
-    refreshInterval: 10000,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-    dedupingInterval: 2000,
-  });
+  const { data, mutate } = useSWR<{ rooms: Room[] }>(
+    config.apiRooms,
+    fetcher,
+    POLLING_PRESETS.GAME_LOBBY,
+  );
   const [roomName, setRoomName] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

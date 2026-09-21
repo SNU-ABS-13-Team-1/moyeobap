@@ -10,6 +10,7 @@ import { useEmojiPickerOrder } from './useEmojiPickerOrder';
 import { EmojiPickerGrid } from './EmojiPickerGrid';
 import { isChatAtBottom } from '../../lib/chatScroll';
 import { useAuth } from './AuthProvider';
+import { POLLING_PRESETS } from '../../lib/swrConfig';
 
 // 퐁 채팅은 공용 GameChat을 쓰지 않습니다 — 화면 배색(pong-chat__*)이 게임과
 // 맞춰져 있고, 관전자는 읽기만 되는 규칙이 여기에만 있습니다. 이모티콘 UI만
@@ -36,12 +37,7 @@ export function PongChat({ roomId, canPost }: { roomId: string; canPost: boolean
   const { data, error, mutate } = useSWR<{ messages: PongChatMessage[] }>(
     `/api/games/pong/rooms/${roomId}/chat`,
     fetcher,
-    {
-      refreshInterval: 10000,
-      refreshWhenHidden: false,
-      revalidateOnFocus: true,
-      dedupingInterval: 2000,
-    },
+    POLLING_PRESETS.CHAT_FALLBACK,
   );
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
