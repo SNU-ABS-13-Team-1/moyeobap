@@ -5596,6 +5596,101 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   pointer-events: none;
 }
 
+/* 오목판은 SVG라 칸 폭에 맞춰 늘어납니다. 판 너비가 %로 정해지므로
+   fit-content 대신 칸 너비를 그대로 받습니다(알까기와 같은 이유). */
+.omok-room--fluid {
+  max-width: 100%;
+}
+
+.omok-board {
+  /* 칸 폭, 화면 높이 중 작은 쪽에 맞추되 너무 작아지지 않게 합니다. */
+  width: min(100%, 640px, max(340px, calc(100vh - 260px)));
+  border-radius: var(--radius-sm);
+  border: 2px solid #a97c30;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.omok-board svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.omok-board__wood {
+  fill: #dcb35c;
+}
+
+.omok-board__grid {
+  fill: none;
+  stroke: rgba(92, 67, 37, 0.8);
+  stroke-width: 1;
+}
+
+.omok-board__star {
+  fill: rgba(92, 67, 37, 0.9);
+}
+
+.omok-board__stone {
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: omok-stone-place 160ms ease-out;
+  transition: opacity 120ms ease-out;
+}
+
+.omok-board__stone--pending {
+  opacity: 0.6;
+}
+
+.omok-board__last {
+  fill: #e0483f;
+  pointer-events: none;
+}
+
+.omok-board__ghost {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.omok-board__forbidden {
+  fill: none;
+  stroke: #e0483f;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.omok-board__hit {
+  fill: transparent;
+}
+
+.omok-board--interactive .omok-board__hit {
+  cursor: pointer;
+}
+
+.omok-board--forbidden .omok-board__hit {
+  cursor: not-allowed;
+}
+
+@keyframes omok-stone-place {
+  from {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omok-board__stone {
+    animation: none;
+    transition: none;
+  }
+}
+
 .omok-room__move-error {
   margin-top: var(--space-sm);
   color: #e0483f;

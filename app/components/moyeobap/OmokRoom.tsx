@@ -4,23 +4,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
-import { isForbiddenMove } from '../../lib/omokForbidden';
 import { useOmokRoom } from '../../hooks/useOmokRoom';
 import { TURN_LIMIT_MS, isTurnExpired, remainingTurnMs } from '../../lib/omokMatch';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
 import { OmokChat } from './OmokChat';
+import { OmokBoard } from './OmokBoard';
 
-const CELL_SIZE = 26;
-const PADDING = 24;
-const STAR_POINTS = [3, 9, 15];
 const DISCONNECT_CLAIM_DELAY_MS = 60_000;
 
 export function OmokRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser, openAuth } = useAuth();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const hoverCanvasRef = useRef<HTMLCanvasElement>(null);
   const [leaving, setLeaving] = useState(false);
   const [resigning, setResigning] = useState(false);
   const [confirmingResign, setConfirmingResign] = useState(false);
@@ -31,7 +26,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   // 그리는 effect는 room에만 의존하므로 이 렌더가 캔버스를 건드리지 않습니다.
   const [now, setNow] = useState(() => Date.now());
   const [moveError, setMoveError] = useState<string | null>(null);
-  const [hoverForbiddenCell, setHoverForbiddenCell] = useState<{ row: number; col: number } | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ row: number; col: number; color: 'black' | 'white' } | null>(null);
 
   const { room, error, reconnecting, synchronize, sendAction } = useOmokRoom(roomId, currentUser?.id);
 
@@ -145,138 +140,6 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     };
   }, [room, now, myColor, sendAction]);
 
-  // 캔버스에 격자판 + 돌을 그립니다. 방금 놓인 돌은 살짝 확대되며
-  // 나타나는 간단한 애니메이션과 강조 테두리를 추가로 그립니다.
-  const lastAnimatedMoveRef = useRef<string | null>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !room) return undefined;
-
-    const size = room.board.length;
-    const dim = PADDING * 2 + (size - 1) * CELL_SIZE;
-    canvas.width = dim;
-    canvas.height = dim;
-
-    function draw(lastMoveScale: number) {
-      if (!ctx || !room) return;
-      ctx.fillStyle = '#dcb35c';
-      ctx.fillRect(0, 0, dim, dim);
-
-      ctx.strokeStyle = 'rgba(92, 67, 37, 0.8)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < size; i += 1) {
-        const pos = PADDING + i * CELL_SIZE;
-        ctx.beginPath();
-        ctx.moveTo(PADDING, pos);
-        ctx.lineTo(dim - PADDING, pos);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(pos, PADDING);
-        ctx.lineTo(pos, dim - PADDING);
-        ctx.stroke();
-      }
-
-      if (size === 19) {
-        ctx.fillStyle = 'rgba(92, 67, 37, 0.9)';
-        STAR_POINTS.forEach((r) => {
-          STAR_POINTS.forEach((c) => {
-            ctx.beginPath();
-            ctx.arc(PADDING + c * CELL_SIZE, PADDING + r * CELL_SIZE, 3, 0, Math.PI * 2);
-            ctx.fill();
-          });
-        });
-      }
-
-      room.board.forEach((rowCells, row) => {
-        rowCells.forEach((cell, col) => {
-          if (!cell) return;
-          const isLast = room.lastRow === row && room.lastCol === col;
-          const scale = isLast ? lastMoveScale : 1;
-          const x = PADDING + col * CELL_SIZE;
-          const y = PADDING + row * CELL_SIZE;
-          const radius = (CELL_SIZE / 2 - 2) * scale;
-
-          const gradient = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, Math.max(radius, 1));
-          if (cell === 'black') {
-            gradient.addColorStop(0, '#5a5a5a');
-            gradient.addColorStop(1, '#0a0a0a');
-          } else {
-            gradient.addColorStop(0, '#ffffff');
-            gradient.addColorStop(1, '#c9c9c9');
-          }
-
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = gradient;
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-
-          if (isLast) {
-            ctx.beginPath();
-            ctx.arc(x, y, CELL_SIZE / 2 - 2 + 3, 0, Math.PI * 2);
-            ctx.strokeStyle = '#e0483f';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          }
-        });
-      });
-    }
-
-    if (room.moveCount === 0) lastAnimatedMoveRef.current = null;
-    const moveKey = room.lastRow !== null && room.lastCol !== null ? `${room.lastRow},${room.lastCol}` : null;
-
-    let rafId: number | null = null;
-    if (moveKey && moveKey !== lastAnimatedMoveRef.current) {
-      lastAnimatedMoveRef.current = moveKey;
-      const start = performance.now();
-      const duration = 180;
-      const tick = (now: number) => {
-        const progress = Math.min(1, (now - start) / duration);
-        draw(0.3 + 0.7 * progress);
-        if (progress < 1) rafId = requestAnimationFrame(tick);
-      };
-      rafId = requestAnimationFrame(tick);
-    } else {
-      draw(1);
-    }
-
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, [room]);
-
-  // 금수 위치 마우스 오버 표시는 별도의 투명 오버레이 캔버스에만 그립니다.
-  // 클릭 처리는 계속 메인 캔버스가 담당하고(오버레이는 pointer-events:none),
-  // 보드 자체를 다시 그리는 애니메이션/effect와 완전히 분리해 서로 간섭하지
-  // 않습니다.
-  useEffect(() => {
-    const canvas = hoverCanvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !room) return;
-
-    const size = room.board.length;
-    const dim = PADDING * 2 + (size - 1) * CELL_SIZE;
-    canvas.width = dim;
-    canvas.height = dim;
-    ctx.clearRect(0, 0, dim, dim);
-
-    if (!hoverForbiddenCell) return;
-    const x = PADDING + hoverForbiddenCell.col * CELL_SIZE;
-    const y = PADDING + hoverForbiddenCell.row * CELL_SIZE;
-    ctx.strokeStyle = '#e0483f';
-    ctx.lineWidth = 2;
-    const r = CELL_SIZE / 2 - 3;
-    ctx.beginPath();
-    ctx.moveTo(x - r, y - r);
-    ctx.lineTo(x + r, y + r);
-    ctx.moveTo(x + r, y - r);
-    ctx.lineTo(x - r, y + r);
-    ctx.stroke();
-  }, [room, hoverForbiddenCell]);
-
   async function handleLeaveRoom() {
     setLeaving(true);
     try {
@@ -345,77 +208,26 @@ export function OmokRoom({ roomId }: { roomId: string }) {
     }
   }
 
+  // 서버 응답 전에 대기 돌을 먼저 보여줍니다. 판정은 서버가 하므로 성공하면
+  // 응답의 판으로, 실패하면 대기 돌을 지우고 최신 판으로 맞춥니다.
   async function handleMove(row: number, col: number) {
+    if (!myColor || pendingMove) return;
+    setPendingMove({ row, col, color: myColor });
     try {
       await sendAction('move', { row, col });
       setMoveError(null);
     } catch (err) {
       // 상대 차례이거나 이미 놓인 자리, 동시 착수로 인한 재시도 케이스는
-      // 별도 알림 없이 무시하고 다음 polling/realtime 갱신에서 자연스럽게
-      // 맞춰지지만, 금수 거부는 사용자에게 명확히 알려줍니다.
+      // 별도 알림 없이 최신 판으로 맞추지만, 금수 거부는 사용자에게 명확히
+      // 알려줍니다.
       const message = getErrorMessage(err, '');
       if (message.startsWith('금수입니다')) {
         setMoveError(message);
       }
       void synchronize().catch(() => {});
+    } finally {
+      setPendingMove(null);
     }
-  }
-
-  // 클릭/마우스오버 둘 다 캔버스 좌표 → 격자 교차점 변환이 필요해서 공유합니다.
-  function resolveIntersection(canvas: HTMLCanvasElement, event: { clientX: number; clientY: number }, size: number) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (event.clientX - rect.left) * scaleX;
-    const y = (event.clientY - rect.top) * scaleY;
-
-    const col = Math.round((x - PADDING) / CELL_SIZE);
-    const row = Math.round((y - PADDING) / CELL_SIZE);
-    if (row < 0 || row >= size || col < 0 || col >= size) return null;
-
-    const nearestX = PADDING + col * CELL_SIZE;
-    const nearestY = PADDING + row * CELL_SIZE;
-    if (Math.hypot(x - nearestX, y - nearestY) > CELL_SIZE / 2) return null;
-
-    return { row, col };
-  }
-
-  function handleCanvasClick(event: React.MouseEvent<HTMLCanvasElement>) {
-    if (!room || !isMyTurn) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const cell = resolveIntersection(canvas, event, room.board.length);
-    if (!cell || room.board[cell.row][cell.col] !== null) return;
-
-    handleMove(cell.row, cell.col);
-  }
-
-  // 흑 차례일 때만 의미가 있는 미리보기라, 그 외에는 항상 표시를 지웁니다.
-  // 실제 착수 가능 여부는 서버(app/lib/omok.ts의 submitMove)가 다시 검증하니
-  // 이건 어디까지나 UX용 힌트입니다.
-  function handleCanvasMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
-    if (!room || !isMyTurn || myColor !== 'black') {
-      if (hoverForbiddenCell) setHoverForbiddenCell(null);
-      return;
-    }
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const cell = resolveIntersection(canvas, event, room.board.length);
-    if (!cell || room.board[cell.row][cell.col] !== null) {
-      if (hoverForbiddenCell) setHoverForbiddenCell(null);
-      return;
-    }
-
-    const tempBoard = room.board.map((r) => [...r]);
-    tempBoard[cell.row][cell.col] = 'black';
-    const { forbidden } = isForbiddenMove(tempBoard, cell.row, cell.col, 'black');
-    setHoverForbiddenCell(forbidden ? cell : null);
-  }
-
-  function handleCanvasMouseLeave() {
-    if (hoverForbiddenCell) setHoverForbiddenCell(null);
   }
 
   if (error && !room) {
@@ -470,7 +282,7 @@ export function OmokRoom({ roomId }: { roomId: string }) {
   return (
     <div className="omok-room-page__layout">
       <div className="omok-room-page__main">
-        <div className="omok-room">
+        <div className="omok-room omok-room--fluid">
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
             <Spectators names={spectators} />
@@ -518,16 +330,15 @@ export function OmokRoom({ roomId }: { roomId: string }) {
             </div>
           )}
 
-          <div className="omok-room__canvas-wrap">
-            <canvas
-              className={`omok-room__canvas ${isMyTurn ? 'omok-room__canvas--active' : ''} ${hoverForbiddenCell ? 'omok-room__canvas--forbidden' : ''}`}
-              onClick={handleCanvasClick}
-              onMouseLeave={handleCanvasMouseLeave}
-              onMouseMove={handleCanvasMouseMove}
-              ref={canvasRef}
-            />
-            <canvas className="omok-room__hover-canvas" ref={hoverCanvasRef} />
-          </div>
+          <OmokBoard
+            board={room.board}
+            interactive={isMyTurn && !pendingMove}
+            lastMove={room.lastRow !== null && room.lastCol !== null ? { row: room.lastRow, col: room.lastCol } : null}
+            myColor={myColor}
+            onForbidden={setMoveError}
+            onPlace={handleMove}
+            pendingMove={pendingMove}
+          />
 
           {moveError && <p className="omok-room__move-error">{moveError}</p>}
 
