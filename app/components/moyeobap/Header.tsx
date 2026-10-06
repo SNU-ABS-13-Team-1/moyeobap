@@ -20,6 +20,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/trends', label: '식사 트렌드', mobileLabel: '트렌드', badge: 'HOT' },
   { href: '/my', label: '내 참여' },
   { href: '/pots/new', label: '새 모집' },
+  { href: '/apply', label: '모여 어플라이' },
   { href: '/games', label: '미니게임' },
 ] as const;
 
