@@ -35,7 +35,7 @@ export async function GET(
         maxParticipants: 8,
         orderCompletedAt: null,
         latestMessage: null,
-        unreadMessageCount: 0,
+        hasUnreadMessages: false,
       },
       restaurant: {
         id: "preview-restaurant",

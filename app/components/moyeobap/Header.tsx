@@ -30,12 +30,7 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
   const navItems = gamesEnabled ? NAV_ITEMS : NAV_ITEMS.filter((item) => item.href !== '/games');
 
   // 알림이 꺼져 있으면 Provider가 없고, 기본값 0이 내려와 배지가 그려지지 않습니다.
-  const { newPotCount, unreadTotal } = useNotifications();
-  const countFor = (href: string) => {
-    if (href === '/') return newPotCount;
-    if (href === '/my') return unreadTotal;
-    return 0;
-  };
+  const { newPotCount, hasUnreadMessages } = useNotifications();
 
   return (
     <header className="header">
@@ -56,7 +51,8 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
           const active = item.href === '/'
             ? pathname === '/'
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const count = countFor(item.href);
+          const count = item.href === '/' ? newPotCount : 0;
+          const showUnread = item.href === '/my' && hasUnreadMessages;
           return (
             <Link
               aria-current={active ? 'page' : undefined}
@@ -69,11 +65,13 @@ export function Header({ gamesEnabled }: { gamesEnabled: boolean }) {
               {item.mobileLabel && <span className="site-nav__label-mobile">{item.mobileLabel}</span>}
               {item.badge && <span className="site-nav__badge">{item.badge}</span>}
               {count > 0 && (
-                <span
-                  aria-label={item.href === '/' ? `새 모집 ${count}건` : `읽지 않은 메시지 ${count}개`}
-                  className="site-nav__count"
-                >
+                <span aria-label={`새 모집 ${count}건`} className="site-nav__count">
                   {count > 99 ? '99+' : count}
+                </span>
+              )}
+              {showUnread && (
+                <span aria-label="새 메시지가 있어요" className="site-nav__count">
+                  !
                 </span>
               )}
             </Link>
