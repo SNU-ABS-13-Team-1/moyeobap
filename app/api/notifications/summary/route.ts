@@ -5,6 +5,7 @@ import {
   getPotChatSummaries,
   listPots,
 } from "@/app/lib/backend";
+import { chatNotifyTopic } from "@/app/lib/chatNotify";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 
 /** 내려보낼 모집 중 팟의 상한. 현황판이 이보다 붐빌 일은 없습니다. */
@@ -24,6 +25,7 @@ export async function GET() {
     openPots: [],
     myPotIds: [],
     unread: [],
+    notifyTopic: null,
     serverTime: now.toISOString(),
   };
 
@@ -78,6 +80,7 @@ export async function GET() {
       })),
       myPotIds: myPots.map((pot) => pot.id),
       unread,
+      notifyTopic: chatNotifyTopic(user.id),
       serverTime: now.toISOString(),
     });
   } catch (error) {
