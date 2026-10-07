@@ -844,6 +844,26 @@ export async function getAnyRestaurant(id: string): Promise<Restaurant | undefin
   return (await client.get<Restaurant>(customRestaurantKey(id))) ?? undefined;
 }
 
+/**
+ * 팟 목록이 가리키는 직접 추가 매장을 찾습니다. `/api/restaurants`는 CDN에 1시간
+ * 캐시되므로 방금 추가한 매장이 빠져 있을 수 있어, 팟 응답에 매장 정보를 함께
+ * 실어 보내기 위해 씁니다. 목록 캐시에 없는 매장(다른 인스턴스에서 막 추가된
+ * 경우)만 개별 조회합니다.
+ */
+export async function getCustomRestaurantsForPots(pots: ServerPot[]): Promise<Map<string, Restaurant>> {
+  const seededIds = new Set(RESTAURANTS.map((r) => r.id));
+  const ids = [...new Set(pots.map((pot) => pot.restaurantId))].filter((id) => !seededIds.has(id));
+  if (ids.length === 0) return new Map();
+
+  const listed = new Map((await listCustomRestaurants()).map((r) => [r.id, r]));
+  const found = await Promise.all(
+    ids.map(async (id) => listed.get(id) ?? (await getAnyRestaurant(id).catch(() => undefined))),
+  );
+  return new Map(
+    found.filter((r): r is Restaurant => Boolean(r)).map((r) => [r.id, r]),
+  );
+}
+
 const MAX_MESSAGES_PER_POT = 200;
 
 export async function addMessage(message: ChatMessage): Promise<boolean> {

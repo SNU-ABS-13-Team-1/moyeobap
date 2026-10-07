@@ -103,6 +103,8 @@ export interface Pot {
   latestMessage: ChatMessagePreview | null;
   /** 현재 사용자가 아직 읽지 않은 다른 참여자의 메시지 수입니다. */
   unreadMessageCount: number;
+  /** 직접 추가 매장의 팟일 때만 목록 응답에 함께 실립니다. CDN에 캐시된 매장 목록에 아직 없을 수 있기 때문입니다. */
+  restaurant?: Restaurant;
 }
 
 export type SerializedPot = Omit<Pot, 'deadline'> & { deadline: string };
