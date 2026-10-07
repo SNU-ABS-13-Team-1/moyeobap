@@ -24,7 +24,6 @@ export async function GET() {
     openPots: [],
     myPotIds: [],
     unread: [],
-    unreadTotal: 0,
     serverTime: now.toISOString(),
   };
 
@@ -53,7 +52,7 @@ export async function GET() {
     const needNames = new Map<string, string>();
     for (const pot of openPots) needNames.set(pot.id, pot.restaurantId);
     for (const pot of myPots) {
-      if ((chatSummaries.get(pot.id)?.unreadMessageCount ?? 0) > 0) {
+      if (chatSummaries.get(pot.id)?.hasUnreadMessages) {
         needNames.set(pot.id, pot.restaurantId);
       }
     }
@@ -65,12 +64,8 @@ export async function GET() {
     );
 
     const unread = myPots
-      .map((pot) => ({
-        potId: pot.id,
-        name: named.get(pot.id) ?? "",
-        count: chatSummaries.get(pot.id)?.unreadMessageCount ?? 0,
-      }))
-      .filter((entry) => entry.count > 0);
+      .filter((pot) => chatSummaries.get(pot.id)?.hasUnreadMessages)
+      .map((pot) => ({ potId: pot.id, name: named.get(pot.id) ?? "" }));
 
     return NextResponse.json({
       openPots: openPots.map((pot) => ({
@@ -83,7 +78,6 @@ export async function GET() {
       })),
       myPotIds: myPots.map((pot) => pot.id),
       unread,
-      unreadTotal: unread.reduce((sum, entry) => sum + entry.count, 0),
       serverTime: now.toISOString(),
     });
   } catch (error) {

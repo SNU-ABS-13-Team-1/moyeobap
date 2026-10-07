@@ -61,12 +61,9 @@ export function PotCard({
           <div className="card__badges">
             <span className={`card__category ${catClass}`}>{catLabel}</span>
             <span className={`card__status ${statusClass}`}>{statusText}</span>
-            {showChatSummary && pot.unreadMessageCount > 0 && (
-              <span
-                aria-label={`읽지 않은 메시지 ${pot.unreadMessageCount}개`}
-                className="card__unread-badge"
-              >
-                {pot.unreadMessageCount > 99 ? '99+' : pot.unreadMessageCount}
+            {showChatSummary && pot.hasUnreadMessages && (
+              <span aria-label="새 메시지가 있어요" className="card__unread-badge">
+                !
               </span>
             )}
           </div>
@@ -76,7 +73,7 @@ export function PotCard({
         <p className="card__meta">{restaurantMeta}</p>
 
         {showChatSummary && (
-          <div className={`card__chat-preview ${pot.unreadMessageCount > 0 ? 'card__chat-preview--unread' : ''}`}>
+          <div className={`card__chat-preview ${pot.hasUnreadMessages ? 'card__chat-preview--unread' : ''}`}>
             <span>
               {pot.latestMessage
                 ? pot.latestMessage.text.startsWith(`${pot.latestMessage.authorName}님이 `)

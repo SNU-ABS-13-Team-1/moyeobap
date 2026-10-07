@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { fetcher } from '../../lib/fetcher';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import {
-  countUnread,
+  hasUnread,
   potIdFromPath,
   selectNewPots,
   shouldNotifyMessage,
@@ -39,21 +39,20 @@ type OpenPot = NewPotCandidate & { name: string };
 type Summary = {
   openPots: OpenPot[];
   myPotIds: string[];
-  unread: { potId: string; name: string; count: number }[];
-  unreadTotal: number;
+  unread: { potId: string; name: string }[];
   serverTime: string;
 };
 
 type NotificationValue = {
   newPotCount: number;
-  unreadTotal: number;
+  hasUnreadMessages: boolean;
   toasts: Toast[];
   dismissToast: (key: string) => void;
 };
 
 const EMPTY: NotificationValue = {
   newPotCount: 0,
-  unreadTotal: 0,
+  hasUnreadMessages: false,
   toasts: [],
   dismissToast: () => {},
 };
@@ -247,22 +246,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     toastedRef.current.clear();
   }, [pathname, userId, data?.serverTime, serverNowIso]);
 
-  // 지금 열어 보고 있는 팟은 헤더 숫자에서 뺍니다. 읽음이 서버에 기록되고
+  // 지금 열어 보고 있는 팟은 헤더 표시에서 뺍니다. 읽음이 서버에 기록되고
   // 폴링이 따라오기까지 배지가 남아 있던 시간을 없앱니다.
   const currentPotId = potIdFromPath(pathname);
-  const unreadTotal = useMemo(
-    () => countUnread(data?.unread ?? [], currentPotId),
+  const hasUnreadMessages = useMemo(
+    () => hasUnread(data?.unread ?? [], currentPotId),
     [data?.unread, currentPotId],
   );
 
   const value = useMemo<NotificationValue>(
     () => ({
       newPotCount: newPots.length,
-      unreadTotal,
+      hasUnreadMessages,
       toasts,
       dismissToast,
     }),
-    [newPots.length, unreadTotal, toasts, dismissToast],
+    [newPots.length, hasUnreadMessages, toasts, dismissToast],
   );
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;

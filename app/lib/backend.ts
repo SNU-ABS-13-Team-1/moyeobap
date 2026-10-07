@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRedis } from "./kv";
-import { getSupabase } from "./supabase";
+import { getSupabase, isSupabaseAdminConfigured } from "./supabase";
 import { toParticipantProfiles } from "./potParticipants";
 import { RESTAURANTS } from "../data/restaurants";
 import { isChatEmojiPath } from "../data/chat-emojis";
@@ -96,7 +96,7 @@ function getPinnedMessageView(potId: string, messageId: string) {
 export function toPotView(
   pot: ServerPot,
   currentUser: User | null,
-  chatSummary?: { latestMessage: ChatMessagePreview | null; unreadMessageCount: number },
+  chatSummary?: PotChatSummary,
 ): SerializedPot {
   const isParticipating = Boolean(
     currentUser && pot.participants.some((participant) => participant.id === currentUser.id),
@@ -122,7 +122,7 @@ export function toPotView(
     orderCompletedAt: pot.orderCompletedAt,
     pinnedMessage,
     latestMessage: isParticipating ? chatSummary?.latestMessage ?? null : null,
-    unreadMessageCount: isParticipating ? chatSummary?.unreadMessageCount ?? 0 : 0,
+    hasUnreadMessages: isParticipating ? chatSummary?.hasUnreadMessages ?? false : false,
   };
 }
 
@@ -1012,7 +1012,8 @@ function toChatPreview(message: ChatMessage): ChatMessagePreview {
 
 export type PotChatSummary = {
   latestMessage: ChatMessagePreview | null;
-  unreadMessageCount: number;
+  /** 마지막으로 읽은 뒤 다른 참여자가 보낸 메시지가 있는지. 개수는 세지 않습니다. */
+  hasUnreadMessages: boolean;
 };
 
 const cachedPotChatSummaries = new Map<
@@ -1020,15 +1021,31 @@ const cachedPotChatSummaries = new Map<
   { data: Map<string, PotChatSummary>; cachedAt: number; potKey: string }
 >();
 const CHAT_SUMMARIES_TTL_MS = 10_000;
-/**
- * 참여 팟 전체를 한 번에 훑는 조회의 상한입니다. 팟별이 아니라 합계라서,
- * 너무 낮으면 수다스러운 팟 하나가 조용한 팟들을 밀어내 그 팟의 최근 메시지와
- * 안 읽음 배지가 통째로 사라집니다. 트래픽은 위 TTL 캐시로 막고, 상한은
- * 배지가 틀리지 않을 만큼 남겨 둡니다.
- */
-const CHAT_SUMMARIES_MESSAGE_LIMIT = 500;
 
-/** 내 참여 목록에 필요한 최근 메시지와 읽지 않은 수를 한 번에 계산합니다. */
+type LatestMessageRow = {
+  author_id: string;
+  author_name: string;
+  text: string;
+  kind: string;
+  created_at: string;
+};
+
+/**
+ * 안 읽음은 "가장 최근 메시지가 다른 사람이 보낸 것이고, 마지막으로 읽은 뒤에
+ * 왔는가"로만 판단합니다. 내가 보낸 메시지가 마지막이면 그 전 대화는 채팅을
+ * 열고 본 것이므로 읽은 것으로 칩니다.
+ */
+function isUnread(
+  latest: { authorId: string; createdAt: string } | null,
+  userId: string,
+  cursor: number,
+): boolean {
+  return Boolean(
+    latest && latest.authorId !== userId && new Date(latest.createdAt).getTime() > cursor,
+  );
+}
+
+/** 내 참여 목록에 필요한 최근 메시지와 안 읽음 여부를 한 번에 계산합니다. */
 export async function getPotChatSummaries(
   pots: ServerPot[],
   user: User | null,
@@ -1063,24 +1080,29 @@ export async function getPotChatSummaries(
     ]),
   );
 
-  const supabase = sessionSupabase ?? getSupabase();
+  // 팟마다 최근 메시지 1개만 가져옵니다. pots에서 messages를 임베드하면
+  // PostgREST가 팟별로 (pot_id, created_at) 인덱스를 타는 LIMIT 1 조회를 만들어,
+  // 예전처럼 참여 팟 전체 메시지 수백 개를 읽고 정렬하지 않습니다.
+  // pots는 브라우저 키에 막혀 있어(lock_core_data_access) service-role로 읽고,
+  // 참여 여부는 위에서 이미 서버가 걸렀습니다.
+  const supabase = isSupabaseAdminConfigured() ? getSupabase() : sessionSupabase ?? getSupabase();
   if (supabase) {
-    const [{ data: messageRows, error: messageError }, { data: readRows, error: readError }] =
+    const [{ data: potRows, error: messageError }, { data: readRows, error: readError }] =
       await Promise.all([
         supabase
-          .from("messages")
-          .select("pot_id, author_id, author_name, text, kind, created_at")
-          .in("pot_id", potIds)
-          .order("created_at", { ascending: false })
-          .limit(CHAT_SUMMARIES_MESSAGE_LIMIT),
-        supabase
+          .from("pots")
+          .select("id, messages(author_id, author_name, text, kind, created_at)")
+          .in("id", potIds)
+          .order("created_at", { referencedTable: "messages", ascending: false })
+          .limit(1, { referencedTable: "messages" }),
+        (sessionSupabase ?? supabase)
           .from("message_reads")
           .select("pot_id, last_read_at")
           .eq("user_id", user.id)
           .in("pot_id", potIds),
       ]);
 
-    if (messageError || !messageRows) return summaries;
+    if (messageError || !potRows) return summaries;
 
     const readAtByPot = new Map<string, number>();
     if (!readError && readRows) {
@@ -1089,9 +1111,15 @@ export async function getPotChatSummaries(
       }
     }
 
+    const latestByPot = new Map(
+      (potRows as { id: string; messages: LatestMessageRow[] | null }[]).map((row) => [
+        row.id,
+        row.messages?.[0] ?? null,
+      ]),
+    );
+
     for (const pot of participatingPots) {
-      const rows = messageRows.filter((message) => message.pot_id === pot.id);
-      const latestRow = rows[0];
+      const latestRow = latestByPot.get(pot.id) ?? null;
       const latestMessage = latestRow
         ? toChatPreview({
             id: "preview",
@@ -1104,12 +1132,14 @@ export async function getPotChatSummaries(
           })
         : null;
       const cursor = Math.max(readAtByPot.get(pot.id) ?? 0, joinedAtByPot.get(pot.id) ?? 0);
-      const unreadMessageCount = readError
-        ? 0
-        : rows.filter((message) =>
-            message.author_id !== user.id && new Date(message.created_at).getTime() > cursor,
-          ).length;
-      summaries.set(pot.id, { latestMessage, unreadMessageCount });
+      const hasUnreadMessages =
+        !readError &&
+        isUnread(
+          latestRow && { authorId: latestRow.author_id, createdAt: latestRow.created_at },
+          user.id,
+          cursor,
+        );
+      summaries.set(pot.id, { latestMessage, hasUnreadMessages });
     }
     cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now, potKey });
     return summaries;
@@ -1118,7 +1148,8 @@ export async function getPotChatSummaries(
   const client = getRedis();
   for (const pot of participatingPots) {
     const messages = await listMessages(pot.id);
-    const latestMessage = messages.length > 0 ? toChatPreview(messages[messages.length - 1]) : null;
+    const latest = messages.length > 0 ? messages[messages.length - 1] : null;
+    const latestMessage = latest ? toChatPreview(latest) : null;
     const storedReadAt = client
       ? await client.get<string>(potMessageReadKey(pot.id, user.id))
       : memoryMessageReads.get(potMessageReadKey(pot.id, user.id));
@@ -1126,10 +1157,8 @@ export async function getPotChatSummaries(
       storedReadAt ? new Date(storedReadAt).getTime() : 0,
       joinedAtByPot.get(pot.id) ?? 0,
     );
-    const unreadMessageCount = messages.filter((message) =>
-      message.authorId !== user.id && new Date(message.createdAt).getTime() > cursor,
-    ).length;
-    summaries.set(pot.id, { latestMessage, unreadMessageCount });
+    const hasUnreadMessages = isUnread(latest, user.id, cursor);
+    summaries.set(pot.id, { latestMessage, hasUnreadMessages });
   }
   cachedPotChatSummaries.set(user.id, { data: summaries, cachedAt: now, potKey });
   return summaries;

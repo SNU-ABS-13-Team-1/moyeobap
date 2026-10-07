@@ -56,19 +56,17 @@ export function potIdFromPath(pathname: string): string | null {
 }
 
 /**
- * 헤더에 띄울 안 읽은 메시지 수. 지금 열어 보고 있는 팟은 뺍니다.
+ * 헤더에 새 메시지 표시(!)를 띄울지. 지금 열어 보고 있는 팟은 뺍니다.
  *
- * 읽음은 채팅을 열 때 서버에 기록되지만 헤더 숫자는 폴링으로 따라옵니다.
+ * 읽음은 채팅을 열 때 서버에 기록되지만 헤더 표시는 폴링으로 따라옵니다.
  * 그 사이 배지가 남아 있으면 "확인했는데 안 사라진다"가 됩니다. 보고 있는
  * 팟을 빼면 서버를 기다리지 않고 바로 반영됩니다.
  */
-export function countUnread(
-  entries: readonly { potId: string; count: number }[],
+export function hasUnread(
+  entries: readonly { potId: string }[],
   currentPotId: string | null,
-): number {
-  return entries
-    .filter((entry) => entry.potId !== currentPotId)
-    .reduce((sum, entry) => sum + entry.count, 0);
+): boolean {
+  return entries.some((entry) => entry.potId !== currentPotId);
 }
 
 export type MessageEvent = { potId: string; authorId: string };

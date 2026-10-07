@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  countUnread,
+  hasUnread,
   potIdFromPath,
   selectNewPots,
   shouldNotifyMessage,
@@ -132,20 +132,14 @@ test("팟 상세가 아닌 경로에서는 팟 id가 없다", () => {
   assert.equal(potIdFromPath("/pots"), null);
 });
 
-test("안 읽은 수를 모두 더한다", () => {
-  const entries = [
-    { potId: "p1", count: 2 },
-    { potId: "p2", count: 3 },
-  ];
-  assert.equal(countUnread(entries, null), 5);
+test("안 읽은 팟이 하나라도 있으면 새 메시지로 표시한다", () => {
+  assert.equal(hasUnread([{ potId: "p1" }, { potId: "p2" }], null), true);
+  assert.equal(hasUnread([], null), false);
 });
 
-test("지금 보고 있는 팟은 안 읽은 수에서 뺀다", () => {
+test("지금 보고 있는 팟은 새 메시지 표시에서 뺀다", () => {
   // 읽음 처리는 서버에 기록되지만 다음 폴링까지 배지가 남습니다.
   // 그 팟을 열어둔 동안은 배지에서 즉시 빼서 기다림을 없앱니다.
-  const entries = [
-    { potId: "p1", count: 2 },
-    { potId: "p2", count: 3 },
-  ];
-  assert.equal(countUnread(entries, "p1"), 3);
+  assert.equal(hasUnread([{ potId: "p1" }, { potId: "p2" }], "p1"), true);
+  assert.equal(hasUnread([{ potId: "p1" }], "p1"), false);
 });
