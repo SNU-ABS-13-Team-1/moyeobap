@@ -40,10 +40,14 @@ export default function HomePage() {
 
   const restaurants = useMemo(() => restaurantsData?.restaurants ?? [], [restaurantsData]);
   const pots = useMemo(() => (potsData?.pots ?? []).map(toPot), [potsData]);
-  const restaurantsById = useMemo(
-    () => new Map(restaurants.map((restaurant) => [restaurant.id, restaurant])),
-    [restaurants],
-  );
+  const restaurantsById = useMemo(() => {
+    const byId = new Map(restaurants.map((restaurant) => [restaurant.id, restaurant]));
+    // 직접 추가 매장은 CDN에 캐시된 매장 목록에 아직 없을 수 있어 팟에 실려 온 정보로 채웁니다.
+    for (const pot of pots) {
+      if (pot.restaurant) byId.set(pot.restaurantId, pot.restaurant);
+    }
+    return byId;
+  }, [pots, restaurants]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

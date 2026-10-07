@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import {
   getAnyRestaurant,
+  getCustomRestaurantsForPots,
   getPotChatSummaries,
   listPots,
   logEvent,
@@ -11,16 +12,22 @@ import {
   type ServerPot,
 } from "@/app/lib/backend";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
+import type { Restaurant } from "@/app/types/moyeobap";
 
 export async function GET() {
   try {
     const user = await getSession();
     const pots = await listPots();
     const sessionSupabase = user ? await createSupabaseServerClient() : undefined;
-    const chatSummaries = await getPotChatSummaries(pots, user, sessionSupabase).catch(() => new Map());
-    const visible = pots
-      .filter((pot) => pot.status !== "failed" && pot.participants.length > 0)
-      .map((pot) => toPotView(pot, user, chatSummaries.get(pot.id)));
+    const visiblePots = pots.filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+    const [chatSummaries, customRestaurants] = await Promise.all([
+      getPotChatSummaries(visiblePots, user, sessionSupabase).catch(() => new Map()),
+      getCustomRestaurantsForPots(visiblePots).catch(() => new Map<string, Restaurant>()),
+    ]);
+    const visible = visiblePots.map((pot) => ({
+      ...toPotView(pot, user, chatSummaries.get(pot.id)),
+      restaurant: customRestaurants.get(pot.restaurantId),
+    }));
     return NextResponse.json({ pots: visible });
   } catch (error) {
     console.error("GET /api/pots error:", error);

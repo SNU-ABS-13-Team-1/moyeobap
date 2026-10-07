@@ -33,10 +33,14 @@ export default function MyPotsPage() {
     fetcher,
   );
 
-  const restaurantsById = useMemo(
-    () => new Map((restaurantsData?.restaurants ?? []).map((restaurant) => [restaurant.id, restaurant])),
-    [restaurantsData],
-  );
+  const restaurantsById = useMemo(() => {
+    const byId = new Map((restaurantsData?.restaurants ?? []).map((restaurant) => [restaurant.id, restaurant]));
+    // 직접 추가 매장은 CDN에 캐시된 매장 목록에 아직 없을 수 있어 팟에 실려 온 정보로 채웁니다.
+    for (const pot of potsData?.pots ?? []) {
+      if (pot.restaurant) byId.set(pot.restaurantId, pot.restaurant);
+    }
+    return byId;
+  }, [potsData, restaurantsData]);
   const myPots = useMemo(
     () => (potsData?.pots ?? [])
       .map(toPot)
