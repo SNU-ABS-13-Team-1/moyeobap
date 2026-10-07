@@ -8,7 +8,6 @@ import { listRooms as listBadukRooms } from "@/app/lib/baduk";
 import { listRooms as listChessRooms } from "@/app/lib/chessOnline";
 import { listRooms as listRummyRooms } from "@/app/lib/rummyOnline";
 import { listRooms as listPhoneRooms } from "@/app/lib/phoneOnline";
-import { listRooms as listOneNightRooms } from "@/app/lib/onenightOnline";
 
 let cachedRooms: { data: unknown; cachedAt: number } | null = null;
 const ROOMS_CACHE_TTL_MS = 15_000;
@@ -28,25 +27,23 @@ export async function GET() {
 
   // 한 게임이 실패해도 나머지는 보여줍니다. 각 listRooms()는 Supabase가 없거나
   // 조회에 실패하면 이미 빈 배열을 돌려주므로 여기서 따로 감싸지 않습니다.
-  // 플래그로 가려진 게임(바둑·알까기·원나잇)은 플래그를 확인합니다.
-  const [alkkagiEnabled, badukEnabled, onenightEnabled] = await Promise.all([
+  // 플래그로 가려진 게임(바둑·알까기)은 플래그를 확인합니다.
+  const [alkkagiEnabled, badukEnabled] = await Promise.all([
     isFeatureEnabled("alkkagi"),
     isFeatureEnabled("baduk"),
-    isFeatureEnabled("onenight"),
   ]);
 
-  const [omok, alkkagi, baduk, chess, rummy, phone, onenight] = await Promise.all([
+  const [omok, alkkagi, baduk, chess, rummy, phone] = await Promise.all([
     listOmokRooms(),
     alkkagiEnabled ? listAlkkagiRooms() : Promise.resolve([]),
     badukEnabled ? listBadukRooms() : Promise.resolve([]),
     listChessRooms(),
     listRummyRooms(),
     listPhoneRooms(),
-    onenightEnabled ? listOneNightRooms() : Promise.resolve([]),
   ]);
 
   const rooms = mergeOpenRooms(
-    { omok, alkkagi, baduk, chess, rummy, phone, onenight },
+    { omok, alkkagi, baduk, chess, rummy, phone },
     { chessTimeLabel: (timeControl) => TIME_CONTROL_LABEL[timeControl as TimeControl] ?? null },
   );
 

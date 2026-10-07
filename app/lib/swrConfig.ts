@@ -7,7 +7,7 @@ import type { SWRConfiguration } from 'swr';
  */
 export const POLLING_PRESETS = {
   /**
-   * 실시간 게임 룸 (바둑, 체스, 오목, 알까기, 원나잇 인랑, 퐁, 루미큐브, 폰 등)
+   * 실시간 게임 룸 (바둑, 체스, 오목, 알까기, 퐁, 루미큐브, 폰 등)
    * - 주요 상태 변경은 Supabase Realtime으로 즉시 수신하되, 네트워크 순단 fallback으로 20초 폴링을 둡니다.
    */
   GAME_ROOM: {
