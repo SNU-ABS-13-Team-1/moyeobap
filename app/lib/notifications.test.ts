@@ -110,7 +110,7 @@ test("내가 쓴 메시지는 내게 알리지 않는다", () => {
 });
 
 test("내 팟이 아닌 곳의 메시지는 알리지 않는다", () => {
-  // RLS를 믿고 넘기지 않고, 받은 이벤트도 내 팟 목록으로 한 번 더 거릅니다.
+  // 서버의 수신자 목록을 믿고 넘기지 않고, 받은 신호도 내 팟 목록으로 한 번 더 거릅니다.
   const notify = shouldNotifyMessage(
     { potId: "남의팟", authorId: "someone" },
     { userId: "me", myPotIds: new Set(["p1"]) },

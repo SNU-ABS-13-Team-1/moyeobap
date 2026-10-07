@@ -16,9 +16,9 @@ import { useAuth } from './AuthProvider';
 
 // 게임을 하는 중에도 새 팟과 내 팟의 채팅을 눈치챌 수 있게 하는 알림 계층입니다.
 //
-// 새 팟은 서버 폴링, 채팅은 Realtime으로 들어옵니다. pots 테이블은 클라이언트에
-// SELECT가 열려 있지 않아 구독할 수 없고, messages는 참여자에게 열려 있어
-// 구독할 수 있기 때문입니다.
+// 새 팟은 서버 폴링, 채팅은 Realtime Broadcast로 들어옵니다. 채팅을 저장한
+// 서버가 참여자별 알림 채널로 신호를 보냅니다(app/lib/chatNotify.ts). DB 변경을
+// 구독하지 않으므로 DB에 부하를 주지 않습니다.
 
 /** 새 팟 폴링 주기. 트래픽 방어를 위해 60초로 설정합니다. */
 const POLL_INTERVAL_MS = 60_000;
@@ -40,6 +40,8 @@ type Summary = {
   openPots: OpenPot[];
   myPotIds: string[];
   unread: { potId: string; name: string }[];
+  /** 내 채팅 알림 Broadcast 채널. 서버에 비밀값이 없으면 null(폴링만 사용). */
+  notifyTopic: string | null;
   serverTime: string;
 };
 
@@ -163,7 +165,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [newPots, pushToast]);
 
-  // 내 팟의 채팅은 Realtime으로 즉시 받습니다.
+  // 내 팟의 채팅은 Broadcast로 즉시 받습니다.
   const myPotIds = useMemo(() => data?.myPotIds ?? [], [data?.myPotIds]);
   const myPotIdsKey = myPotIds.join(',');
   const nameByPot = useMemo(() => {
@@ -178,8 +180,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     nameByPotRef.current = nameByPot;
   }, [nameByPot]);
 
+  const notifyTopic = data?.notifyTopic ?? null;
   useEffect(() => {
-    if (!userId || !myPotIdsKey) return undefined;
+    if (!userId || !myPotIdsKey || !notifyTopic) return undefined;
 
     let supabase;
     try {
@@ -190,41 +193,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const potIdSet = new Set(myPotIdsKey.split(','));
     const channel = supabase
-      .channel(`pot-messages-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `pot_id=in.(${myPotIdsKey})`,
-        },
-        (payload) => {
-          const row = payload.new as { pot_id?: string; author_id?: string } | null;
-          if (!row?.pot_id || !row.author_id) return;
-          const notify = shouldNotifyMessage(
-            { potId: row.pot_id, authorId: row.author_id },
-            { userId, myPotIds: potIdSet },
-          );
-          if (!notify) return;
-          const name = nameByPotRef.current.get(row.pot_id) ?? '참여 중인 팟';
-          pushToast({
-            key: `chat:${row.pot_id}:${performance.now()}`,
-            kind: 'chat',
-            text: `${name}에 새 메시지가 왔어요`,
-            href: `/pots/${row.pot_id}`,
-          });
-          // 배지 숫자는 서버 집계(message_reads 기준)를 따릅니다.
-          mutate();
-        },
-      )
+      .channel(notifyTopic)
+      .on('broadcast', { event: 'chat' }, ({ payload }) => {
+        const notice = payload as { potId?: string; authorId?: string } | null;
+        if (!notice?.potId || !notice.authorId) return;
+        const notify = shouldNotifyMessage(
+          { potId: notice.potId, authorId: notice.authorId },
+          { userId, myPotIds: potIdSet },
+        );
+        if (!notify) return;
+        const name = nameByPotRef.current.get(notice.potId) ?? '참여 중인 팟';
+        pushToast({
+          key: `chat:${notice.potId}:${performance.now()}`,
+          kind: 'chat',
+          text: `${name}에 새 메시지가 왔어요`,
+          href: `/pots/${notice.potId}`,
+        });
+        // '!' 표시는 서버 집계(message_reads 기준)를 따릅니다.
+        mutate();
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
     // 구독은 내 팟 목록이 실제로 바뀔 때만 다시 겁니다.
-  }, [userId, myPotIdsKey, pushToast, mutate]);
+  }, [userId, myPotIdsKey, notifyTopic, pushToast, mutate]);
 
   // 화면을 옮기면 폴링 틱을 기다리지 않고 바로 다시 받아옵니다. 읽음 처리는
   // 서버에 이미 기록됐는데 헤더 숫자만 남아 있는 시간을 없앱니다.

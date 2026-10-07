@@ -73,10 +73,10 @@ export type MessageEvent = { potId: string; authorId: string };
 export type MessageContext = { userId: string; myPotIds: Set<string> };
 
 /**
- * Realtime으로 받은 메시지를 알릴지 정합니다.
+ * Broadcast로 받은 채팅 알림을 띄울지 정합니다.
  *
- * 구독 자체를 내 팟 id로 걸어두지만, 받은 이벤트도 여기서 한 번 더 거릅니다.
- * 구독 필터나 RLS가 어긋나도 남의 팟 메시지가 화면에 뜨지 않게 하려는 것입니다.
+ * 서버가 보낸 사람을 빼고 참여자에게만 보내지만, 받은 신호도 여기서 한 번 더
+ * 거릅니다. 서버 쪽 참여자 목록이 어긋나도 남의 팟 알림이 뜨지 않게 하려는 것입니다.
  */
 export function shouldNotifyMessage(
   { potId, authorId }: MessageEvent,

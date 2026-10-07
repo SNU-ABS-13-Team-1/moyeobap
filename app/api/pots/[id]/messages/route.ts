@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import { addMessage, getPot, listMessages, markPotMessagesRead } from "@/app/lib/backend";
+import { broadcastChatNotice } from "@/app/lib/chatNotify";
 import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 import { getChatEmojiById } from "@/app/data/chat-emojis";
 import type { ChatMessage, ChatMessageView } from "@/app/types/moyeobap";
@@ -129,6 +130,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       { status: 503 },
     );
   }
+
+  await broadcastChatNotice(
+    id,
+    user.id,
+    check.pot.participants.map((participant) => participant.id),
+  );
 
   const view: ChatMessageView = {
     id: message.id,
