@@ -48,24 +48,10 @@ const GAMES = [
     desc: '문장 → 그림 → 문장… 전화 게임. 3~10명이 동시에 쓰고 그린 뒤 앨범을 같이 봐요.',
   },
   {
-    href: '/games/onenight',
-    emoji: '🌙',
-    title: '원나잇 인랑',
-    desc: '밤 한 번, 낮 한 번. 카드를 받고 한 명을 지목하면 끝나는 짧은 마피아 (3~8명).',
-    flag: 'onenight',
-  },
-  {
     href: '/games/flappy',
     emoji: '🐤',
     title: '플래피 버드',
     desc: 'Space/클릭/터치로 flap해서 파이프를 통과하고 콤보를 쌓아보세요.',
-  },
-  {
-    href: '/games/rhythm',
-    emoji: '🎹',
-    title: '리듬게임',
-    desc: 'D/F/J/K로 판정선에 맞춰 노트를 눌러보세요. 모여밥 실제 BGM으로 플레이해요.',
-    flag: 'rhythm',
   },
 ] as const;
 

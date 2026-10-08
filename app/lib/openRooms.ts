@@ -14,16 +14,13 @@
  * 원본과 어긋나면 openRooms.test.ts가 바로 잡아냅니다.
  */
 
-export type OpenRoomGame = "omok" | "alkkagi" | "baduk" | "chess" | "rummy" | "phone" | "onenight";
+export type OpenRoomGame = "omok" | "alkkagi" | "baduk" | "chess" | "rummy" | "phone";
 
 export type OpenRoomStatus =
   | "waiting"
   | "playing"
   | "presenting"
-  | "scoring"
-  | "night"
-  | "day"
-  | "voting";
+  | "scoring";
 
 export type OpenRoom = {
   game: OpenRoomGame;
@@ -53,8 +50,6 @@ export const MAX_OPEN_ROOMS = 20;
 export const RUMMY_MAX_PLAYERS = 4;
 /** phoneMatch.MAX_PLAYERS 와 같아야 합니다. */
 export const PHONE_MAX_PLAYERS = 10;
-/** onenightMatch.MAX_PLAYERS 와 같아야 합니다. */
-export const ONENIGHT_MAX_PLAYERS = 8;
 
 const GAME_LABEL: Record<OpenRoomGame, { label: string; emoji: string }> = {
   omok: { label: "오목", emoji: "⚫" },
@@ -63,7 +58,6 @@ const GAME_LABEL: Record<OpenRoomGame, { label: string; emoji: string }> = {
   chess: { label: "체스", emoji: "♟️" },
   rummy: { label: "루미큐브", emoji: "🀄" },
   phone: { label: "갈틱폰", emoji: "📞" },
-  onenight: { label: "원나잇 인랑", emoji: "🌙" },
 };
 
 /** 방 주소는 체스·루미큐브만 /online/ 이 한 칸 더 들어갑니다. */
@@ -74,7 +68,6 @@ const PAGE_PATH: Record<OpenRoomGame, string> = {
   chess: "/games/chess/online",
   rummy: "/games/rummy/online",
   phone: "/games/phone",
-  onenight: "/games/onenight",
 };
 
 type Seat = { id: string; name: string; left: boolean };
@@ -115,16 +108,6 @@ type PhoneLike = {
   hostId: string;
   players: Seat[];
   settings: { writeSec: number; drawSec: number };
-  createdAt: string;
-};
-
-type OneNightLike = {
-  id: string;
-  roomName: string;
-  status: string;
-  hostId: string | null;
-  players: Seat[];
-  settings: { nightSec: number; daySec: number; voteSec: number };
   createdAt: string;
 };
 
@@ -251,25 +234,7 @@ export function fromPhone(room: PhoneLike): OpenRoom {
   };
 }
 
-export function fromOneNight(room: OneNightLike): OpenRoom {
-  const here = staying(room.players);
-  const dayMin = Math.round(room.settings.daySec / 60);
-  return {
-    ...base("onenight", room.id),
-    id: room.id,
-    roomName: room.roomName,
-    status: room.status as OpenRoomStatus,
-    playerCount: here.length,
-    maxPlayers: ONENIGHT_MAX_PLAYERS,
-    hasOpenSeat: room.status === "waiting" && here.length < ONENIGHT_MAX_PLAYERS,
-    hostId: room.hostId,
-    memberIds: here.map((player) => player.id),
-    meta: `밤 ${room.settings.nightSec}초 · 토론 ${dayMin}분`,
-    createdAt: room.createdAt,
-  };
-}
-
-const OPEN_STATUSES = new Set(["waiting", "playing", "presenting", "scoring", "night", "day", "voting"]);
+const OPEN_STATUSES = new Set(["waiting", "playing", "presenting", "scoring"]);
 
 export type RoomsByGame = {
   omok: OmokLike[];
@@ -278,7 +243,6 @@ export type RoomsByGame = {
   chess: ChessLike[];
   rummy: RummyLike[];
   phone: PhoneLike[];
-  onenight: OneNightLike[];
 };
 
 /** 체스 시간제 라벨을 붙이는 함수. 라우트가 chessMatch에서 가져와 넘깁니다. */
@@ -292,7 +256,6 @@ export function mergeOpenRooms(rooms: RoomsByGame, options: MergeOptions = {}): 
     ...rooms.chess.map((room) => fromChess(room, options.chessTimeLabel?.(room.timeControl))),
     ...rooms.rummy.map(fromRummy),
     ...rooms.phone.map(fromPhone),
-    ...rooms.onenight.map(fromOneNight),
   ]
     // 끝난 방(finished 등)은 걸러냅니다.
     .filter((room) => OPEN_STATUSES.has(room.status))
