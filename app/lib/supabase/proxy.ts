@@ -1,3 +1,4 @@
+import { createMeasuredFetch } from "./egress";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "./config";
@@ -8,6 +9,7 @@ export async function updateSupabaseSession(request: NextRequest) {
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(config.url, config.publishableKey, {
+    global: { fetch: createMeasuredFetch("proxy") },
     cookies: {
       getAll() {
         return request.cookies.getAll();

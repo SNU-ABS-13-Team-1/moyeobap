@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   if (!code) return errorRedirect(request, "missing_code");
 
+  if (process.env.SUPABASE_EGRESS_METRICS === "1") {
+    console.info(JSON.stringify({ event: "auth_callback_exchange_started" }));
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error || !data.user) return errorRedirect(request, "exchange_failed");

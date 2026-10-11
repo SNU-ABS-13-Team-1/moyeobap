@@ -1,3 +1,4 @@
+import { createMeasuredFetch } from "./egress";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { requireSupabaseConfig } from "./config";
@@ -7,6 +8,7 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(url, publishableKey, {
+    global: { fetch: createMeasuredFetch("session") },
     cookies: {
       getAll() {
         return cookieStore.getAll();
