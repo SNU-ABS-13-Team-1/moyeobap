@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRedis } from "./kv";
 import { getSupabase, isSupabaseAdminConfigured } from "./supabase";
 import { toParticipantProfiles } from "./potParticipants";
+import { fetchAllPotRows, POT_ROW_SELECT } from "./statsPots";
 import { RESTAURANTS } from "../data/restaurants";
 import { isChatEmojiPath } from "../data/chat-emojis";
 import type {
@@ -582,6 +583,88 @@ export function invalidatePotsCache(): void {
   cachedPots = null;
 }
 
+type SupabasePotParticipantRow = {
+  user_id: string;
+  user_name: string;
+  user_initial: string;
+  joined_at: string;
+  is_paid?: boolean;
+  order_memo?: string | null;
+};
+
+type SupabasePotRow = {
+  id: string;
+  restaurant_id: string;
+  deadline: string;
+  status: string;
+  category: string | null;
+  max_participants: number | null;
+  created_at: string;
+  creator_id: string | null;
+  manager_id: string | null;
+  order_completed_at: string | null;
+  order_completed_by: string | null;
+  pot_participants: SupabasePotParticipantRow[] | null;
+};
+
+/** Supabase pots 행(참여자 임베드 포함)을 ServerPot으로 바꿉니다. 목록·통계가 같이 씁니다. */
+function mapSupabasePotRow(potRow: SupabasePotRow): ServerPot {
+  const memPot = memoryPots.get(potRow.id);
+  const memPartMap = new Map(
+    memPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
+  );
+
+  return normalizePot({
+    id: potRow.id,
+    restaurantId: potRow.restaurant_id,
+    deadline: potRow.deadline,
+    status: potRow.status as ServerPot["status"],
+    category: (potRow.category as ServerPot["category"]) ?? memPot?.category,
+    maxParticipants: potRow.max_participants,
+    createdAt: potRow.created_at,
+    creatorId: potRow.creator_id ?? undefined,
+    managerId: potRow.manager_id ?? undefined,
+    orderCompletedAt: potRow.order_completed_at ?? null,
+    orderCompletedBy: potRow.order_completed_by ?? null,
+    participants: (potRow.pot_participants ?? []).map((p) => {
+      const mem = memPartMap.get(p.user_id);
+      return {
+        id: p.user_id,
+        name: p.user_name,
+        initial: p.user_initial,
+        email: p.user_id,
+        isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
+        orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
+        joinedAt: new Date(p.joined_at).getTime(),
+      };
+    }),
+  });
+}
+
+/** 저장 없이 현재 시각 기준 상태만 계산하고, listPots()와 같은 기준으로 실패·빈 팟을 뺍니다. */
+function settlePots(pots: ServerPot[], now: Date): ServerPot[] {
+  return pots
+    .map((pot) => ({ ...pot, status: deriveStatus(pot, now) }))
+    .filter((pot) => pot.status !== "failed" && pot.participants.length > 0);
+}
+
+/**
+ * 통계 집계용 전체 팟. listPots()는 Egress 방어로 최근 60개만 읽으므로
+ * 누적 수치(아낀 배달비, 카테고리 분포 등)는 이 함수로 끝까지 읽습니다.
+ * 호출 빈도는 getCampusStats의 60초 캐시가 제한합니다.
+ */
+async function listPotsForStats(): Promise<ServerPot[]> {
+  const supabase = getSupabase();
+  if (!supabase) return listPots();
+  try {
+    const rows = (await fetchAllPotRows(supabase)) as SupabasePotRow[];
+    return settlePots(rows.map(mapSupabasePotRow), new Date());
+  } catch (error) {
+    console.error("Supabase listPotsForStats error:", error);
+    return listPots();
+  }
+}
+
 /** 마감/정원 도달로 상태가 바뀐 팟은 목록 조회 시점에 계산해서 반영(저장)합니다. */
 export async function listPots(): Promise<ServerPot[]> {
   const now = new Date();
@@ -596,53 +679,12 @@ export async function listPots(): Promise<ServerPot[]> {
   if (supabase) {
     const { data: rows, error } = await supabase
       .from("pots")
-      .select("*, pot_participants(user_id, user_name, user_initial, is_paid, order_memo, joined_at)")
+      .select(POT_ROW_SELECT)
       .order("created_at", { ascending: false })
       .limit(60);
 
     if (!error && rows) {
-      type SupabaseParticipant = {
-        user_id: string;
-        user_name: string;
-        user_initial: string;
-        bank_account: string | null;
-        joined_at: string;
-        is_paid?: boolean;
-        order_memo?: string | null;
-      };
-
-      pots = rows.map((potRow) => {
-        const memPot = memoryPots.get(potRow.id);
-        const memPartMap = new Map(
-          memPot?.participants.map((p) => [p.id, { isPaid: p.isPaid, orderMemo: p.orderMemo }]),
-        );
-
-        return normalizePot({
-          id: potRow.id,
-          restaurantId: potRow.restaurant_id,
-          deadline: potRow.deadline,
-          status: potRow.status as ServerPot["status"],
-          category: (potRow.category as ServerPot["category"]) ?? memPot?.category,
-          maxParticipants: potRow.max_participants,
-          createdAt: potRow.created_at,
-          creatorId: potRow.creator_id ?? undefined,
-          managerId: potRow.manager_id ?? undefined,
-          orderCompletedAt: potRow.order_completed_at ?? null,
-          orderCompletedBy: potRow.order_completed_by ?? null,
-          participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => {
-            const mem = memPartMap.get(p.user_id);
-            return {
-              id: p.user_id,
-              name: p.user_name,
-              initial: p.user_initial,
-              email: p.user_id,
-              isPaid: typeof p.is_paid === "boolean" ? p.is_paid : Boolean(mem?.isPaid),
-              orderMemo: (p.order_memo?.trim() || mem?.orderMemo || undefined),
-              joinedAt: new Date(p.joined_at).getTime(),
-            };
-          }),
-        });
-      });
+      pots = (rows as SupabasePotRow[]).map(mapSupabasePotRow);
     } else {
       console.error("Supabase listPots error:", error);
       const client = getRedis();
@@ -1212,7 +1254,7 @@ export async function getCampusStats(): Promise<CampusStats> {
     return cachedCampusStats.data;
   }
 
-  const pots = await listPots();
+  const pots = await listPotsForStats();
   const customList = await listCustomRestaurants();
   const customMap = new Map(customList.map((r) => [r.id, r]));
 
@@ -1677,48 +1719,14 @@ export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
     const myPotIds = (participations ?? []).map((p) => p.pot_id as string);
 
     if (myPotIds.length > 0) {
-      // 2. 내가 참여한 팟들만 조회 (최근 60개 제한 없이 내 팟 전체, 밥친구 집계를 위해 해당 팟 참여자 포함)
-      const { data: rows } = await supabase
+      // 2. 내가 참여한 팟만 조회 (최근 60개 제한 없이 전체, 밥친구 집계를 위해 참여자 포함)
+      const { data: rows, error } = await supabase
         .from("pots")
-        .select("*, pot_participants(user_id, user_name, user_initial, is_paid, order_memo, joined_at)")
+        .select(POT_ROW_SELECT)
         .in("id", myPotIds)
         .order("created_at", { ascending: false });
-
-      if (rows) {
-        type SupabaseParticipant = {
-          user_id: string;
-          user_name: string;
-          user_initial: string;
-          joined_at: string;
-          is_paid?: boolean;
-          order_memo?: string | null;
-        };
-
-        myPots = rows.map((potRow) =>
-          normalizePot({
-            id: potRow.id,
-            restaurantId: potRow.restaurant_id,
-            deadline: potRow.deadline,
-            status: potRow.status as ServerPot["status"],
-            category: potRow.category as ServerPot["category"],
-            maxParticipants: potRow.max_participants,
-            createdAt: potRow.created_at,
-            creatorId: potRow.creator_id ?? undefined,
-            managerId: potRow.manager_id ?? undefined,
-            orderCompletedAt: potRow.order_completed_at ?? null,
-            orderCompletedBy: potRow.order_completed_by ?? null,
-            participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
-              id: p.user_id,
-              name: p.user_name,
-              initial: p.user_initial,
-              email: p.user_id,
-              isPaid: Boolean(p.is_paid),
-              orderMemo: p.order_memo?.trim() || undefined,
-              joinedAt: new Date(p.joined_at).getTime(),
-            })),
-          }),
-        );
-      }
+      if (error) console.error("Supabase getMyStatsReport error:", error);
+      myPots = settlePots(((rows ?? []) as SupabasePotRow[]).map(mapSupabasePotRow), new Date());
     }
   } else {
     const pots = await listPots();
