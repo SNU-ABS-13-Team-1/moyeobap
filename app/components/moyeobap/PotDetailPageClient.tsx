@@ -76,8 +76,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           filter: `pot_id=eq.${potId}`,
         },
         () => {
+          if (typeof document !== 'undefined' && document.hidden) return;
           mutate();
-          mutateCache('/api/pots');
         },
       )
       .on(
@@ -89,8 +89,8 @@ export function PotDetailPageClient({ potId }: { potId: string }) {
           filter: `id=eq.${potId}`,
         },
         () => {
+          if (typeof document !== 'undefined' && document.hidden) return;
           mutate();
-          mutateCache('/api/pots');
         },
       )
       .subscribe();
