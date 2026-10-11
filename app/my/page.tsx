@@ -175,29 +175,32 @@ export default function MyPotsPage() {
             {closedPots.length === 0 ? (
               <p className="my-page__empty">마감된 참여 모집이 없어요.</p>
             ) : (
-              groupPotsByDate(closedPots, now).map((group) => (
-                <div className="dashboard-date-section" key={group.dateLabel}>
-                  <h3 className="dashboard-date-header">{group.dateLabel}</h3>
-                  <div className="grid my-page__grid">
-                    {group.pots.map((pot) => {
-                      const restaurant = restaurantsById.get(pot.restaurantId);
-                      if (!restaurant) return null;
-                      return (
-                        <PotCard
-                          isAuthenticated
-                          key={pot.id}
-                          now={now}
-                          onJoinClick={(id) => router.push(`/pots/${encodeURIComponent(id)}`)}
-                          onOpenAuth={() => undefined}
-                          pot={pot}
-                          restaurant={restaurant}
-                          showChatSummary
-                        />
-                      );
-                    })}
+              <>
+                {groupPotsByDate(closedPots, now).map((group) => (
+                  <div className="dashboard-date-section" key={group.dateLabel}>
+                    <h3 className="dashboard-date-header">{group.dateLabel}</h3>
+                    <div className="grid my-page__grid">
+                      {group.pots.map((pot) => {
+                        const restaurant = restaurantsById.get(pot.restaurantId);
+                        if (!restaurant) return null;
+                        return (
+                          <PotCard
+                            isAuthenticated
+                            key={pot.id}
+                            now={now}
+                            onJoinClick={(id) => router.push(`/pots/${encodeURIComponent(id)}`)}
+                            onOpenAuth={() => undefined}
+                            pot={pot}
+                            restaurant={restaurant}
+                            showChatSummary
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                <p className="dashboard-closed-hint">최근 마감된 팟 중 내가 참여한 팟이 표시됩니다.</p>
+              </>
             )}
           </section>
         </>

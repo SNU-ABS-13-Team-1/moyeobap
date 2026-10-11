@@ -188,28 +188,31 @@ export default function HomePage() {
             </h2>
           </div>
         ) : statusFilter === 'closed' ? (
-          closedGroupedPots.map((group) => (
-            <section className="dashboard-date-section" key={group.dateLabel}>
-              <h3 className="dashboard-date-header">{group.dateLabel}</h3>
-              <div className="grid">
-                {group.pots.map((pot) => {
-                  const restaurant = restaurantsById.get(pot.restaurantId);
-                  if (!restaurant) return null;
-                  return (
-                    <PotCard
-                      isAuthenticated={Boolean(currentUser)}
-                      key={pot.id}
-                      now={now}
-                      onJoinClick={handleJoinPot}
-                      onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
-                      pot={pot}
-                      restaurant={restaurant}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          ))
+          <>
+            {closedGroupedPots.map((group) => (
+              <section className="dashboard-date-section" key={group.dateLabel}>
+                <h3 className="dashboard-date-header">{group.dateLabel}</h3>
+                <div className="grid">
+                  {group.pots.map((pot) => {
+                    const restaurant = restaurantsById.get(pot.restaurantId);
+                    if (!restaurant) return null;
+                    return (
+                      <PotCard
+                        isAuthenticated={Boolean(currentUser)}
+                        key={pot.id}
+                        now={now}
+                        onJoinClick={handleJoinPot}
+                        onOpenAuth={(potId) => openAuth(`/pots/${encodeURIComponent(potId)}`)}
+                        pot={pot}
+                        restaurant={restaurant}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+            <p className="dashboard-closed-hint">최근 마감된 팟 최대 50건까지 표시됩니다.</p>
+          </>
         ) : (
           <div className="grid">
             {filteredPots.map((pot) => {
