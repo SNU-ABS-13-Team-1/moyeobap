@@ -49,12 +49,12 @@ export type OmokRoomResponse = { room: OmokRoom };
 export function mapOmokRoomRow(row: OmokRoomRow): OmokRoom {
   return {
     id: row.id, status: row.status, roomName: row.room_name,
-    blackId: row.black_id, blackName: row.black_name,
-    whiteId: row.white_id, whiteName: row.white_name,
-    board: row.board, turn: row.turn, winner: row.winner,
-    moveCount: row.move_count, lastRow: row.last_row, lastCol: row.last_col,
-    startedAt: row.started_at, turnStartedAt: row.turn_started_at,
-    rematchBy: row.rematch_by, createdAt: row.created_at, updatedAt: row.updated_at,
+    blackId: row.black_id ?? null, blackName: row.black_name ?? null,
+    whiteId: row.white_id ?? null, whiteName: row.white_name ?? null,
+    board: row.board ?? [], turn: row.turn ?? 'black', winner: row.winner ?? null,
+    moveCount: row.move_count ?? 0, lastRow: row.last_row ?? null, lastCol: row.last_col ?? null,
+    startedAt: row.started_at ?? null, turnStartedAt: row.turn_started_at ?? null,
+    rematchBy: row.rematch_by ?? null, createdAt: row.created_at, updatedAt: row.updated_at ?? row.created_at,
   };
 }
 

@@ -92,7 +92,7 @@ export async function listRooms(): Promise<OmokRoom[]> {
 
   const { data, error } = await supabase
     .from("omok_rooms")
-    .select()
+    .select("id, status, room_name, black_id, black_name, white_id, white_name, created_at, updated_at")
     .in("status", ["waiting", "playing"])
     .order("created_at", { ascending: false })
     .limit(30);
