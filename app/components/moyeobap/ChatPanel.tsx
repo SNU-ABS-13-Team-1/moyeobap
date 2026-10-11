@@ -88,7 +88,7 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
       : message.text.replace(/^💳\s*/, '').trim();
   }
 
-  // Supabase Realtime 구독 설정 (새 메시지가 수신되면 Polling 대기 없이 즉시 화면 업데이트)
+  // Supabase Realtime Broadcast 구독 (DB WAL을 훑지 않고 경량 Broadcast로 즉시 화면 업데이트)
   useEffect(() => {
     let supabase;
     try {
@@ -102,14 +102,10 @@ export function ChatPanel({ potId, currentUser, isActive = true }: ChatPanelProp
     const channel = supabase
       .channel(`chat-pot-${potId}`)
       .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `pot_id=eq.${potId}`,
-        },
+        'broadcast',
+        { event: 'chat' },
         () => {
+          if (typeof document !== 'undefined' && document.hidden) return;
           mutate();
         },
       )

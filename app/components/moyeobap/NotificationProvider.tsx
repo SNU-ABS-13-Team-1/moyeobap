@@ -210,7 +210,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           href: `/pots/${notice.potId}`,
         });
         // '!' 표시는 서버 집계(message_reads 기준)를 따릅니다.
-        mutate();
+        if (typeof document === 'undefined' || !document.hidden) {
+          mutate();
+        }
       })
       .subscribe();
 
