@@ -1,3 +1,4 @@
+import { createMeasuredFetch } from "./supabase/egress";
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "./supabase/config";
@@ -17,6 +18,7 @@ export function getSupabase(): SupabaseClient | null {
   const serverKey = serviceRoleKey || config.publishableKey;
 
   supabaseClient = createClient(config.url, serverKey, {
+    global: { fetch: createMeasuredFetch("admin") },
     auth: {
       // 사용자 세션은 @supabase/ssr 기반 browser/server 클라이언트가 관리합니다.
       persistSession: false,

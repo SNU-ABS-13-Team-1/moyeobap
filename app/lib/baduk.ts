@@ -78,29 +78,29 @@ function mapRow(row: BadukRoomRow): BadukRoom {
     id: row.id,
     status: row.status,
     roomName: row.room_name,
-    blackId: row.black_id,
-    blackName: row.black_name,
-    whiteId: row.white_id,
-    whiteName: row.white_name,
-    board: row.board,
-    previousBoard: row.previous_board,
-    turn: row.turn,
-    moveCount: row.move_count,
-    passCount: row.pass_count,
-    capturesBlack: row.captures_black,
-    capturesWhite: row.captures_white,
-    deadStones: row.dead_stones,
-    blackConfirmedScore: row.black_confirmed_score,
-    whiteConfirmedScore: row.white_confirmed_score,
+    blackId: row.black_id ?? null,
+    blackName: row.black_name ?? null,
+    whiteId: row.white_id ?? null,
+    whiteName: row.white_name ?? null,
+    board: row.board ?? [],
+    previousBoard: row.previous_board ?? [],
+    turn: row.turn ?? "black",
+    moveCount: row.move_count ?? 0,
+    passCount: row.pass_count ?? 0,
+    capturesBlack: row.captures_black ?? 0,
+    capturesWhite: row.captures_white ?? 0,
+    deadStones: row.dead_stones ?? [],
+    blackConfirmedScore: row.black_confirmed_score ?? false,
+    whiteConfirmedScore: row.white_confirmed_score ?? false,
     scoreOfferBy: row.score_offer_by ?? null,
-    winner: row.winner,
-    finalBlackScore: row.final_black_score,
-    finalWhiteScore: row.final_white_score,
-    lastRow: row.last_row,
-    lastCol: row.last_col,
-    startedAt: row.started_at,
-    turnStartedAt: row.turn_started_at,
-    rematchBy: row.rematch_by,
+    winner: row.winner ?? null,
+    finalBlackScore: row.final_black_score ?? null,
+    finalWhiteScore: row.final_white_score ?? null,
+    lastRow: row.last_row ?? null,
+    lastCol: row.last_col ?? null,
+    startedAt: row.started_at ?? null,
+    turnStartedAt: row.turn_started_at ?? null,
+    rematchBy: row.rematch_by ?? null,
     createdAt: row.created_at,
   };
 }
@@ -150,13 +150,13 @@ export async function listRooms(): Promise<BadukRoom[]> {
 
   const { data, error } = await supabase
     .from("baduk_rooms")
-    .select()
+    .select("id, status, room_name, black_id, black_name, white_id, white_name, created_at, updated_at")
     .in("status", ["waiting", "playing", "scoring"])
     .order("created_at", { ascending: false })
     .limit(30);
 
   if (error || !data) return [];
-  return (data as BadukRoomRow[]).map(mapRow);
+  return (data as unknown as BadukRoomRow[]).map(mapRow);
 }
 
 export async function getRoom(roomId: string): Promise<BadukRoom | null> {

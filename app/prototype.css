@@ -806,6 +806,13 @@ body, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, div, sec
   gap: 8px;
 }
 
+.dashboard-closed-hint {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: var(--space-xl) 0 var(--space-lg);
+}
+
 /* ===== Pot detail page ===== */
 .pot-page__layout {
   display: grid;

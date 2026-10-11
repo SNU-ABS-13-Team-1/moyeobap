@@ -1,3 +1,5 @@
+import { getSupabase } from "@/app/lib/supabase";
+import { getNotificationSummary } from "@/app/lib/notificationSummary";
 import { NextResponse } from "next/server";
 import { getSession } from "@/app/lib/auth";
 import {
@@ -12,7 +14,7 @@ import { createSupabaseServerClient } from "@/app/lib/supabase/server";
 const MAX_OPEN_POTS = 30;
 
 /**
- * 헤더 배지와 토스트에 필요한 최소한만 내려보냅니다(15초마다 호출됩니다).
+ * 헤더 배지와 토스트에 필요한 최소한만 내려보냅니다(60초마다 호출됩니다).
  *
  * "무엇이 새 팟인가"는 여기서 정하지 않습니다. 기준 시각이 브라우저
  * localStorage에 있어서, 그걸 질의에 넣으면 응답이 바뀔 때마다 요청 키가
@@ -35,6 +37,13 @@ export async function GET() {
       return NextResponse.json({ error: "로그인이 필요해요." }, { status: 401 });
     }
 
+    const db = getSupabase();
+    const summary = db ? await getNotificationSummary(user.id, now, db) : null;
+    if (summary) {
+      return NextResponse.json({ ...summary, notifyTopic: chatNotifyTopic(user.id) }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+
+    // Supabase 미설정 로컬 환경에서만 기존 메모리/Redis 경로를 사용합니다.
     const pots = await listPots();
     const openPots = pots
       .filter((pot) => pot.status === "active" && new Date(pot.deadline).getTime() > now.getTime())

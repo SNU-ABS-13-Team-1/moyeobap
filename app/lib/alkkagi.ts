@@ -69,21 +69,21 @@ function mapRow(row: AlkkagiRoomRow): AlkkagiRoom {
     id: row.id,
     status: row.status,
     roomName: row.room_name,
-    blackId: row.black_id,
-    blackName: row.black_name,
-    whiteId: row.white_id,
-    whiteName: row.white_name,
+    blackId: row.black_id ?? null,
+    blackName: row.black_name ?? null,
+    whiteId: row.white_id ?? null,
+    whiteName: row.white_name ?? null,
     stones: Array.isArray(row.stones) ? row.stones : [],
     preShotStones: Array.isArray(row.pre_shot_stones) ? row.pre_shot_stones : null,
-    lastShot: row.last_shot,
-    lastShotAt: row.last_shot_at,
-    shotSeq: row.shot_seq,
-    turn: row.turn,
-    winner: row.winner,
-    shotCount: row.shot_count,
-    startedAt: row.started_at,
-    turnStartedAt: row.turn_started_at,
-    rematchBy: row.rematch_by,
+    lastShot: row.last_shot ?? null,
+    lastShotAt: row.last_shot_at ?? null,
+    shotSeq: row.shot_seq ?? 0,
+    turn: row.turn ?? "black",
+    winner: row.winner ?? null,
+    shotCount: row.shot_count ?? 0,
+    startedAt: row.started_at ?? null,
+    turnStartedAt: row.turn_started_at ?? null,
+    rematchBy: row.rematch_by ?? null,
     createdAt: row.created_at,
   };
 }
@@ -136,13 +136,13 @@ export async function listRooms(): Promise<AlkkagiRoom[]> {
 
   const { data, error } = await supabase
     .from("alkkagi_rooms")
-    .select()
+    .select("id, status, room_name, black_id, black_name, white_id, white_name, created_at, updated_at")
     .in("status", ["waiting", "playing"])
     .order("created_at", { ascending: false })
     .limit(30);
 
   if (error || !data) return [];
-  return (data as AlkkagiRoomRow[]).map(mapRow);
+  return (data as unknown as AlkkagiRoomRow[]).map(mapRow);
 }
 
 export async function getRoom(roomId: string): Promise<AlkkagiRoom | null> {

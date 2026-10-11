@@ -83,25 +83,25 @@ function mapRow(row: ChessRoomRow): ChessRoom {
     id: row.id,
     status: row.status,
     roomName: row.room_name,
-    whiteId: row.white_id,
-    whiteName: row.white_name,
-    blackId: row.black_id,
-    blackName: row.black_name,
-    fen: row.fen,
+    whiteId: row.white_id ?? null,
+    whiteName: row.white_name ?? null,
+    blackId: row.black_id ?? null,
+    blackName: row.black_name ?? null,
+    fen: row.fen ?? START_FEN,
     moves: Array.isArray(row.moves) ? row.moves : [],
-    turn: row.turn,
-    winner: row.winner,
-    endReason: row.end_reason,
-    moveCount: row.move_count,
-    lastFrom: row.last_from,
-    lastTo: row.last_to,
+    turn: row.turn ?? "white",
+    winner: row.winner ?? null,
+    endReason: row.end_reason ?? null,
+    moveCount: row.move_count ?? 0,
+    lastFrom: row.last_from ?? null,
+    lastTo: row.last_to ?? null,
     timeControl: row.time_control ?? "move60",
-    whiteTimeMs: row.white_time_ms,
-    blackTimeMs: row.black_time_ms,
-    drawOfferBy: row.draw_offer_by,
-    startedAt: row.started_at,
-    turnStartedAt: row.turn_started_at,
-    rematchBy: row.rematch_by,
+    whiteTimeMs: row.white_time_ms ?? 0,
+    blackTimeMs: row.black_time_ms ?? 0,
+    drawOfferBy: row.draw_offer_by ?? null,
+    startedAt: row.started_at ?? null,
+    turnStartedAt: row.turn_started_at ?? null,
+    rematchBy: row.rematch_by ?? null,
     createdAt: row.created_at,
   };
 }
@@ -172,13 +172,13 @@ export async function listRooms(): Promise<ChessRoom[]> {
 
   const { data, error } = await supabase
     .from("chess_rooms")
-    .select()
+    .select("id, status, room_name, white_id, white_name, black_id, black_name, time_control, created_at, updated_at")
     .in("status", ["waiting", "playing"])
     .order("created_at", { ascending: false })
     .limit(30);
 
   if (error || !data) return [];
-  return (data as ChessRoomRow[]).map(mapRow);
+  return (data as unknown as ChessRoomRow[]).map(mapRow);
 }
 
 export async function getRoom(roomId: string): Promise<ChessRoom | null> {

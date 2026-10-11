@@ -596,8 +596,9 @@ export async function listPots(): Promise<ServerPot[]> {
   if (supabase) {
     const { data: rows, error } = await supabase
       .from("pots")
-      .select("*, pot_participants(*)")
-      .order("created_at", { ascending: false });
+      .select("*, pot_participants(user_id, user_name, user_initial, is_paid, order_memo, joined_at)")
+      .order("created_at", { ascending: false })
+      .limit(60);
 
     if (!error && rows) {
       type SupabaseParticipant = {
@@ -1661,13 +1662,72 @@ export function resolveFoodCategory(params: {
   };
 }
 
-/** 특정 사용자의 개인화 식사 리포트 집계 */
+/** 특정 사용자의 개인화 식사 리포트 집계 (최근 60개 제한과 분리하여 본인의 과거 참여 전체를 온전히 집계) */
 export async function getMyStatsReport(userId: string): Promise<MyStatsReport> {
-  const pots = await listPots();
+  let myPots: ServerPot[] = [];
+  const supabase = getSupabase();
+
+  if (supabase) {
+    // 1. 내가 참여했던 팟 ID 전체 조회
+    const { data: participations } = await supabase
+      .from("pot_participants")
+      .select("pot_id")
+      .eq("user_id", userId);
+
+    const myPotIds = (participations ?? []).map((p) => p.pot_id as string);
+
+    if (myPotIds.length > 0) {
+      // 2. 내가 참여한 팟들만 조회 (최근 60개 제한 없이 내 팟 전체, 밥친구 집계를 위해 해당 팟 참여자 포함)
+      const { data: rows } = await supabase
+        .from("pots")
+        .select("*, pot_participants(user_id, user_name, user_initial, is_paid, order_memo, joined_at)")
+        .in("id", myPotIds)
+        .order("created_at", { ascending: false });
+
+      if (rows) {
+        type SupabaseParticipant = {
+          user_id: string;
+          user_name: string;
+          user_initial: string;
+          joined_at: string;
+          is_paid?: boolean;
+          order_memo?: string | null;
+        };
+
+        myPots = rows.map((potRow) =>
+          normalizePot({
+            id: potRow.id,
+            restaurantId: potRow.restaurant_id,
+            deadline: potRow.deadline,
+            status: potRow.status as ServerPot["status"],
+            category: potRow.category as ServerPot["category"],
+            maxParticipants: potRow.max_participants,
+            createdAt: potRow.created_at,
+            creatorId: potRow.creator_id ?? undefined,
+            managerId: potRow.manager_id ?? undefined,
+            orderCompletedAt: potRow.order_completed_at ?? null,
+            orderCompletedBy: potRow.order_completed_by ?? null,
+            participants: ((potRow.pot_participants as SupabaseParticipant[]) ?? []).map((p) => ({
+              id: p.user_id,
+              name: p.user_name,
+              initial: p.user_initial,
+              email: p.user_id,
+              isPaid: Boolean(p.is_paid),
+              orderMemo: p.order_memo?.trim() || undefined,
+              joinedAt: new Date(p.joined_at).getTime(),
+            })),
+          }),
+        );
+      }
+    }
+  } else {
+    const pots = await listPots();
+    myPots = pots.filter((p) => p.participants.some((part) => part.id === userId));
+  }
+
   const customList = await listCustomRestaurants();
   const customMap = new Map(customList.map((r) => [r.id, r]));
 
-  const myPots = pots.filter((p) => p.participants.some((part) => part.id === userId));
   const myTotalJoinedPots = myPots.length;
   let totalCompletedPots = 0;
 

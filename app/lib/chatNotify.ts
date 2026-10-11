@@ -53,11 +53,18 @@ export async function broadcastChatNotice(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages: recipients.map((userId) => ({
-          topic: topicFor(secret, userId),
-          event: CHAT_NOTIFY_EVENT,
-          payload: { potId, authorId },
-        })),
+        messages: [
+          ...recipients.map((userId) => ({
+            topic: topicFor(secret, userId),
+            event: CHAT_NOTIFY_EVENT,
+            payload: { potId, authorId },
+          })),
+          {
+            topic: `chat-pot-${potId}`,
+            event: CHAT_NOTIFY_EVENT,
+            payload: { potId, authorId },
+          },
+        ],
       }),
       signal: AbortSignal.timeout(BROADCAST_TIMEOUT_MS),
     });
