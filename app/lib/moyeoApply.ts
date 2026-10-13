@@ -30,6 +30,28 @@ export interface ApplySaveResult {
   changed: boolean;
 }
 
+export type ApplySort = 'name' | 'company' | 'academicRank';
+
+export function sortApplyParticipants(
+  participants: ApplyParticipant[],
+  names: ReadonlyMap<string, string>,
+  sort: ApplySort,
+  canViewAcademicRanks: boolean,
+) {
+  return [...participants].sort((a, b) => {
+    // Even a stale or manipulated sort selection must not reveal rank ordering.
+    if (sort === 'academicRank' && canViewAcademicRanks) {
+      const byRank = (a.academicRank ?? Infinity) - (b.academicRank ?? Infinity);
+      if (byRank) return byRank;
+    }
+    if (sort === 'company') {
+      const byCompany = (names.get(a.choices[0]) ?? '').localeCompare(names.get(b.choices[0]) ?? '', 'ko');
+      if (byCompany) return byCompany;
+    }
+    return a.displayName.localeCompare(b.displayName, 'ko');
+  });
+}
+
 /** Existing incomplete submissions remain readable; every new save needs five choices. */
 export function validateApplyChoices(value: unknown): string | null {
   if (!Array.isArray(value) || value.length !== 5) {

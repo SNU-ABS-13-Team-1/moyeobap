@@ -17,3 +17,25 @@ test('academic rank is optional but must be a positive PostgreSQL integer when p
     assert.ok(validateApplyAcademicRank(invalid));
   }
 });
+
+test('rank sort is ascending with name ties and unranked names last', async () => {
+  const { sortApplyParticipants } = await import('./moyeoApply');
+  const rows = [
+    { displayName: '다', choices, isMe: false, academicRank: null },
+    { displayName: '나', choices, isMe: false, academicRank: 2 },
+    { displayName: '가', choices, isMe: false, academicRank: 2 },
+    { displayName: '라', choices, isMe: false, academicRank: 1 },
+    { displayName: '마', choices, isMe: false },
+  ];
+  assert.deepEqual(sortApplyParticipants(rows, new Map(), 'academicRank', true).map(row => row.displayName), ['라', '가', '나', '다', '마']);
+  assert.equal(rows[0].displayName, '다');
+});
+
+test('unregistered viewer cannot infer changed ranks from a forced rank-sort selection', async () => {
+  const { sortApplyParticipants } = await import('./moyeoApply');
+  const rows = ['다', '가', '나'].map((displayName, i) => ({ displayName, choices, isMe: false, academicRank: i + 1 }));
+  const altered = rows.map(row => ({ ...row, academicRank: 100 - row.academicRank }));
+  const names = (input: typeof rows) => sortApplyParticipants(input, new Map(), 'academicRank', false).map(row => row.displayName);
+  assert.deepEqual(names(rows), ['가', '나', '다']);
+  assert.deepEqual(names(altered), names(rows));
+});

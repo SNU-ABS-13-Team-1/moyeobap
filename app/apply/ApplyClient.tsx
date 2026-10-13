@@ -1,18 +1,17 @@
 'use client';
 
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useAuth } from '../components/moyeobap/AuthProvider';
 import { Modal } from '../components/moyeobap/Modal';
-import { ApiError, getErrorMessage, requestJson } from '../lib/api-client';
+import { useApplyState } from '../hooks/useApplyState';
 import type {
   ApplyCompany,
   ApplyParticipant,
   ApplySaveResult,
-  ApplyState,
   ApplySubmission,
 } from '../lib/moyeoApply';
 import styles from './apply.module.css';
-import { validateApplyAcademicRank, validateApplyChoices } from '../lib/moyeoApply';
+import { sortApplyParticipants, validateApplyAcademicRank, validateApplyChoices } from '../lib/moyeoApply';
 
 const RANKS = [1, 2, 3, 4, 5] as const;
 
@@ -55,7 +54,7 @@ export function ApplyClient() {
       {isAuthLoading ? (
         <div className={styles.state} role="status">로그인 상태를 확인하는 중이에요...</div>
       ) : currentUser ? (
-        <AuthenticatedApply key={currentUser.id} />
+        <AuthenticatedApply key={currentUser.id} userId={currentUser.id} />
       ) : (
         <section className={`${styles.card} ${styles.login}`}>
           <span aria-hidden="true" className={styles.loginIcon}>↗</span>
@@ -70,84 +69,8 @@ export function ApplyClient() {
   );
 }
 
-function AuthenticatedApply() {
-  const [state, setState] = useState<ApplyState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [readError, setReadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const requestSequence = useRef(0);
-  const mounted = useRef(false);
-
-  const load = useCallback((signal?: AbortSignal) => {
-    const sequence = ++requestSequence.current;
-    return requestJson<ApplyState>('/api/apply', { cache: 'no-store', signal })
-      .then((next) => {
-        if (mounted.current && sequence === requestSequence.current) {
-          setState(next);
-          setReadError(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (mounted.current && !signal?.aborted && sequence === requestSequence.current) {
-          setReadError(getErrorMessage(error, '지망을 불러오지 못했어요. 다시 시도해주세요.'));
-          if (error instanceof ApiError && error.status === 401) setState(null);
-        }
-      })
-      .finally(() => {
-        if (mounted.current && sequence === requestSequence.current) setLoading(false);
-      });
-  }, []);
-
-  function refresh() {
-    setLoading(true);
-    setReadError(null);
-    void load();
-  }
-
-  useEffect(() => {
-    mounted.current = true;
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => {
-      mounted.current = false;
-      controller.abort();
-      requestSequence.current += 1;
-    };
-  }, [load]);
-
-  async function save(choices: string[], academicRank: number | null) {
-    if (!state || saving || loading) return null;
-    setSaving(true);
-    setSaveError(null);
-    setNotice(null);
-    try {
-      const result = await requestJson<ApplySaveResult>('/api/apply', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          choices, academicRank,
-          expectedEditCount: state.submission?.editCount ?? null,
-          expectedUpdatedAt: state.submission?.updatedAt ?? null,
-        }),
-      });
-      if (!mounted.current) return null;
-      // 저장 응답으로 먼저 확정합니다. 뒤의 목록 조회 실패가 저장 실패로 보이지 않게 합니다.
-      setState((previous) => previous ? { ...previous, submission: result.submission, participants: null } : previous);
-      setNotice(result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
-      refresh();
-      return result;
-    } catch (error) {
-      if (!mounted.current) return null;
-      setSaveError(getErrorMessage(error, '지망을 저장하지 못했어요. 다시 시도해주세요.'));
-      if (error instanceof ApiError && (error.status === 403 || error.status === 409)) refresh();
-      if (error instanceof ApiError && error.status === 401) setState(null);
-      return null;
-    } finally {
-      if (mounted.current) setSaving(false);
-    }
-  }
+function AuthenticatedApply({ userId }: { userId: string }) {
+  const { state, loading, saving, readError, saveError, notice, refresh, save, canViewAcademicRanks } = useApplyState(userId);
 
   if (!state) {
     return (
@@ -177,7 +100,7 @@ function AuthenticatedApply() {
 
       {state.submission ? (
         <Participants
-          canViewAcademicRanks={state.submission.academicRank != null}
+          canViewAcademicRanks={canViewAcademicRanks}
           companies={state.companies}
           error={readError}
           loading={loading}
@@ -385,24 +308,15 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('');
   const [sort, setSort] = useState<'name' | 'company' | 'academicRank'>('name');
+  if (!canViewAcademicRanks && sort === 'academicRank') setSort('name');
   const hasFilters = Boolean(search.trim() || company);
   const names = useMemo(() => new Map(companies.map((item) => [item.id, item.name])), [companies]);
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('ko-KR');
-    return (participants ?? [])
+    const matches = (participants ?? [])
       .filter((participant) => participant.displayName.toLocaleLowerCase('ko-KR').includes(query)
-        && (!company || participant.choices.includes(company)))
-      .sort((a, b) => {
-        if (sort === 'academicRank' && canViewAcademicRanks) {
-          const byRank = (a.academicRank ?? Infinity) - (b.academicRank ?? Infinity);
-          if (byRank) return byRank;
-        }
-        if (sort === 'company') {
-          const byCompany = (names.get(a.choices[0]) ?? '').localeCompare(names.get(b.choices[0]) ?? '', 'ko');
-          if (byCompany) return byCompany;
-        }
-        return a.displayName.localeCompare(b.displayName, 'ko');
-      });
+        && (!company || participant.choices.includes(company)));
+    return sortApplyParticipants(matches, names, sort, canViewAcademicRanks);
   }, [participants, search, company, sort, names, canViewAcademicRanks]);
 
   return (

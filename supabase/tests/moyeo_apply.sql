@@ -5,15 +5,19 @@ begin;
 insert into auth.users (id, email, raw_user_meta_data) values
   ('a6610000-0000-4000-8000-000000000001', 'apply-test-a@example.invalid', '{"full_name":"Apply 테스트 가"}'),
   ('a6610000-0000-4000-8000-000000000002', 'apply-test-b@example.invalid', '{"full_name":"Apply 테스트 나"}'),
-  ('a6610000-0000-4000-8000-000000000003', 'apply-test-c@example.invalid', '{"full_name":"Apply 테스트 다"}');
+  ('a6610000-0000-4000-8000-000000000003', 'apply-test-c@example.invalid', '{"full_name":"Apply 테스트 다"}'),
+  ('a6610000-0000-4000-8000-000000000004', 'apply-test-d@example.invalid', '{"full_name":"Apply 테스트 라"}');
 insert into public.profiles (id, display_name) values
   ('a6610000-0000-4000-8000-000000000001', 'Apply 테스트 가'),
   ('a6610000-0000-4000-8000-000000000002', 'Apply 테스트 나'),
-  ('a6610000-0000-4000-8000-000000000003', 'Apply 테스트 다')
+  ('a6610000-0000-4000-8000-000000000003', 'Apply 테스트 다'),
+  ('a6610000-0000-4000-8000-000000000004', 'Apply 테스트 라')
 on conflict (id) do update set display_name = excluded.display_name;
 -- Legacy incomplete submissions remain readable, but cannot be saved as-is.
 insert into public.moyeo_apply_submissions (user_id, choices) values
   ('a6610000-0000-4000-8000-000000000003', array['car123']);
+insert into public.moyeo_apply_submissions (user_id, choices, academic_rank) values
+  ('a6610000-0000-4000-8000-000000000004', array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha', 'mnb'], 3);
 
 set local role authenticated;
 do $$
@@ -21,6 +25,7 @@ declare
   v_choices text[] := array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha', 'mnb'];
   v_result jsonb;
   v_state jsonb;
+  v_unranked_list jsonb;
   v_saved_at timestamptz;
   v_invalid text[];
 begin
@@ -76,6 +81,16 @@ begin
     where p - 'displayName' - 'choices' - 'isMe' <> '{}'::jsonb
   ) then
     raise exception 'FAIL: unranked participant can read rank or private fields';
+  end if;
+  -- Changing a sharer's rank across another sharer's rank must not affect ANY
+  -- part of the unregistered viewer's response, including array order.
+  v_unranked_list := v_state->'participants';
+  perform set_config('request.jwt.claim.sub', 'a6610000-0000-4000-8000-000000000004', true);
+  perform public.moyeo_apply_save(v_choices, 0, 20,
+    (public.moyeo_apply_state()#>>'{submission,updatedAt}')::timestamptz);
+  perform set_config('request.jwt.claim.sub', 'a6610000-0000-4000-8000-000000000002', true);
+  if public.moyeo_apply_state()->'participants' is distinct from v_unranked_list then
+    raise exception 'FAIL: rank change leaked through fields or ordering to an unregistered viewer';
   end if;
   if has_table_privilege(current_user, 'public.moyeo_apply_submissions', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') then
     raise exception 'FAIL: direct table access granted';
