@@ -12,6 +12,7 @@ import type {
   ApplySubmission,
 } from '../lib/moyeoApply';
 import styles from './apply.module.css';
+import { validateApplyAcademicRank, validateApplyChoices } from '../lib/moyeoApply';
 
 const RANKS = [1, 2, 3, 4, 5] as const;
 
@@ -46,6 +47,7 @@ export function ApplyClient() {
         <ul>
           <li>내 지망을 제출하면 다른 제출자의 지망을 볼 수 있습니다.</li>
           <li>내 표시 이름과 지망도 다른 제출자에게 공개됩니다.</li>
+          <li>1~5지망을 모두 선택해주세요. 석차는 선택사항이며, 입력해 저장한 사람끼리만 서로의 석차를 볼 수 있습니다.</li>
           <li>이곳의 공유 내용은 공식 신청에 반영되지 않습니다. 공식 지망은 별도로 제출해야 합니다.</li>
         </ul>
       </section>
@@ -115,7 +117,7 @@ function AuthenticatedApply() {
     };
   }, [load]);
 
-  async function save(choices: string[]) {
+  async function save(choices: string[], academicRank: number | null) {
     if (!state || saving || loading) return null;
     setSaving(true);
     setSaveError(null);
@@ -124,11 +126,15 @@ function AuthenticatedApply() {
       const result = await requestJson<ApplySaveResult>('/api/apply', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ choices, expectedEditCount: state.submission?.editCount ?? null }),
+        body: JSON.stringify({
+          choices, academicRank,
+          expectedEditCount: state.submission?.editCount ?? null,
+          expectedUpdatedAt: state.submission?.updatedAt ?? null,
+        }),
       });
       if (!mounted.current) return null;
       // 저장 응답으로 먼저 확정합니다. 뒤의 목록 조회 실패가 저장 실패로 보이지 않게 합니다.
-      setState((previous) => previous ? { ...previous, submission: result.submission } : previous);
+      setState((previous) => previous ? { ...previous, submission: result.submission, participants: null } : previous);
       setNotice(result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
       refresh();
       return result;
@@ -171,6 +177,7 @@ function AuthenticatedApply() {
 
       {state.submission ? (
         <Participants
+          canViewAcademicRanks={state.submission.academicRank != null}
           companies={state.companies}
           error={readError}
           loading={loading}
@@ -193,22 +200,22 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
   submission: ApplySubmission | null;
   busy: boolean;
   saving: boolean;
-  onSave: (choices: string[]) => Promise<ApplySaveResult | null>;
+  onSave: (choices: string[], academicRank: number | null) => Promise<ApplySaveResult | null>;
 }) {
   const [editing, setEditing] = useState(!submission);
   const [draft, setDraft] = useState<string[]>(RANKS.map((_, index) => submission?.choices[index] ?? ''));
+  const [rankDraft, setRankDraft] = useState(submission?.academicRank?.toString() ?? '');
   const [confirming, setConfirming] = useState(false);
   const remaining = Math.max(0, 2 - (submission?.editCount ?? 0));
-  const choices = draft.filter(Boolean);
-  const changed = choices.join('|') !== (submission?.choices ?? []).join('|');
+  const choices = draft;
+  const academicRank = rankDraft.trim() ? Number(rankDraft) : null;
+  const valid = !validateApplyChoices(choices) && !validateApplyAcademicRank(academicRank);
+  const changed = choices.join('|') !== (submission?.choices ?? []).join('|')
+    || academicRank !== (submission?.academicRank ?? null);
   const names = new Map(companies.map((company) => [company.id, company.name]));
 
   function changeChoice(index: number, value: string) {
-    setDraft((previous) => previous.map((choice, position) => {
-      if (position === index) return value;
-      if (!value && position > index) return '';
-      return choice;
-    }));
+    setDraft((previous) => previous.map((choice, position) => position === index ? value : choice));
   }
 
   function moveChoice(index: number, direction: -1 | 1) {
@@ -224,18 +231,19 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
 
   function cancel() {
     setDraft(RANKS.map((_, index) => submission?.choices[index] ?? ''));
+    setRankDraft(submission?.academicRank?.toString() ?? '');
     setEditing(false);
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (busy || !choices.length || !changed || (submission && remaining === 0)) return;
+    if (busy || !valid || !changed || (submission && remaining === 0)) return;
     setConfirming(true);
   }
 
   async function confirmSave() {
     setConfirming(false);
-    const result = await onSave(choices);
+    const result = await onSave(choices, academicRank);
     if (result) setEditing(false);
   }
 
@@ -244,7 +252,7 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
       <div className={styles.sectionHeading}>
         <div>
           <h2 id="my-apply-heading">내 지망</h2>
-          <p>{submission ? '공유 중인 나의 캡스톤 기업 지망이에요.' : '1지망은 꼭 선택하고, 아직 고민 중인 순위는 미정으로 두세요.'}</p>
+          <p>{submission ? '공유 중인 나의 캡스톤 기업 지망이에요. 다음 저장부터는 5지망까지 모두 선택해주세요.' : '1지망부터 5지망까지 서로 다른 기업을 모두 선택해주세요.'}</p>
         </div>
         <span className={remaining ? styles.remaining : styles.locked}>남은 수정 횟수 {remaining}회</span>
       </div>
@@ -255,7 +263,7 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
             <div className={styles.choice} key={rank}>
               <div className={styles.rankHeading}>
                 <label htmlFor={editing ? `apply-rank-${rank}` : undefined}>
-                  {rank}지망 {rank === 1 && editing && <span className={styles.required}>필수</span>}
+                  {rank}지망 {editing && <span className={styles.required}>필수</span>}
                 </label>
                 {editing && (
                   <span className={styles.rankActions}>
@@ -278,13 +286,13 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
               </div>
               {editing ? (
                 <select
-                  disabled={busy || (index > 0 && !draft[index - 1])}
+                  disabled={busy}
                   id={`apply-rank-${rank}`}
                   onChange={(event) => changeChoice(index, event.target.value)}
-                  required={rank === 1}
+                  required
                   value={draft[index]}
                 >
-                  <option value="">{rank === 1 ? '기업 선택' : '미정'}</option>
+                  <option disabled value="">기업 선택</option>
                   {companies.map((company) => (
                     <option disabled={draft.some((choice, position) => choice === company.id && position !== index)} key={company.id} value={company.id}>
                       {company.name}
@@ -300,7 +308,26 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
           ))}
         </div>
 
-        {editing && <p className={styles.hint}>↑↓로 선택한 기업의 순서를 바꿀 수 있어요. 저장할 때 수정 1회가 사용됩니다(최초 제출 제외). 중간 순위를 미정으로 바꾸면 뒤 순위도 미정으로 바뀝니다.</p>}
+        <div className={styles.academicRank}>
+          <label htmlFor={editing ? 'apply-academic-rank' : undefined}>내 석차 <span>선택사항</span></label>
+          {editing ? (
+            <input
+              aria-describedby="apply-academic-rank-hint"
+              disabled={busy}
+              id="apply-academic-rank"
+              inputMode="numeric"
+              min={1}
+              max={2147483647}
+              onChange={(event) => setRankDraft(event.target.value)}
+              placeholder="예: 12"
+              step={1}
+              type="number"
+              value={rankDraft}
+            />
+          ) : <p>{submission?.academicRank != null ? `${submission.academicRank}등` : '미입력'}</p>}
+          <p className={styles.hint} id="apply-academic-rank-hint">석차를 입력해 저장하면 석차를 공유한 사람끼리만 서로의 석차를 확인할 수 있어요. 비워두면 지망 정보만 공유합니다.</p>
+        </div>
+        {editing && <p className={styles.hint}>↑↓로 선택한 기업의 순서를 바꿀 수 있어요. 지망이나 석차를 변경해 저장하면 수정 1회가 사용됩니다(최초 제출 제외).</p>}
         {submission && remaining === 0 && <p className={styles.hint}>수정 2회를 모두 사용했어요. 다른 제출자의 지망은 계속 확인할 수 있어요.</p>}
 
         <div className={styles.formFooter}>
@@ -311,7 +338,7 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
             {editing ? (
               <>
                 {submission && <button className={styles.secondaryButton} disabled={busy} onClick={cancel} type="button">취소</button>}
-                <button className={styles.primaryButton} disabled={busy || !choices.length || !changed} type="submit">
+                <button className={styles.primaryButton} disabled={busy || !valid || !changed} type="submit">
                   {saving ? '저장 중...' : submission ? '변경 저장' : '내 지망 제출'}
                 </button>
               </>
@@ -338,6 +365,7 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
             <ol className={styles.confirmChoices}>
               {RANKS.map((rank, index) => <li key={rank}><span>{rank}지망</span><strong>{names.get(choices[index]) ?? '미정'}</strong></li>)}
             </ol>
+            <p className={styles.hint}>{academicRank !== null ? `석차 ${academicRank}등 · 석차를 입력한 제출자에게만 공개됩니다.` : '석차 미입력 · 다른 제출자의 석차는 볼 수 없습니다.'}</p>
           </div>
         </Modal>
       )}
@@ -345,9 +373,10 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
   );
 }
 
-function Participants({ companies, participants, loading, saving, error, onRefresh }: {
+function Participants({ companies, participants, canViewAcademicRanks, loading, saving, error, onRefresh }: {
   companies: ApplyCompany[];
   participants: ApplyParticipant[] | null;
+  canViewAcademicRanks: boolean;
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -355,7 +384,7 @@ function Participants({ companies, participants, loading, saving, error, onRefre
 }) {
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('');
-  const [sort, setSort] = useState<'name' | 'company'>('name');
+  const [sort, setSort] = useState<'name' | 'company' | 'academicRank'>('name');
   const hasFilters = Boolean(search.trim() || company);
   const names = useMemo(() => new Map(companies.map((item) => [item.id, item.name])), [companies]);
   const filtered = useMemo(() => {
@@ -364,13 +393,17 @@ function Participants({ companies, participants, loading, saving, error, onRefre
       .filter((participant) => participant.displayName.toLocaleLowerCase('ko-KR').includes(query)
         && (!company || participant.choices.includes(company)))
       .sort((a, b) => {
+        if (sort === 'academicRank' && canViewAcademicRanks) {
+          const byRank = (a.academicRank ?? Infinity) - (b.academicRank ?? Infinity);
+          if (byRank) return byRank;
+        }
         if (sort === 'company') {
           const byCompany = (names.get(a.choices[0]) ?? '').localeCompare(names.get(b.choices[0]) ?? '', 'ko');
           if (byCompany) return byCompany;
         }
         return a.displayName.localeCompare(b.displayName, 'ko');
       });
-  }, [participants, search, company, sort, names]);
+  }, [participants, search, company, sort, names, canViewAcademicRanks]);
 
   return (
     <section aria-labelledby="apply-participants-heading" className={styles.card}>
@@ -385,6 +418,7 @@ function Participants({ companies, participants, loading, saving, error, onRefre
             </span>
           </h2>
           <p>현재 공유한 지망이에요. 기업을 고르면 해당 지망을 강조해요.</p>
+          <p>{canViewAcademicRanks ? '석차는 본인이 입력한 정보이며, 석차를 공유한 사람에게만 보여요.' : '내 석차를 입력해 저장하면 다른 석차 공유자의 석차도 확인할 수 있어요.'}</p>
         </div>
         <button className={styles.secondaryButton} disabled={loading || saving} onClick={onRefresh} type="button">
           {loading ? '불러오는 중...' : '새로고침'}
@@ -405,9 +439,10 @@ function Participants({ companies, participants, loading, saving, error, onRefre
         </label>
         <label className={styles.sortFilter}>
           <span>정렬</span>
-          <select onChange={(event) => setSort(event.target.value === 'company' ? 'company' : 'name')} value={sort}>
+          <select onChange={(event) => setSort(event.target.value === 'company' ? 'company' : event.target.value === 'academicRank' && canViewAcademicRanks ? 'academicRank' : 'name')} value={sort === 'academicRank' && !canViewAcademicRanks ? 'name' : sort}>
             <option value="name">이름순</option>
             <option value="company">1지망 기업순</option>
+            {canViewAcademicRanks && <option value="academicRank">석차순</option>}
           </select>
         </label>
         {hasFilters && (
@@ -431,11 +466,12 @@ function Participants({ companies, participants, loading, saving, error, onRefre
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <caption className={styles.srOnly}>캡스톤 기업 지망 공유 참여자 {filtered.length}명의 현재 지망</caption>
-            <thead><tr><th scope="col">표시 이름</th>{RANKS.map((rank) => <th key={rank} scope="col">{rank}지망</th>)}</tr></thead>
+            <thead><tr><th scope="col">표시 이름</th>{canViewAcademicRanks && <th className={styles.rankColumn} scope="col">석차</th>}{RANKS.map((rank) => <th key={rank} scope="col">{rank}지망</th>)}</tr></thead>
             <tbody>
               {filtered.length ? filtered.map((participant, index) => (
                 <tr className={participant.isMe ? styles.myRow : undefined} key={`${participant.displayName}-${index}`}>
                   <th scope="row">{participant.displayName}{participant.isMe && <span className={styles.meBadge}>나</span>}</th>
+                  {canViewAcademicRanks && <td>{participant.academicRank != null ? `${participant.academicRank}등` : '미입력'}</td>}
                   {RANKS.map((rank, position) => (
                     <td className={!participant.choices[position] ? styles.undecided : undefined} key={rank}>
                       {company && participant.choices[position] === company
@@ -445,7 +481,7 @@ function Participants({ companies, participants, loading, saving, error, onRefre
                   ))}
                 </tr>
               )) : (
-                <tr><td className={styles.emptyTable} colSpan={6}>{search || company ? '검색 조건에 맞는 참여자가 없어요.' : '아직 표시할 참여자가 없어요.'}</td></tr>
+                <tr><td className={styles.emptyTable} colSpan={canViewAcademicRanks ? 7 : 6}>{search || company ? '검색 조건에 맞는 참여자가 없어요.' : '아직 표시할 참여자가 없어요.'}</td></tr>
               )}
             </tbody>
           </table>
