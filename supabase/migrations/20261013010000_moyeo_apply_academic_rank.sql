@@ -1,15 +1,11 @@
--- Apply once with the 2026-10-13 release. Existing choices are preserved.
+-- Apply with the rank-sharing API release. Existing choices are preserved.
+-- Edit opportunities are reset separately in 20261013000000; do not reset again here.
 -- Keep the original table constraint (1..5) so legacy submissions remain valid;
 -- the only client write path below requires exactly five distinct companies.
 begin;
 
 alter table public.moyeo_apply_submissions
   add column academic_rank integer check (academic_rank >= 1);
-
--- A one-time reset, not part of the save RPC. Bump the revision timestamp so a
--- pre-reset editor cannot reuse its old edit_count after the counter returns to 0.
-update public.moyeo_apply_submissions
-set edit_count = 0, updated_at = clock_timestamp();
 
 create or replace function public.moyeo_apply_state()
 returns jsonb
