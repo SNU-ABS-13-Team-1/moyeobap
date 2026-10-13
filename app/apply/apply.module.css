@@ -158,6 +158,7 @@
 }
 
 .choice select,
+.academicRank input,
 .filters input,
 .filters select {
   background: #fff;
@@ -200,6 +201,34 @@
 
 .hint {
   margin-top: 14px;
+}
+
+.academicRank {
+  border-top: 1px solid var(--card-border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.academicRank label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+
+.academicRank label span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.academicRank input {
+  max-width: 180px;
+}
+
+.rankColumn {
+  width: 76px;
 }
 
 .formFooter {

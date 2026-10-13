@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/app/lib/auth';
-import { validateApplyChoices } from '@/app/lib/moyeoApply';
+import { validateApplyAcademicRank, validateApplyChoices } from '@/app/lib/moyeoApply';
 import { createSupabaseServerClient } from '@/app/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,9 @@ function databaseError(error: { message: string; code?: string }) {
     case 'APPLY_UNAUTHENTICATED':
       return json({ error: '로그인이 필요해요. 다시 로그인해주세요.' }, 401);
     case 'APPLY_INVALID_CHOICES':
-      return json({ error: '기업을 중복 없이 1지망부터 순서대로 선택해주세요.' }, 400);
+      return json({ error: '기업을 중복 없이 1지망부터 5지망까지 모두 선택해주세요.' }, 400);
+    case 'APPLY_INVALID_ACADEMIC_RANK':
+      return json({ error: '석차는 1 이상의 정수로 입력하거나 비워두세요.' }, 400);
     case 'APPLY_EDIT_LIMIT':
       return json({ error: '수정 2회를 모두 사용했어요. 다른 제출자의 지망은 계속 볼 수 있어요.' }, 403);
     case 'APPLY_CONFLICT':
@@ -56,12 +58,20 @@ export async function PUT(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const validationError = validateApplyChoices(body?.choices);
     if (validationError) return json({ error: validationError }, 400);
+    const rankError = validateApplyAcademicRank(body?.academicRank);
+    if (rankError) return json({ error: rankError }, 400);
     const expectedEditCount: unknown = body?.expectedEditCount;
     if (expectedEditCount !== null && (
       typeof expectedEditCount !== 'number'
       || !Number.isInteger(expectedEditCount)
       || expectedEditCount < 0
       || expectedEditCount > 2
+    )) {
+      return json({ error: '최신 지망 정보를 불러온 뒤 다시 저장해주세요.' }, 400);
+    }
+    const expectedUpdatedAt: unknown = body?.expectedUpdatedAt;
+    if (expectedEditCount === null ? expectedUpdatedAt !== null : (
+      typeof expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(expectedUpdatedAt))
     )) {
       return json({ error: '최신 지망 정보를 불러온 뒤 다시 저장해주세요.' }, 400);
     }
@@ -72,6 +82,8 @@ export async function PUT(request: NextRequest) {
     const { data, error } = await supabase.rpc('moyeo_apply_save', {
       p_choices: body.choices,
       p_expected_edit_count: expectedEditCount,
+      p_academic_rank: body.academicRank,
+      p_expected_updated_at: expectedUpdatedAt,
     });
     if (error) return databaseError(error);
     if (!data) return json({ error: '저장 결과를 확인하지 못했어요. 새로고침으로 확인해주세요.' }, 500);
