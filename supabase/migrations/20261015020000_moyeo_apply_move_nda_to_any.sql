@@ -12,9 +12,10 @@ with moved as (
     and not ('national-data-agency-any' = any(choices))
   returning 1
 )
-select count(*) as moved_submissions,
-       (select count(*) from public.moyeo_apply_submissions
-        where 'national-data-agency' = any(choices)) as remaining_old
-from moved;
+select count(*) as moved_submissions from moved;
+
+-- Separate statement: a sibling subquery would still see the pre-update snapshot.
+select count(*) as remaining_old
+from public.moyeo_apply_submissions where 'national-data-agency' = any(choices);
 
 commit;
