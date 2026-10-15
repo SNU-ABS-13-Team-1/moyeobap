@@ -1,6 +1,8 @@
 export interface ApplyCompany {
   id: string;
   name: string;
+  // Optional for compatibility until the company-options migration is applied.
+  isActive?: boolean;
 }
 
 export interface ApplySubmission {
