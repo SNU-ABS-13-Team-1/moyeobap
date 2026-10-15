@@ -132,7 +132,9 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
   const remaining = Math.max(0, 2 - (submission?.editCount ?? 0));
   const choices = draft;
   const academicRank = rankDraft.trim() ? Number(rankDraft) : null;
-  const valid = !validateApplyChoices(choices) && !validateApplyAcademicRank(academicRank);
+  const activeCompanies = companies.filter((company) => company.isActive !== false);
+  const hasRetiredChoice = choices.some((id) => companies.some((company) => company.id === id && company.isActive === false));
+  const valid = !validateApplyChoices(choices) && !validateApplyAcademicRank(academicRank) && !hasRetiredChoice;
   const changed = choices.join('|') !== (submission?.choices ?? []).join('|')
     || academicRank !== (submission?.academicRank ?? null);
   const names = new Map(companies.map((company) => [company.id, company.name]));
@@ -181,6 +183,9 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
       </div>
 
       <form onSubmit={submit}>
+        {editing && hasRetiredChoice && (
+          <p role="status">선택 목록이 변경되었어요. 제외된 기업은 다른 항목으로, 기존 국가데이터처는 대전·서울·무차별 중 하나로 다시 선택해주세요.</p>
+        )}
         <div className={styles.choices}>
           {RANKS.map((rank, index) => (
             <div className={styles.choice} key={rank}>
@@ -216,7 +221,10 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
                   value={draft[index]}
                 >
                   <option disabled value="">기업 선택</option>
-                  {companies.map((company) => (
+                  {companies.some((company) => company.id === draft[index] && company.isActive === false) && (
+                    <option disabled value={draft[index]}>{names.get(draft[index])} (다시 선택)</option>
+                  )}
+                  {activeCompanies.map((company) => (
                     <option disabled={draft.some((choice, position) => choice === company.id && position !== index)} key={company.id} value={company.id}>
                       {company.name}
                     </option>
@@ -348,7 +356,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
           <span>기업 필터 · 1~5지망 전체</span>
           <select onChange={(event) => setCompany(event.target.value)} value={company}>
             <option value="">모든 기업</option>
-            {companies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            {companies.filter((item) => item.isActive !== false).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
         <label className={styles.sortFilter}>

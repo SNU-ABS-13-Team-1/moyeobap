@@ -17,12 +17,12 @@ on conflict (id) do update set display_name = excluded.display_name;
 insert into public.moyeo_apply_submissions (user_id, choices) values
   ('a6610000-0000-4000-8000-000000000003', array['car123']);
 insert into public.moyeo_apply_submissions (user_id, choices, academic_rank) values
-  ('a6610000-0000-4000-8000-000000000004', array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha', 'mnb'], 3);
+  ('a6610000-0000-4000-8000-000000000004', array['samjong-kpmg', 'national-data-agency-daejeon', 'national-data-agency-seoul', 'national-data-agency-any', 'mnb'], 3);
 
 set local role authenticated;
 do $$
 declare
-  v_choices text[] := array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha', 'mnb'];
+  v_choices text[] := array['samjong-kpmg', 'national-data-agency-daejeon', 'national-data-agency-seoul', 'national-data-agency-any', 'mnb'];
   v_result jsonb;
   v_state jsonb;
   v_unranked_list jsonb;
@@ -42,12 +42,20 @@ begin
   if v_state->'submission' <> 'null'::jsonb or v_state->'participants' <> 'null'::jsonb then
     raise exception 'FAIL: unsubmitted user can read submissions';
   end if;
+  if (select count(*) from jsonb_array_elements(v_state->'companies') c
+      where (c->>'isActive')::boolean) <> 13
+    or not (v_state->'companies' @> '[{"id":"jido-labs","name":"Jido Labs","isActive":false},{"id":"national-data-agency","name":"국가데이터처","isActive":false},{"id":"national-data-agency-daejeon","name":"국가데이터처(대전)","isActive":true},{"id":"national-data-agency-seoul","name":"국가데이터처(서울)","isActive":true},{"id":"national-data-agency-any","name":"국가데이터처(무차별)","isActive":true}]'::jsonb)
+  then
+    raise exception 'FAIL: company options do not match the updated list';
+  end if;
   for v_invalid in select choices from (values
     (array[]::text[]), (array['samjong-kpmg']),
     (array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha']),
     (array['samjong-kpmg', 'samjong-kpmg', 'car123', 'kt-alpha', 'mnb']),
     (array['samjong-kpmg', null, 'car123', 'kt-alpha', 'mnb']),
     (array['samjong-kpmg', 'unknown-company', 'car123', 'kt-alpha', 'mnb']),
+    (array['samjong-kpmg', 'jido-labs', 'car123', 'kt-alpha', 'mnb']),
+    (array['samjong-kpmg', 'national-data-agency', 'car123', 'kt-alpha', 'mnb']),
     (v_choices || 'aurora-world'::text)
   ) invalid(choices) loop
     begin
