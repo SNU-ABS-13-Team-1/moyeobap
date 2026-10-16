@@ -41,13 +41,13 @@ export function ApplyClient() {
         <p className={styles.introLead}>
           서로의 선택에 도움이 되도록 현재 생각하는 지망을 솔직하게 공유해주세요.
           {' '}다른 사람의 선택을 유도하기 위한 허위 지망 입력은 삼가주세요.
-          {' '}제출 후 수정은 최대 2회 가능합니다.
+          {' '}지망 저장 후 수정은 최대 2회 가능하며, 최종 확정하면 수정할 수 없습니다.
         </p>
         <ul>
           <li>내 지망을 제출하면 다른 제출자의 지망을 볼 수 있습니다.</li>
           <li>내 표시 이름과 지망도 다른 제출자에게 공개됩니다.</li>
           <li>1~5지망을 모두 선택해주세요. 석차는 선택사항이며, 입력해 저장한 사람끼리만 서로의 석차를 볼 수 있습니다.</li>
-          <li>이곳의 공유 내용은 공식 신청에 반영되지 않습니다. 공식 지망은 별도로 제출해야 합니다.</li>
+          <li>이곳의 공유 내용과 제출 완료 표시는 공식 신청에 반영되지 않습니다. 공식 지망은 별도로 제출해야 합니다.</li>
         </ul>
       </section>
 
@@ -70,7 +70,7 @@ export function ApplyClient() {
 }
 
 function AuthenticatedApply({ userId }: { userId: string }) {
-  const { state, loading, saving, readError, saveError, notice, refresh, save, canViewAcademicRanks } = useApplyState(userId);
+  const { state, loading, saving, readError, saveError, notice, refresh, save, confirm, canViewAcademicRanks } = useApplyState(userId);
 
   if (!state) {
     return (
@@ -94,6 +94,7 @@ function AuthenticatedApply({ userId }: { userId: string }) {
         companies={state.companies}
         key={state.submission?.updatedAt ?? 'unsubmitted'}
         onSave={save}
+        onConfirm={confirm}
         saving={saving}
         submission={state.submission}
       />
@@ -118,17 +119,20 @@ function AuthenticatedApply({ userId }: { userId: string }) {
   );
 }
 
-function MySubmission({ companies, submission, busy, saving, onSave }: {
+function MySubmission({ companies, submission, busy, saving, onSave, onConfirm }: {
   companies: ApplyCompany[];
   submission: ApplySubmission | null;
   busy: boolean;
   saving: boolean;
   onSave: (choices: string[], academicRank: number | null) => Promise<ApplySaveResult | null>;
+  onConfirm: () => Promise<ApplySaveResult | null>;
 }) {
   const [editing, setEditing] = useState(!submission);
   const [draft, setDraft] = useState<string[]>(RANKS.map((_, index) => submission?.choices[index] ?? ''));
   const [rankDraft, setRankDraft] = useState(submission?.academicRank?.toString() ?? '');
   const [confirming, setConfirming] = useState(false);
+  const [confirmingFinal, setConfirmingFinal] = useState(false);
+  const isConfirmed = Boolean(submission?.confirmedAt);
   const remaining = Math.max(0, 2 - (submission?.editCount ?? 0));
   const choices = draft;
   const academicRank = rankDraft.trim() ? Number(rankDraft) : null;
@@ -177,9 +181,9 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
       <div className={styles.sectionHeading}>
         <div>
           <h2 id="my-apply-heading">내 지망</h2>
-          <p>{submission ? '공유 중인 나의 캡스톤 기업 지망이에요. 다음 저장부터는 5지망까지 모두 선택해주세요.' : '1지망부터 5지망까지 서로 다른 기업을 모두 선택해주세요.'}</p>
+          <p>{isConfirmed ? '제출 완료로 확정했어요. 지망과 석차는 더 이상 수정할 수 없어요.' : submission ? '공유 중인 지망을 확인하고 최종 확정해주세요.' : '1지망부터 5지망까지 서로 다른 기업을 모두 선택해주세요.'}</p>
         </div>
-        <span className={remaining ? styles.remaining : styles.locked}>남은 수정 횟수 {remaining}회</span>
+        <span className={isConfirmed ? styles.confirmedBadge : remaining ? styles.remaining : styles.locked}>{isConfirmed ? '제출 완료' : `남은 수정 횟수 ${remaining}회`}</span>
       </div>
 
       <form onSubmit={submit}>
@@ -259,26 +263,57 @@ function MySubmission({ companies, submission, busy, saving, onSave }: {
           <p className={styles.hint} id="apply-academic-rank-hint">석차를 입력해 저장하면 석차를 공유한 사람끼리만 서로의 석차를 확인할 수 있어요. 비워두면 지망 정보만 공유합니다.</p>
         </div>
         {editing && <p className={styles.hint}>↑↓로 선택한 기업의 순서를 바꿀 수 있어요. 지망이나 석차를 변경해 저장하면 수정 1회가 사용됩니다(최초 제출 제외).</p>}
-        {submission && remaining === 0 && <p className={styles.hint}>수정 2회를 모두 사용했어요. 다른 제출자의 지망은 계속 확인할 수 있어요.</p>}
+        {submission && !isConfirmed && remaining === 0 && <p className={styles.hint}>수정 2회를 모두 사용했어요. 저장된 지망을 확인하고 최종 확정할 수 있어요.</p>}
 
+        {submission && !isConfirmed && !editing && !valid && (
+          <p className={styles.hint}>최종 확정하려면 현재 선택 가능한 기업으로 1~5지망을 모두 저장해야 해요.</p>
+        )}
         <div className={styles.formFooter}>
           <p className={styles.savedAt}>
-            {submission ? <>마지막 저장 <time dateTime={submission.updatedAt}>{savedTime(submission.updatedAt)}</time> · 한국 시간</> : '아직 제출하지 않았어요. 최초 제출은 수정 횟수에 포함되지 않습니다.'}
+            {submission?.confirmedAt ? <>최종 확정 <time dateTime={submission.confirmedAt}>{savedTime(submission.confirmedAt)}</time> · 한국 시간</> : submission ? <>마지막 저장 <time dateTime={submission.updatedAt}>{savedTime(submission.updatedAt)}</time> · 한국 시간</> : '아직 제출하지 않았어요. 최초 제출은 수정 횟수에 포함되지 않습니다.'}
           </p>
           <div className={styles.actions}>
-            {editing ? (
+            {isConfirmed ? <span className={styles.editLocked}>최종 확정됨</span> : editing ? (
               <>
                 {submission && <button className={styles.secondaryButton} disabled={busy} onClick={cancel} type="button">취소</button>}
                 <button className={styles.primaryButton} disabled={busy || !valid || !changed} type="submit">
                   {saving ? '저장 중...' : submission ? '변경 저장' : '내 지망 제출'}
                 </button>
               </>
-            ) : remaining > 0 ? (
-              <button className={styles.secondaryButton} disabled={busy} onClick={() => setEditing(true)} type="button">지망 수정</button>
-            ) : <span className={styles.editLocked}>수정 완료</span>}
+            ) : (
+              <>
+                {remaining > 0 && <button className={styles.secondaryButton} disabled={busy} onClick={() => setEditing(true)} type="button">지망 수정</button>}
+                <button className={styles.primaryButton} disabled={busy || !valid} onClick={() => setConfirmingFinal(true)} type="button">제출 완료로 확정</button>
+              </>
+            )}
           </div>
         </div>
       </form>
+
+      {confirmingFinal && submission && (
+        <Modal
+          title="제출 완료로 확정할까요?"
+          onClose={() => setConfirmingFinal(false)}
+          footer={(
+            <div className={styles.confirmActions}>
+              <button className={styles.secondaryButton} disabled={busy} onClick={() => setConfirmingFinal(false)} type="button">돌아가기</button>
+              <button className={styles.primaryButton} disabled={busy} onClick={() => {
+                setConfirmingFinal(false);
+                void onConfirm();
+              }} type="button">최종 확정</button>
+            </div>
+          )}
+        >
+          <div className={styles.confirmBody}>
+            <p>확정하면 남은 수정 횟수와 관계없이 지망과 석차를 더 이상 수정할 수 없고, 확정을 취소할 수 없어요. 다른 참여자에게는 ‘제출 완료’로 표시됩니다.</p>
+            <ol className={styles.confirmChoices}>
+              {RANKS.map((rank, index) => <li key={rank}><span>{rank}지망</span><strong>{names.get(submission.choices[index]) ?? '미정'}</strong></li>)}
+            </ol>
+            <p className={styles.hint}>{submission.academicRank !== null ? `석차 ${submission.academicRank}등` : '석차 미입력'} · 확정은 수정 횟수를 사용하지 않습니다.</p>
+            <p className={styles.hint}>이 버튼은 모여 어플라이의 공유 내용을 확정합니다. 공식 지망 신청은 별도로 제출해야 합니다.</p>
+          </div>
+        </Modal>
+      )}
 
       {confirming && (
         <Modal
@@ -339,7 +374,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
                 : `${participants.length}명`)}
             </span>
           </h2>
-          <p>현재 공유한 지망이에요. 기업을 고르면 해당 지망을 강조해요.</p>
+          <p>최종 확정한 참여자는 제출 완료로 표시돼요. 기업을 고르면 해당 지망을 강조해요.</p>
           <p>{canViewAcademicRanks ? '석차는 본인이 입력한 정보이며, 석차를 공유한 사람에게만 보여요.' : '내 석차를 입력해 저장하면 다른 석차 공유자의 석차도 확인할 수 있어요.'}</p>
         </div>
         <button className={styles.secondaryButton} disabled={loading || saving} onClick={onRefresh} type="button">
@@ -388,11 +423,12 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <caption className={styles.srOnly}>캡스톤 기업 지망 공유 참여자 {filtered.length}명의 현재 지망</caption>
-            <thead><tr><th scope="col">표시 이름</th>{canViewAcademicRanks && <th className={styles.rankColumn} scope="col">석차</th>}{RANKS.map((rank) => <th key={rank} scope="col">{rank}지망</th>)}</tr></thead>
+            <thead><tr><th scope="col">표시 이름</th><th scope="col">상태</th>{canViewAcademicRanks && <th className={styles.rankColumn} scope="col">석차</th>}{RANKS.map((rank) => <th key={rank} scope="col">{rank}지망</th>)}</tr></thead>
             <tbody>
               {filtered.length ? filtered.map((participant, index) => (
                 <tr className={participant.isMe ? styles.myRow : undefined} key={`${participant.displayName}-${index}`}>
                   <th scope="row">{participant.displayName}{participant.isMe && <span className={styles.meBadge}>나</span>}</th>
+                  <td><span className={participant.isConfirmed ? styles.confirmedBadge : styles.pendingBadge}>{participant.isConfirmed ? '제출 완료' : '미확정'}</span></td>
                   {canViewAcademicRanks && <td>{participant.academicRank != null ? `${participant.academicRank}등` : '미입력'}</td>}
                   {RANKS.map((rank, position) => (
                     <td className={!participant.choices[position] ? styles.undecided : undefined} key={rank}>
@@ -403,7 +439,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
                   ))}
                 </tr>
               )) : (
-                <tr><td className={styles.emptyTable} colSpan={canViewAcademicRanks ? 7 : 6}>{search || company ? '검색 조건에 맞는 참여자가 없어요.' : '아직 표시할 참여자가 없어요.'}</td></tr>
+                <tr><td className={styles.emptyTable} colSpan={canViewAcademicRanks ? 8 : 7}>{search || company ? '검색 조건에 맞는 참여자가 없어요.' : '아직 표시할 참여자가 없어요.'}</td></tr>
               )}
             </tbody>
           </table>

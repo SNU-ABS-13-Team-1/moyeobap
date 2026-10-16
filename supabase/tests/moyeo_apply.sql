@@ -86,7 +86,7 @@ begin
   v_state := public.moyeo_apply_state();
   if jsonb_typeof(v_state->'participants') <> 'array' or exists (
     select 1 from jsonb_array_elements(v_state->'participants') p
-    where p - 'displayName' - 'choices' - 'isMe' <> '{}'::jsonb
+    where p - 'displayName' - 'choices' - 'isMe' - 'isConfirmed' <> '{}'::jsonb
   ) then
     raise exception 'FAIL: unranked participant can read rank or private fields';
   end if;
@@ -133,7 +133,7 @@ begin
   end if;
   if exists (
     select 1 from jsonb_array_elements(v_state->'participants') p
-    where p - 'displayName' - 'choices' - 'isMe' - 'academicRank' <> '{}'::jsonb
+    where p - 'displayName' - 'choices' - 'isMe' - 'isConfirmed' - 'academicRank' <> '{}'::jsonb
   ) then
     raise exception 'FAIL: ranked participant sees private bookkeeping';
   end if;

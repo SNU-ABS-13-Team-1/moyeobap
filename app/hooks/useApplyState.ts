@@ -115,7 +115,7 @@ export function useApplyState(userId: string) {
     };
   }, [userId, invalidate, refresh]);
 
-  async function save(choices: string[], academicRank: number | null) {
+  async function mutate(action: 'save' | 'confirm', choices?: string[], academicRank?: number | null) {
     if (!state || savingRef.current || loading) return null;
     savingRef.current = true;
     setSaving(true);
@@ -125,7 +125,7 @@ export function useApplyState(userId: string) {
     const notifier = changes.current;
     try {
       const result = await requestJson<ApplySaveResult>('/api/apply', {
-        method: 'PUT',
+        method: action === 'confirm' ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           choices, academicRank,
@@ -136,7 +136,7 @@ export function useApplyState(userId: string) {
       if (!mounted.current) return null;
       // Confirm own save, but only a fresh state read may restore rank access.
       setState((previous) => previous ? { ...previous, submission: result.submission, participants: null } : null);
-      setNotice(result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
+      setNotice(action === 'confirm' ? '제출 완료로 확정했어요. 이제 지망과 석차를 수정할 수 없어요.' : result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
       return result;
     } catch (error) {
       if (!mounted.current) return null;
@@ -155,8 +155,11 @@ export function useApplyState(userId: string) {
     }
   }
 
+  const save = (choices: string[], academicRank: number | null) => mutate('save', choices, academicRank);
+  const confirm = () => mutate('confirm');
+
   return {
-    state, loading, saving, readError, saveError, notice, refresh, save,
+    state, loading, saving, readError, saveError, notice, refresh, save, confirm,
     canViewAcademicRanks: verified && state?.submission?.academicRank != null,
   };
 }
