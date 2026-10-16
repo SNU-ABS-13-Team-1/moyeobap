@@ -428,7 +428,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
               {filtered.length ? filtered.map((participant, index) => (
                 <tr className={participant.isMe ? styles.myRow : undefined} key={`${participant.displayName}-${index}`}>
                   <th scope="row">{participant.displayName}{participant.isMe && <span className={styles.meBadge}>나</span>}</th>
-                  <td><span className={participant.isConfirmed ? styles.confirmedBadge : styles.pendingBadge}>{participant.isConfirmed ? '제출 완료' : '미확정'}</span></td>
+                  <td><span className={participant.isConfirmed ? styles.confirmedBadge : styles.pendingBadge}>{participant.isConfirmed ? '제출 완료' : '제출전'}</span></td>
                   {canViewAcademicRanks && <td>{participant.academicRank != null ? `${participant.academicRank}등` : '미입력'}</td>}
                   {RANKS.map((rank, position) => (
                     <td className={!participant.choices[position] ? styles.undecided : undefined} key={rank}>
