@@ -10,12 +10,14 @@ export interface ApplySubmission {
   academicRank: number | null;
   editCount: number;
   updatedAt: string;
+  confirmedAt: string | null;
 }
 
 export interface ApplyParticipant {
   displayName: string;
   choices: string[];
   isMe: boolean;
+  isConfirmed: boolean;
   // Omitted by the database when the viewer has not shared their own rank.
   academicRank?: number | null;
 }
