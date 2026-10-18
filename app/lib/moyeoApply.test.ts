@@ -39,3 +39,12 @@ test('unregistered viewer cannot infer changed ranks from a forced rank-sort sel
   assert.deepEqual(names(rows), ['가', '나', '다']);
   assert.deepEqual(names(altered), names(rows));
 });
+
+
+test('legacy DB responses fail closed before the API returns participant names', async () => {
+  const { hasApplyPrivacyPolicy } = await import('./moyeoApply');
+  assert.equal(hasApplyPrivacyPolicy({ privacyVersion: 1 }), true);
+  for (const value of [null, {}, { participants: [{ displayName: '실명' }] }, { privacyVersion: '1' }, { privacyVersion: 0 }]) {
+    assert.equal(hasApplyPrivacyPolicy(value), false);
+  }
+});

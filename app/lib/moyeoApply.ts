@@ -11,6 +11,8 @@ export interface ApplySubmission {
   editCount: number;
   updatedAt: string;
   confirmedAt: string | null;
+  isNamePublic: boolean;
+  requiresResubmission: boolean;
 }
 
 export interface ApplyParticipant {
@@ -25,7 +27,7 @@ export interface ApplyParticipant {
 export interface ApplyState {
   companies: ApplyCompany[];
   submission: ApplySubmission | null;
-  // null means the caller has not submitted and has no access to this list.
+  // null means no complete persisted submission or an invalidated read.
   participants: ApplyParticipant[] | null;
 }
 
@@ -56,7 +58,7 @@ export function sortApplyParticipants(
   });
 }
 
-/** Existing incomplete submissions remain readable; every new save needs five choices. */
+/** Every submission needs five distinct choices before participating. */
 export function validateApplyChoices(value: unknown): string | null {
   if (!Array.isArray(value) || value.length !== 5) {
     return '1지망부터 5지망까지 모두 선택해주세요.';
@@ -76,4 +78,11 @@ export function validateApplyAcademicRank(value: unknown): string | null {
     return '석차는 1 이상의 정수로 입력하거나 비워두세요.';
   }
   return null;
+}
+
+
+/** Reject pre-privacy RPC responses rather than forwarding their real-name list. */
+export function hasApplyPrivacyPolicy(value: unknown): boolean {
+  return typeof value === 'object' && value !== null
+    && 'privacyVersion' in value && value.privacyVersion === 1;
 }

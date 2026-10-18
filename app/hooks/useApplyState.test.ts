@@ -15,6 +15,8 @@ const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 class Fixture {
   rank: number | null = 12;
   edits = 0;
+  isNamePublic = false;
+  requiresResubmission = false;
   confirmedAt: string | null = null;
   hidden = false;
   gets = 0;
@@ -28,14 +30,21 @@ class Fixture {
   state(): ApplyState {
     return {
       companies: choices.map(id => ({ id, name: id })),
-      submission: { confirmedAt: this.confirmedAt, choices, academicRank: this.rank, editCount: this.edits, updatedAt: `2026-10-13T00:00:0${this.edits}Z` },
-      participants: [
+      submission: { isNamePublic: this.isNamePublic, requiresResubmission: this.requiresResubmission, confirmedAt: this.confirmedAt, choices, academicRank: this.rank, editCount: this.edits, updatedAt: `2026-10-13T00:00:0${this.edits}Z` },
+      participants: this.requiresResubmission ? null : [
         { isConfirmed: this.confirmedAt !== null, displayName: '가', choices, isMe: true, ...(this.rank === null ? {} : { academicRank: this.rank }) },
         { isConfirmed: false, displayName: '나', choices, isMe: false, ...(this.rank === null ? {} : { academicRank: 3 }) },
       ],
     };
   }
   fetch = async (_url: string | URL | Request, init?: RequestInit) => {
+    if (init?.method === 'PATCH') {
+      const body = JSON.parse(String(init.body));
+      assert.equal(body.expectedUpdatedAt, this.state().submission?.updatedAt);
+      this.isNamePublic = body.isNamePublic;
+      if (this.loseSaveResponse) throw new Error('lost response after commit');
+      return Response.json({ submission: this.state().submission, changed: true });
+    }
     if (init?.method === 'POST') {
       const body = JSON.parse(String(init.body));
       assert.equal(body.expectedUpdatedAt, this.state().submission?.updatedAt);
@@ -208,4 +217,32 @@ test('lost confirmation response reloads the confirmed state in both clients', a
   assert.equal(f.edits, 0);
   assert.ok(f.views.every(view => view.state?.submission?.confirmedAt === f.confirmedAt));
   assert.equal(f.views[0].saveError, 'lost response after commit');
+});
+
+
+test('incomplete legacy submission has no rank access even with a saved rank', async t => {
+  const { f } = await mount(t);
+  f.requiresResubmission = true;
+  await act(async () => { f.views[0].refresh(); await tick(); });
+  assert.equal(f.views[0].canViewAcademicRanks, false);
+  assert.equal(f.views[0].state?.participants, null);
+});
+
+test('name visibility can change after confirmation without edits and invalidates both tabs', async t => {
+  const { f } = await mount(t, 2);
+  f.edits = 2;
+  f.confirmedAt = '2026-10-18T00:00:00Z';
+  await act(async () => { f.views.forEach(view => view.refresh()); await tick(); });
+  f.holdReads = true;
+  await act(async () => { await f.views[0].setNameVisibility(true); await tick(); });
+  assert.equal(f.edits, 2);
+  assert.ok(f.views.every(view => view.state?.participants === null && !view.canViewAcademicRanks));
+  await act(async () => { for (const read of f.reads) read.finish(Response.json(read.snapshot)); await tick(); });
+  assert.ok(f.views.every(view => view.state?.submission?.isNamePublic === true));
+  assert.ok(f.views.every(view => view.state?.submission?.confirmedAt === f.confirmedAt));
+  f.holdReads = false;
+  f.loseSaveResponse = true;
+  await act(async () => { await f.views[0].setNameVisibility(false); await tick(); });
+  assert.ok(f.views.every(view => view.state?.submission?.isNamePublic === false));
+  assert.ok(f.broadcasts.every(value => typeof value === 'string' && /^[0-9a-f-]{36}$/.test(value)));
 });
