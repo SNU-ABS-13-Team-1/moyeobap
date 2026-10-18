@@ -45,7 +45,7 @@ export function ApplyClient() {
         </p>
         <ul>
           <li>내 지망을 제출하면 다른 제출자의 지망을 볼 수 있습니다.</li>
-          <li>내 표시 이름과 지망도 다른 제출자에게 공개됩니다.</li>
+          <li>지망은 공유되며 이름은 기본 비공개입니다. 직접 이름 공개를 선택한 경우에만 표시 이름이 공개됩니다.</li>
           <li>1~5지망을 모두 선택해주세요. 석차는 선택사항이며, 입력해 저장한 사람끼리만 서로의 석차를 볼 수 있습니다.</li>
           <li>이곳의 공유 내용과 제출 완료 표시는 공식 신청에 반영되지 않습니다. 공식 지망은 별도로 제출해야 합니다.</li>
         </ul>
@@ -70,7 +70,7 @@ export function ApplyClient() {
 }
 
 function AuthenticatedApply({ userId }: { userId: string }) {
-  const { state, loading, saving, readError, saveError, notice, refresh, save, confirm, canViewAcademicRanks } = useApplyState(userId);
+  const { state, loading, saving, readError, saveError, notice, refresh, save, confirm, setNameVisibility, canViewAcademicRanks } = useApplyState(userId);
 
   if (!state) {
     return (
@@ -89,17 +89,21 @@ function AuthenticatedApply({ userId }: { userId: string }) {
     <>
       {notice && <p className={styles.success} role="status">{notice}</p>}
       {saveError && <p className={styles.errorBanner} role="alert">{saveError}</p>}
+      {state.submission?.requiresResubmission && (
+        <p className={styles.errorBanner} role="status">기존 지망에 미정이 있어 다시 참여해야 해요. 1~5지망을 처음부터 모두 입력해 저장하면 참여자 목록을 볼 수 있어요. 재제출은 수정 횟수를 사용하지 않으며, 이후 수정 기회는 2회입니다.</p>
+      )}
       <MySubmission
         busy={saving || loading}
         companies={state.companies}
         key={state.submission?.updatedAt ?? 'unsubmitted'}
         onSave={save}
         onConfirm={confirm}
+        onSetNameVisibility={setNameVisibility}
         saving={saving}
-        submission={state.submission}
+        submission={state.submission?.requiresResubmission ? null : state.submission}
       />
 
-      {state.submission ? (
+      {state.submission && !state.submission.requiresResubmission ? (
         <Participants
           canViewAcademicRanks={canViewAcademicRanks}
           companies={state.companies}
@@ -119,13 +123,14 @@ function AuthenticatedApply({ userId }: { userId: string }) {
   );
 }
 
-function MySubmission({ companies, submission, busy, saving, onSave, onConfirm }: {
+function MySubmission({ companies, submission, busy, saving, onSave, onConfirm, onSetNameVisibility }: {
   companies: ApplyCompany[];
   submission: ApplySubmission | null;
   busy: boolean;
   saving: boolean;
   onSave: (choices: string[], academicRank: number | null) => Promise<ApplySaveResult | null>;
   onConfirm: () => Promise<ApplySaveResult | null>;
+  onSetNameVisibility: (isNamePublic: boolean) => Promise<ApplySaveResult | null>;
 }) {
   const [editing, setEditing] = useState(!submission);
   const [draft, setDraft] = useState<string[]>(RANKS.map((_, index) => submission?.choices[index] ?? ''));
@@ -290,6 +295,18 @@ function MySubmission({ companies, submission, busy, saving, onSave, onConfirm }
         </div>
       </form>
 
+      {submission && (
+        <div role="group" aria-label="이름 공개 설정" className={styles.nameVisibility}>
+          <label>
+            <input type="checkbox" checked={submission.isNamePublic === true}
+              disabled={busy || editing} onChange={(event) => void onSetNameVisibility(event.target.checked)} />
+            {' '}참여자에게 내 이름 공개
+          </label>
+          <p className={styles.hint}>기본은 이름 비공개입니다. 선택하면 현재 프로필 표시 이름이 공개되고, 해제하면 이름 비공개로 표시됩니다. 설정은 즉시 저장되며 수정 횟수를 사용하지 않고, 제출 확정 후에도 바꿀 수 있어요.</p>
+          {editing && <p className={styles.hint}>지망 편집을 마치거나 취소한 뒤 이름 공개 설정을 바꿀 수 있어요.</p>}
+        </div>
+      )}
+
       {confirmingFinal && submission && (
         <Modal
           title="제출 완료로 확정할까요?"
@@ -327,7 +344,7 @@ function MySubmission({ companies, submission, busy, saving, onSave, onConfirm }
           title={submission ? '지망을 변경할까요?' : '내 지망을 공유할까요?'}
         >
           <div className={styles.confirmBody}>
-            <p>{submission ? `이번 변경을 저장하면 남은 수정 횟수는 ${remaining - 1}회입니다.` : '제출하면 내 표시 이름과 지망이 다른 제출자에게 공개됩니다. 제출 후에는 최대 2회 수정할 수 있어요.'}</p>
+            <p>{submission ? `이번 변경을 저장하면 남은 수정 횟수는 ${remaining - 1}회입니다.` : '제출하면 지망이 다른 참여자에게 공유됩니다. 이름은 기본 비공개이며 제출 후 직접 공개를 선택할 수 있어요. 지망은 최대 2회 수정할 수 있어요.'}</p>
             <ol className={styles.confirmChoices}>
               {RANKS.map((rank, index) => <li key={rank}><span>{rank}지망</span><strong>{names.get(choices[index]) ?? '미정'}</strong></li>)}
             </ol>
@@ -385,7 +402,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
       <div className={styles.filters}>
         <label className={styles.search}>
           <span>이름 검색</span>
-          <input onChange={(event) => setSearch(event.target.value)} placeholder="표시 이름으로 검색" type="search" value={search} />
+          <input onChange={(event) => setSearch(event.target.value)} placeholder="공개된 이름으로 검색" type="search" value={search} />
         </label>
         <label className={styles.companyFilter}>
           <span>기업 필터 · 1~5지망 전체</span>
@@ -397,7 +414,7 @@ function Participants({ companies, participants, canViewAcademicRanks, loading, 
         <label className={styles.sortFilter}>
           <span>정렬</span>
           <select onChange={(event) => setSort(event.target.value === 'company' ? 'company' : event.target.value === 'academicRank' && canViewAcademicRanks ? 'academicRank' : 'name')} value={sort === 'academicRank' && !canViewAcademicRanks ? 'name' : sort}>
-            <option value="name">이름순</option>
+            <option value="name">표시 이름순</option>
             <option value="company">1지망 기업순</option>
             {canViewAcademicRanks && <option value="academicRank">석차순</option>}
           </select>

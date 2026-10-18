@@ -13,7 +13,7 @@ insert into public.profiles (id, display_name) values
   ('a6610000-0000-4000-8000-000000000003', 'Apply 테스트 다'),
   ('a6610000-0000-4000-8000-000000000004', 'Apply 테스트 라')
 on conflict (id) do update set display_name = excluded.display_name;
--- Legacy incomplete submissions remain readable, but cannot be saved as-is.
+-- Legacy incomplete submissions are only readable by their owner and cannot participate.
 insert into public.moyeo_apply_submissions (user_id, choices) values
   ('a6610000-0000-4000-8000-000000000003', array['car123']);
 insert into public.moyeo_apply_submissions (user_id, choices, academic_rank) values
@@ -124,7 +124,7 @@ begin
   v_state := public.moyeo_apply_state();
   if v_result#>'{submission,editCount}' <> '1'::jsonb or not exists (
     select 1 from jsonb_array_elements(v_state->'participants') p
-    where p->>'displayName' = 'Apply 테스트 가' and p->>'academicRank' = '12'
+    where p->>'isMe' = 'false' and p->>'academicRank' = '12'
   ) or not exists (
     select 1 from jsonb_array_elements(v_state->'participants') p
     where p->>'isMe' = 'true' and p->>'academicRank' = '7'
@@ -167,7 +167,7 @@ begin
   perform set_config('request.jwt.claim.sub', 'a6610000-0000-4000-8000-000000000001', true);
   if exists (
     select 1 from jsonb_array_elements(public.moyeo_apply_state()->'participants') p
-    where p->>'displayName' = 'Apply 테스트 나' and p->'academicRank' <> 'null'::jsonb
+    where p->>'isMe' = 'false' and p->'academicRank' = '7'::jsonb
   ) then raise exception 'FAIL: removed rank still exposed to others'; end if;
   perform set_config('request.jwt.claim.sub', 'a6610000-0000-4000-8000-000000000002', true);
   begin
@@ -184,7 +184,9 @@ begin
 
   perform set_config('request.jwt.claim.sub', 'a6610000-0000-4000-8000-000000000003', true);
   v_state := public.moyeo_apply_state();
-  if v_state#>'{submission,choices}' <> '["car123"]'::jsonb then
+  if v_state#>'{submission,choices}' <> '["car123"]'::jsonb
+    or v_state->'participants' <> 'null'::jsonb
+    or v_state#>'{submission,requiresResubmission}' <> 'true'::jsonb then
     raise exception 'FAIL: legacy choices unreadable';
   end if;
   begin
@@ -194,8 +196,8 @@ begin
     if sqlerrm <> 'APPLY_INVALID_CHOICES' then raise; end if;
   end;
   v_result := public.moyeo_apply_save(v_choices, 0, 3, (v_state#>>'{submission,updatedAt}')::timestamptz);
-  if v_result#>'{submission,editCount}' <> '1'::jsonb then
-    raise exception 'FAIL: completing legacy submission did not count as one edit';
+  if v_result#>'{submission,editCount}' <> '0'::jsonb then
+    raise exception 'FAIL: legacy re-entry consumed an edit';
   end if;
   raise notice 'PASS: five choices, legacy reads, mutual rank sharing, revocation, privacy, concurrency and two-edit limit';
 end;

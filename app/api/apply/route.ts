@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSession } from '@/app/lib/auth';
-import { validateApplyAcademicRank, validateApplyChoices } from '@/app/lib/moyeoApply';
+import { hasApplyPrivacyPolicy, validateApplyAcademicRank, validateApplyChoices } from '@/app/lib/moyeoApply';
 import { createSupabaseServerClient } from '@/app/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -22,14 +22,16 @@ function databaseError(error: { message: string; code?: string }) {
       return json({ error: '기업을 중복 없이 1지망부터 5지망까지 모두 선택해주세요.' }, 400);
     case 'APPLY_INVALID_ACADEMIC_RANK':
       return json({ error: '석차는 1 이상의 정수로 입력하거나 비워두세요.' }, 400);
+    case 'APPLY_INVALID_VISIBILITY':
+      return json({ error: '이름 공개 여부를 선택해주세요.' }, 400);
     case 'APPLY_EDIT_LIMIT':
       return json({ error: '수정 2회를 모두 사용했어요. 다른 제출자의 지망은 계속 볼 수 있어요.' }, 403);
     case 'APPLY_CONFIRMED':
       return json({ error: '제출 완료로 확정한 지망은 수정할 수 없어요.' }, 409);
     case 'APPLY_NOT_SUBMITTED':
-      return json({ error: '지망을 먼저 저장한 뒤 확정해주세요.' }, 409);
+      return json({ error: '지망을 먼저 저장해주세요.' }, 409);
     case 'APPLY_CONFLICT':
-      return json({ error: '다른 창에서 지망을 저장했어요. 최신 내용을 불러온 뒤 다시 확인해주세요.' }, 409);
+      return json({ error: '다른 창에서 지망이나 공개 설정을 저장했어요. 최신 내용을 불러온 뒤 다시 확인해주세요.' }, 409);
   }
   if (error.code === 'PGRST202' || error.code === '42P01' || error.code === '42883') {
     return json({ error: '모여 어플라이를 준비하고 있어요. 잠시 후 다시 시도해주세요.' }, 503);
@@ -49,6 +51,9 @@ export async function GET() {
     const { data, error } = await supabase.rpc('moyeo_apply_state');
     if (error) return databaseError(error);
     if (!data) return json({ error: '지망 정보를 불러오지 못했어요.' }, 500);
+    if (!hasApplyPrivacyPolicy(data)) {
+      return json({ error: '개인정보 보호 설정을 적용 중이에요. 잠시 후 다시 시도해주세요.' }, 503);
+    }
     return json(data);
   } catch {
     return json({ error: '지망 정보를 불러오지 못했어요. 다시 시도해주세요.' }, 500);
@@ -91,6 +96,9 @@ export async function PUT(request: NextRequest) {
     });
     if (error) return databaseError(error);
     if (!data) return json({ error: '저장 결과를 확인하지 못했어요. 새로고침으로 확인해주세요.' }, 500);
+    if (!hasApplyPrivacyPolicy(data)) {
+      return json({ error: '개인정보 보호 설정을 적용 중이에요. 잠시 후 다시 시도해주세요.' }, 503);
+    }
     return json(data);
   } catch {
     return json({ error: '저장 결과를 확인하지 못했어요. 새로고침 후 다시 확인해주세요.' }, 500);
@@ -110,8 +118,36 @@ export async function POST(request: NextRequest) {
     });
     if (error) return databaseError(error);
     if (!data) return json({ error: '확정 결과를 확인하지 못했어요. 새로고침해주세요.' }, 500);
+    if (!hasApplyPrivacyPolicy(data)) {
+      return json({ error: '개인정보 보호 설정을 적용 중이에요. 잠시 후 다시 시도해주세요.' }, 503);
+    }
     return json(data);
   } catch {
     return json({ error: '확정 결과를 확인하지 못했어요. 새로고침 후 다시 확인해주세요.' }, 500);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    if (!await getSession()) return json({ error: '로그인이 필요해요.' }, 401);
+    const body = await request.json().catch(() => null);
+    if (typeof body?.isNamePublic !== 'boolean'
+      || typeof body?.expectedUpdatedAt !== 'string'
+      || !Number.isFinite(Date.parse(body.expectedUpdatedAt))) {
+      return json({ error: '최신 이름 공개 설정을 불러온 뒤 다시 시도해주세요.' }, 400);
+    }
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('moyeo_apply_set_name_visibility', {
+      p_is_name_public: body.isNamePublic,
+      p_expected_updated_at: body.expectedUpdatedAt,
+    });
+    if (error) return databaseError(error);
+    if (!data) return json({ error: '설정 저장 결과를 확인하지 못했어요. 새로고침해주세요.' }, 500);
+    if (!hasApplyPrivacyPolicy(data)) {
+      return json({ error: '개인정보 보호 설정을 적용 중이에요. 잠시 후 다시 시도해주세요.' }, 503);
+    }
+    return json(data);
+  } catch {
+    return json({ error: '설정을 저장하지 못했어요. 새로고침 후 다시 확인해주세요.' }, 500);
   }
 }

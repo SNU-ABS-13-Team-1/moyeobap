@@ -115,7 +115,7 @@ export function useApplyState(userId: string) {
     };
   }, [userId, invalidate, refresh]);
 
-  async function mutate(action: 'save' | 'confirm', choices?: string[], academicRank?: number | null) {
+  async function mutate(action: 'save' | 'confirm' | 'visibility', choices?: string[], academicRank?: number | null, isNamePublic?: boolean) {
     if (!state || savingRef.current || loading) return null;
     savingRef.current = true;
     setSaving(true);
@@ -125,10 +125,10 @@ export function useApplyState(userId: string) {
     const notifier = changes.current;
     try {
       const result = await requestJson<ApplySaveResult>('/api/apply', {
-        method: action === 'confirm' ? 'POST' : 'PUT',
+        method: action === 'confirm' ? 'POST' : action === 'visibility' ? 'PATCH' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          choices, academicRank,
+          choices, academicRank, isNamePublic,
           expectedEditCount: state.submission?.editCount ?? null,
           expectedUpdatedAt: state.submission?.updatedAt ?? null,
         }),
@@ -136,7 +136,7 @@ export function useApplyState(userId: string) {
       if (!mounted.current) return null;
       // Confirm own save, but only a fresh state read may restore rank access.
       setState((previous) => previous ? { ...previous, submission: result.submission, participants: null } : null);
-      setNotice(action === 'confirm' ? '제출 완료로 확정했어요. 이제 지망과 석차를 수정할 수 없어요.' : result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
+      setNotice(action === 'visibility' ? (result.submission.isNamePublic ? '이름을 공개했어요.' : '이름을 비공개로 바꿨어요.') : action === 'confirm' ? '제출 완료로 확정했어요. 이제 지망과 석차를 수정할 수 없어요.' : result.changed ? '내 지망을 저장했어요.' : '변경된 내용이 없어 수정 횟수를 사용하지 않았어요.');
       return result;
     } catch (error) {
       if (!mounted.current) return null;
@@ -157,9 +157,10 @@ export function useApplyState(userId: string) {
 
   const save = (choices: string[], academicRank: number | null) => mutate('save', choices, academicRank);
   const confirm = () => mutate('confirm');
+  const setNameVisibility = (isNamePublic: boolean) => mutate('visibility', undefined, undefined, isNamePublic);
 
   return {
-    state, loading, saving, readError, saveError, notice, refresh, save, confirm,
-    canViewAcademicRanks: verified && state?.submission?.academicRank != null,
+    state, loading, saving, readError, saveError, notice, refresh, save, confirm, setNameVisibility,
+    canViewAcademicRanks: verified && state?.submission != null && !state.submission.requiresResubmission && state.submission.academicRank != null,
   };
 }

@@ -514,3 +514,24 @@
   background: var(--bg-secondary);
   color: var(--text-secondary);
 }
+
+
+.nameVisibility {
+  border-top: 1px solid var(--card-border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.nameVisibility label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.nameVisibility input {
+  accent-color: var(--primary-color, #ed5923);
+  height: 18px;
+  width: 18px;
+}
