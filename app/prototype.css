@@ -9696,3 +9696,11 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   margin: 6px 0 0;
   padding-left: 1.6em;
 }
+
+.quoridor-room__standings {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #ecfdf5;
+  font-weight: 700;
+}

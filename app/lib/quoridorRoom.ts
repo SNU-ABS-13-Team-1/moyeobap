@@ -29,8 +29,12 @@ export const END_REASON_LABEL: Record<NonNullable<EndReason>, string> = {
   others_left: '다른 참여자가 모두 나감',
 };
 
-/** seat는 시작 전 null, 시작 후 0..mode-1. 시작 후 players는 seat 순으로 정렬돼 turnIndex === seat. */
-export type RoomPlayer = { id: string; name: string; seat: number | null; left: boolean; timeouts: number };
+/**
+ * seat는 시작 전 null, 시작 후 0..mode-1. 시작 후 players는 seat 순으로 정렬돼 turnIndex === seat.
+ * rank는 등수(1이 최고). 목표 변에 도착한 사람은 위에서부터, 나간 사람은 아래에서부터 채우고,
+ * 마지막까지 남은 한 명이 남은 최고 등수를 받습니다. 아직 경기 중이면 null(없던 옛 행도 null 취급).
+ */
+export type RoomPlayer = { id: string; name: string; seat: number | null; left: boolean; timeouts: number; rank?: number | null };
 /** move: 표기("e2", "e3h") | 'pass'(수가 없어 자동 넘김) | 'timeout'. 매 수마다 행 전체가 실시간으로 나가므로 시각은 넣지 않습니다. */
 export type MoveRecord = { seat: number; move: string };
 
@@ -108,14 +112,44 @@ export function mapRoomRow(row: QuoridorRoomRow): QuoridorRoom {
   };
 }
 
+/** 도착한 4인전 말을 보드에서 뺄 때 쓰는 자리(어떤 칸과도 겹치지 않음). */
+export const OFF_BOARD: Cell = { r: -1, c: -1 };
+
+/** 아직 경기 중(나가지 않았고 순위도 없음)인지. 턴 순서·길 검사 대상입니다. */
+export function isRacing(p: RoomPlayer): boolean {
+  return !p.left && (p.rank ?? null) === null;
+}
+
 export function boardOf(room: QuoridorRoom): BoardState {
   return {
     mode: room.mode,
     pawns: room.pawns,
     walls: room.walls,
     wallsLeft: room.wallsLeft,
-    active: room.players.map((p) => !p.left),
+    active: room.players.map(isRacing),
   };
+}
+
+function unusedRanks(players: RoomPlayer[], mode: Mode): number[] {
+  const used = new Set(players.map((p) => p.rank).filter((r): r is number => typeof r === 'number'));
+  return Array.from({ length: mode }, (_, i) => i + 1).filter((r) => !used.has(r));
+}
+
+/**
+ * 경기 중인 사람이 한 명 이하로 남으면 그 사람에게 남은 최고 등수를 주고 판을 끝냅니다.
+ * 1위가 목표 변 도착으로 정해졌으면 'goal', 끝까지 남아서 1위가 됐으면 'others_left'.
+ */
+function settle(players: RoomPlayer[], mode: Mode): { players: RoomPlayer[]; finished: Finished | null } {
+  const racing = players.filter(isRacing);
+  if (racing.length > 1) return { players, finished: null };
+  const hadWinner = players.some((p) => p.rank === 1);
+  let settled = players;
+  if (racing.length === 1) {
+    const best = unusedRanks(players, mode)[0] ?? mode;
+    settled = players.map((p) => (p.id === racing[0].id ? { ...p, rank: best } : p));
+  }
+  const winner = settled.find((p) => p.rank === 1) ?? null;
+  return { players: settled, finished: { winnerId: winner?.id ?? null, reason: hadWinner ? 'goal' : 'others_left' } };
 }
 
 export function currentPlayer(room: QuoridorRoom): RoomPlayer | null {
@@ -138,7 +172,7 @@ function advance(players: RoomPlayer[], board: BoardState, from: number, moves: 
   const n = players.length;
   for (let step = 1; step <= n; step += 1) {
     const idx = (from + step) % n;
-    if (players[idx].left) continue;
+    if (!isRacing(players[idx])) continue;
     if (hasAnyLegalMove(board, idx)) return { turnIndex: idx, moves: out };
     out.push({ seat: idx, move: 'pass' });
   }
@@ -146,7 +180,7 @@ function advance(players: RoomPlayer[], board: BoardState, from: number, moves: 
 }
 
 function withActive(board: BoardState, players: RoomPlayer[]): BoardState {
-  return { ...board, active: players.map((p) => !p.left) };
+  return { ...board, active: players.map(isRacing) };
 }
 
 function startPatch(room: QuoridorRoom, shuffle: <T>(xs: T[]) => T[], nowIso: string): Plan {
@@ -156,6 +190,7 @@ function startPatch(room: QuoridorRoom, shuffle: <T>(xs: T[]) => T[], nowIso: st
     seat,
     left: false,
     timeouts: 0,
+    rank: null,
   }));
   return {
     patch: {
@@ -191,7 +226,7 @@ export function planRestart(room: QuoridorRoom, userId: string, shuffle: <T>(xs:
   return {
     patch: {
       status: 'waiting',
-      players: staying.map((p) => ({ id: p.id, name: p.name, seat: null, left: false, timeouts: 0 })),
+      players: staying.map((p) => ({ id: p.id, name: p.name, seat: null, left: false, timeouts: 0, rank: null })),
       turn_index: 0,
       pawns: [],
       walls: [],
@@ -209,7 +244,7 @@ export function planRestart(room: QuoridorRoom, userId: string, shuffle: <T>(xs:
 export function planTurn(room: QuoridorRoom, userId: string, notation: unknown, nowIso: string): Plan {
   if (room.status !== 'playing') return { error: '진행 중인 게임이 아니에요.' };
   const me = currentPlayer(room);
-  if (!me || me.id !== userId || me.left) return { error: '내 차례가 아니에요.' };
+  if (!me || me.id !== userId || !isRacing(me)) return { error: '내 차례가 아니에요.' };
   const move = typeof notation === 'string' ? parseNotation(notation) : null;
   if (!move) return { error: '잘못된 수예요.' };
 
@@ -217,33 +252,56 @@ export function planTurn(room: QuoridorRoom, userId: string, notation: unknown, 
   const result = applyMove(boardOf(room), seat, move);
   if (!result.ok) return { error: move.kind === 'pawn' ? '갈 수 없는 칸이에요.' : '벽을 놓을 수 없어요.' };
 
-  const players = room.players.map((p, i) => (i === seat ? { ...p, timeouts: 0 } : p));
+  let players = room.players.map((p, i) => (i === seat ? { ...p, timeouts: 0 } : p));
   const moves = [...room.moves, { seat, move: formatMove(move) }];
-  const boardPatch = { pawns: result.board.pawns, walls: result.board.walls, walls_left: result.board.wallsLeft, players };
+  let pawns = result.board.pawns;
 
   if (result.won) {
-    return {
-      patch: { ...boardPatch, moves, status: 'finished', winner_id: me.id, end_reason: 'goal', turn_started_at: null },
-      finished: { winnerId: me.id, reason: 'goal' },
-    };
+    // 도착한 사람은 남은 최고 등수를 받습니다. 판이 이어지면(4인전) 말을 보드에서 빼 길을 비웁니다.
+    const rank = unusedRanks(players, room.mode)[0] ?? 1;
+    players = players.map((p, i) => (i === seat ? { ...p, rank } : p));
+    const settled = settle(players, room.mode);
+    if (settled.finished) {
+      return {
+        patch: {
+          pawns, walls: result.board.walls, walls_left: result.board.wallsLeft, players: settled.players, moves,
+          status: 'finished', winner_id: settled.finished.winnerId, end_reason: settled.finished.reason, turn_started_at: null,
+        },
+        finished: settled.finished,
+      };
+    }
+    pawns = pawns.map((c, i) => (i === seat ? { ...OFF_BOARD } : c));
   }
-  const next = advance(players, result.board, seat, moves);
-  return { patch: { ...boardPatch, moves: next.moves, turn_index: next.turnIndex, turn_started_at: nowIso }, finished: null };
+  const board = { ...result.board, pawns, active: players.map(isRacing) };
+  const next = advance(players, board, seat, moves);
+  return {
+    patch: { pawns, walls: result.board.walls, walls_left: result.board.wallsLeft, players, moves: next.moves, turn_index: next.turnIndex, turn_started_at: nowIso },
+    finished: null,
+  };
 }
 
 export function planResign(room: QuoridorRoom, userId: string, nowIso: string): Plan {
   if (room.status !== 'playing') return { error: '진행 중인 게임이 아니에요.' };
-  if (!room.players.some((p) => p.id === userId && !p.left)) return { error: '이미 나간 사람이에요.' };
+  const leaver = room.players.find((p) => p.id === userId && !p.left);
+  if (!leaver) return { error: '이미 나간 사람이에요.' };
 
-  const players = room.players.map((p) => (p.id === userId ? { ...p, left: true } : p));
-  const remaining = players.filter((p) => !p.left);
-  const hostId = room.hostId === userId ? (remaining[0]?.id ?? room.hostId) : room.hostId;
+  // 이미 도착해 순위가 있는 사람은 자리만 비웁니다. 경기 중이던 사람은 아래에서부터 등수를 받습니다.
+  const rank = isRacing(leaver) ? (unusedRanks(room.players, room.mode).at(-1) ?? room.mode) : leaver.rank;
+  const marked = room.players.map((p) => (p.id === userId ? { ...p, left: true, rank } : p));
+  const stayingIds = marked.filter((p) => !p.left);
+  const hostId = room.hostId === userId ? (stayingIds[0]?.id ?? room.hostId) : room.hostId;
 
-  if (remaining.length <= 1) {
-    const winnerId = remaining[0]?.id ?? null;
+  if (!isRacing(leaver)) return { patch: { players: marked, host_id: hostId }, finished: null };
+
+  const settled = settle(marked, room.mode);
+  const players = settled.players;
+  if (settled.finished) {
     return {
-      patch: { players, host_id: hostId, status: 'finished', winner_id: winnerId, end_reason: 'others_left', turn_started_at: null },
-      finished: { winnerId, reason: 'others_left' },
+      patch: {
+        players, host_id: hostId, status: 'finished', winner_id: settled.finished.winnerId,
+        end_reason: settled.finished.reason, turn_started_at: null,
+      },
+      finished: settled.finished,
     };
   }
   if (currentPlayer(room)?.id !== userId) return { patch: { players, host_id: hostId }, finished: null };
@@ -259,7 +317,7 @@ export function planTimeout(room: QuoridorRoom, userId: string, nowMs: number, n
   const current = currentPlayer(room);
   if (!current) return { error: '차례 정보를 찾을 수 없어요.' };
 
-  if (current.left) {
+  if (!isRacing(current)) {
     // 정상적으로는 생기지 않는 방어 경로: 나간 사람에게 벌점을 주지 않고 넘기기만 합니다.
     const next = advance(room.players, boardOf(room), room.turnIndex, room.moves);
     return { patch: { players: room.players, turn_index: next.turnIndex, moves: next.moves, turn_started_at: nowIso }, finished: null };

@@ -2,7 +2,7 @@
 
 import { useRef, type PointerEvent } from 'react';
 import type { Cell, Move, Wall } from '../../lib/quoridorMatch';
-import type { QuoridorRoom } from '../../lib/quoridorRoom';
+import { isRacing, type QuoridorRoom } from '../../lib/quoridorRoom';
 import { cellFromView, goalSideToView, nearestIntersection, wallToView, type Rotation, type Side } from '../../lib/quoridorView';
 
 export const SEAT_SHAPES = ['●', '▲', '■', '◆'] as const;
@@ -41,10 +41,10 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
   const lastClass = lastMove ? ` quoridor-room__last--seat${lastMove.seat}` : '';
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // 목표 변 색 띠: 나가지 않은 사람마다 그 사람 목표 변 쪽에 색을 칠합니다.
+  // 목표 변 색 띠: 아직 경기 중인 사람마다 그 사람 목표 변 쪽에 색을 칠합니다.
   const bands: { side: Side; seat: number }[] = room.status === 'waiting'
     ? []
-    : room.players.flatMap((p, seat) => (p.left ? [] : [{ side: goalSideToView(room.mode, seat, rotation), seat }]));
+    : room.players.flatMap((p, seat) => (isRacing(p) ? [{ side: goalSideToView(room.mode, seat, rotation), seat }] : []));
 
   function pointFrom(event: PointerEvent<HTMLDivElement>) {
     const rect = gridRef.current?.getBoundingClientRect();
