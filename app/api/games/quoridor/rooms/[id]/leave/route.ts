@@ -10,6 +10,9 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ i
   }
 
   const { id } = await context.params;
-  const room = await leaveRoom(id, user.id);
-  return NextResponse.json({ room });
+  const result = await leaveRoom(id, user.id);
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 503 });
+  }
+  return NextResponse.json({ room: result.room });
 }

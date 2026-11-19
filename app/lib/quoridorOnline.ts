@@ -22,6 +22,7 @@ import {
 const STALE_ROOM_TTL_MS = 1 * 60 * 60 * 1000;
 const CAS_ATTEMPTS = 3;
 const CONFLICT = "다른 요청이 먼저 처리됐어요. 다시 시도해주세요.";
+const DB_ERROR = "서버가 잠시 응답하지 않아요. 잠시 뒤 다시 시도해주세요.";
 
 export type Outcome = { room: QuoridorRoom } | { error: string };
 
@@ -82,7 +83,12 @@ async function runPlan(roomId: string, plan: (room: QuoridorRoom, nowIso: string
     const nowIso = new Date().toISOString();
     const result = plan(room, nowIso);
     if ("error" in result) return result;
-    const updated = await updateRoomCas(supabase, room, result.patch, nowIso);
+    let updated: QuoridorRoom | null;
+    try {
+      updated = await updateRoomCas(supabase, room, result.patch, nowIso);
+    } catch {
+      return { error: DB_ERROR };
+    }
     if (!updated) continue;
     if (result.finished && result.finished.winnerId) await recordMatchResult(updated);
     return { room: updated };
@@ -168,15 +174,17 @@ export async function timeoutTurn(roomId: string, userId: string): Promise<Outco
 /**
  * 나가기: 대기 중이면 자리 비우기(방장이면 다음 사람에게 이전, 혼자면 방 삭제), 진행 중이면 기권,
  * 끝난 방이면 자리 비움 표시(마지막 사람이 나가면 방 삭제). 진행 중 기권도 runPlan을 거치므로
- * 나가기로 판이 끝나면 랭킹이 반영됩니다. 방이 지워졌거나 이미 없으면 null.
+ * 나가기로 판이 끝나면 랭킹이 반영됩니다. 방이 지워졌거나 이미 나간 상태면 room은 null.
+ * 갱신에 실패하면 error를 돌려줘 화면이 "나간 줄 아는데 서버엔 앉아 있는" 상태를 만들지 않습니다.
  */
-export async function leaveRoom(roomId: string, userId: string): Promise<QuoridorRoom | null> {
+export async function leaveRoom(roomId: string, userId: string): Promise<{ room: QuoridorRoom | null } | { error: string }> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  if (!supabase) return { error: "서버 오류예요." };
+  const ALREADY_LEFT = "이미 나간 사람이에요.";
   let deleted = false;
 
   const result = await runPlan(roomId, (room, nowIso) => {
-    if (!room.players.some((p) => p.id === userId && !p.left)) return { error: "이미 나간 사람이에요." };
+    if (!room.players.some((p) => p.id === userId && !p.left)) return { error: ALREADY_LEFT };
     if (room.status === "playing") return planResign(room, userId, nowIso);
 
     // waiting은 명단에서 빼고, finished는 자리 비움 표시만 합니다("다시 하기"에 끼지 않게).
@@ -192,8 +200,14 @@ export async function leaveRoom(roomId: string, userId: string): Promise<Quorido
   });
 
   if (deleted) {
-    await supabase.from("quoridor_rooms").delete().eq("id", roomId);
-    return null;
+    const { error } = await supabase.from("quoridor_rooms").delete().eq("id", roomId);
+    if (error) return { error: DB_ERROR };
+    return { room: null };
   }
-  return "room" in result ? result.room : null;
+  if ("error" in result) {
+    // 방이 없거나 이미 나간 상태면 나가기는 이미 이뤄진 것으로 봅니다.
+    if (result.error === ALREADY_LEFT || result.error === "존재하지 않는 방이에요.") return { room: null };
+    return result;
+  }
+  return result;
 }

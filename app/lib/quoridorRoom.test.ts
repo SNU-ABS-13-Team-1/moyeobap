@@ -78,7 +78,7 @@ const row = (over: Partial<QuoridorRoomRow> = {}): QuoridorRoomRow => {
 
 /** from('quoridor_rooms').update().eq().eq().select().maybeSingle() 체인만 흉내 내는 가짜 클라이언트. */
 function fakeDb(initial: QuoridorRoomRow) {
-  const state: { row: Record<string, unknown>; lastFilter: Record<string, unknown> } = { row: { ...initial }, lastFilter: {} };
+  const state: { row: Record<string, unknown>; lastFilter: Record<string, unknown>; fail: boolean } = { row: { ...initial }, lastFilter: {}, fail: false };
   const client = {
     from(table: string) {
       assert.equal(table, 'quoridor_rooms');
@@ -95,6 +95,7 @@ function fakeDb(initial: QuoridorRoomRow) {
             },
             async maybeSingle() {
               state.lastFilter = filter;
+              if (state.fail) return { data: null, error: { message: 'db down' } };
               if (!Object.entries(filter).every(([k, v]) => state.row[k] === v)) return { data: null, error: null };
               state.row = { ...state.row, ...patch };
               return { data: state.row, error: null };
@@ -205,4 +206,10 @@ test('updateRoomCas: version이 맞으면 갱신, 다르면 null', async () => {
   assert.equal((await updateRoomCas(db, room({ version: 3 }), { turn_index: 1 }, T0))?.version, 4);
   assert.equal(await updateRoomCas(db, room({ version: 3 }), { turn_index: 0 }, T0), null); // 이미 4
   assert.deepEqual(state.lastFilter, { id: 'room-1', version: 3 });
+});
+
+test('updateRoomCas: DB 오류는 충돌(null)과 구분해 예외로 알린다', async () => {
+  const { db, state } = fakeDb(row({ version: 3 }));
+  state.fail = true;
+  await assert.rejects(updateRoomCas(db, room({ version: 3 }), { turn_index: 1 }, T0));
 });

@@ -274,7 +274,12 @@ export function planTimeout(room: QuoridorRoom, userId: string, nowMs: number, n
   return { patch: { players, turn_index: next.turnIndex, moves: next.moves, turn_started_at: nowIso }, finished: null };
 }
 
-/** version 조건부 갱신. 다른 요청이 먼저 바꿨으면 null. */
+/** 시간 초과 신고가 실패했을 때 다시 보낼 때까지 기다릴 시간(ms). 실패 종류와 상관없이 늘려 가며 몇 번만 다시 보내고, 끝나면 null. */
+export function timeoutRetryDelay(failures: number): number | null {
+  return failures < 4 ? 2000 * 2 ** failures : null;
+}
+
+/** version 조건부 갱신. 다른 요청이 먼저 바꿨으면 null, DB 오류면 예외(충돌과 구분하기 위해). */
 export async function updateRoomCas(db: SupabaseClient, room: QuoridorRoom, patch: RoomPatch, nowIso: string): Promise<QuoridorRoom | null> {
   const { data, error } = await db
     .from('quoridor_rooms')
@@ -285,7 +290,7 @@ export async function updateRoomCas(db: SupabaseClient, room: QuoridorRoom, patc
     .maybeSingle();
   if (error) {
     console.error('quoridor updateRoomCas error:', error);
-    return null;
+    throw new Error(`quoridor updateRoomCas failed: ${error.message}`);
   }
   return data ? mapRoomRow(data as QuoridorRoomRow) : null;
 }

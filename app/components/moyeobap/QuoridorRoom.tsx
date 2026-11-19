@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { cellName, checkWall, formatMove, legalPawnMoves, type Cell, type Wall } from '../../lib/quoridorMatch';
-import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, type MoveRecord } from '../../lib/quoridorRoom';
+import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
 import { goalSideToView, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
 import { useQuoridorRoom } from '../../hooks/useQuoridorRoom';
 import { useAuth } from './AuthProvider';
@@ -24,7 +24,6 @@ const CHAT_CONFIG: GameChatConfig<'player' | 'spectator'> = {
 
 const ARROW: Record<Side, string> = { up: '↑', down: '↓', left: '←', right: '→' };
 const CONFLICT_PREFIX = '다른 요청이 먼저';
-const TIME_LEFT = '아직 시간이 남아 있어요.';
 const TURN_TITLE = '(내 차례) ';
 
 /** 미리보기 벽(화면 좌표)과 그것을 만든 화면 상태. 회전이나 방 상태가 바뀌면 자동으로 버려집니다. */
@@ -119,21 +118,24 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const remainingMs = room && turnStarted !== null ? Math.max(0, room.turnLimitSec * 1000 - (now - turnStarted)) : null;
 
   // 시간 초과 신고: 나가지 않은 참여자만, 자리 순서대로 0.4초씩 시차를 둡니다.
-  // 같은 턴에는 한 번 보내고, 시계 차이로 "아직"이라고 거절되면 3초 뒤 한 번만 다시 보냅니다. 오류는 띄우지 않습니다.
+  // 같은 턴에는 한 번 보내고, 실패하면(시계 차이·네트워크·서버 오류 모두) 간격을 늘려 몇 번만 다시 보냅니다.
+  // 상대가 떠난 2인전에서는 내 신고가 유일해서, 한 번 실패로 멈추면 판이 영원히 넘어가지 않습니다. 오류는 띄우지 않습니다.
   const reportedRef = useRef<string | null>(null);
-  const retriedRef = useRef<string | null>(null);
+  const failuresRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   useEffect(() => {
     if (!room || room.status !== 'playing' || mySeat === null || !room.turnStartedAt || turnStarted === null) return undefined;
     if (now - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeat * 400) return undefined;
     const key = room.turnStartedAt;
     if (reportedRef.current === key) return undefined;
     reportedRef.current = key;
-    sendAction('timeout').catch((err) => {
-      if (getErrorMessage(err, '') !== TIME_LEFT || retriedRef.current === key) return;
-      retriedRef.current = key;
+    sendAction('timeout').catch(() => {
+      const failures = failuresRef.current.key === key ? failuresRef.current.count : 0;
+      failuresRef.current = { key, count: failures + 1 };
+      const delay = timeoutRetryDelay(failures);
+      if (delay === null) return;
       window.setTimeout(() => {
         if (reportedRef.current === key) reportedRef.current = null;
-      }, 3000);
+      }, delay);
     });
     return undefined;
   }, [room, now, mySeat, turnStarted, sendAction]);
