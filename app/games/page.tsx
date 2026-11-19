@@ -42,6 +42,13 @@ const GAMES = [
     desc: '컴퓨터(5단계)와 두거나 친구들과 온라인으로 2~4명이 겨루세요.',
   },
   {
+    href: '/games/quoridor',
+    emoji: '🧱',
+    title: '쿼리도',
+    desc: '말을 반대편까지 먼저 보내세요. 벽으로 상대 길을 돌아가게 만들 수 있어요 (2·4인).',
+    flag: 'quoridor',
+  },
+  {
     href: '/games/phone',
     emoji: '📞',
     title: '갈틱폰',
@@ -70,7 +77,7 @@ const GAMES = [
 ] as const;
 
 export default async function GamesPage() {
-  // 플래그가 붙은 게임만 DB를 확인합니다(바둑·알까기처럼 테스트서버에서 먼저
+  // 플래그가 붙은 게임만 DB를 확인합니다(바둑·알까기·쿼리도처럼 테스트서버에서 먼저
   // 검증 중인 것들). 플래그가 없는 게임은 그대로 모두에게 보입니다.
   type Flag = Extract<(typeof GAMES)[number], { flag: string }>['flag'];
   const flags = [...new Set(GAMES.flatMap((game) => ('flag' in game ? [game.flag] : [])))];

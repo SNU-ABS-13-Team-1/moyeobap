@@ -9441,3 +9441,229 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
+
+/* ===== Quoridor ===== */
+/* 쿼리도 대전 방. 바깥 레이아웃은 omok-room-page__*, 버튼·상태 줄은 rummy__* 를 재사용합니다. */
+.quoridor-room {
+  --quoridor-seat-0: #2563eb;
+  --quoridor-seat-1: #dc2626;
+  --quoridor-seat-2: #16a34a;
+  --quoridor-seat-3: #9333ea;
+  --quoridor-cell: #ead7b0;
+  --quoridor-groove: #8a5a33;
+  --quoridor-wall: #3b2414;
+}
+
+.quoridor-room__chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.quoridor-room__chip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary, #f8fafc);
+  border: 2px solid transparent;
+  font-size: 0.85rem;
+}
+
+.quoridor-room__chip--active {
+  border-color: var(--primary);
+  background: #fff7ed;
+}
+
+.quoridor-room__chip--winner {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.quoridor-room__chip--left {
+  opacity: 0.45;
+}
+
+.quoridor-room__chip-shape {
+  grid-row: span 2;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.quoridor-room__chip--seat0 .quoridor-room__chip-shape { color: var(--quoridor-seat-0); }
+.quoridor-room__chip--seat1 .quoridor-room__chip-shape { color: var(--quoridor-seat-1); }
+.quoridor-room__chip--seat2 .quoridor-room__chip-shape { color: var(--quoridor-seat-2); }
+.quoridor-room__chip--seat3 .quoridor-room__chip-shape { color: var(--quoridor-seat-3); }
+
+.quoridor-room__chip-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quoridor-room__chip-meta {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.quoridor-room__notice {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* 보드: 목표 변 색 띠는 바깥 래퍼의 여백에 그리고, 그리드에는 패딩·테두리를 주지 않습니다
+   (탭 좌표를 그리드 크기 기준 53단위로 계산하기 때문). */
+.quoridor-room__board-wrap {
+  position: relative;
+  width: min(100%, 70vh);
+  margin: 0 auto;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--quoridor-groove);
+  box-sizing: border-box;
+}
+
+.quoridor-room__band {
+  position: absolute;
+  border-radius: 3px;
+  opacity: 0.85;
+}
+
+.quoridor-room__band--up { top: 2px; left: 8px; right: 8px; height: 4px; }
+.quoridor-room__band--down { bottom: 2px; left: 8px; right: 8px; height: 4px; }
+.quoridor-room__band--left { left: 2px; top: 8px; bottom: 8px; width: 4px; }
+.quoridor-room__band--right { right: 2px; top: 8px; bottom: 8px; width: 4px; }
+.quoridor-room__band--seat0 { background: var(--quoridor-seat-0); }
+.quoridor-room__band--seat1 { background: var(--quoridor-seat-1); }
+.quoridor-room__band--seat2 { background: var(--quoridor-seat-2); }
+.quoridor-room__band--seat3 { background: var(--quoridor-seat-3); }
+
+.quoridor-room__board {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 5fr) minmax(0, 1fr)) minmax(0, 5fr);
+  grid-template-rows: repeat(8, minmax(0, 5fr) minmax(0, 1fr)) minmax(0, 5fr);
+  gap: 0;
+  aspect-ratio: 1;
+  width: 100%;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.quoridor-room__board--wall {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.quoridor-room__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--quoridor-cell);
+  font: inherit;
+}
+
+.quoridor-room__cell--target {
+  cursor: pointer;
+}
+
+.quoridor-room__cell--target:hover,
+.quoridor-room__cell--target:focus-visible {
+  background: #f6e7c8;
+  outline: none;
+}
+
+.quoridor-room__pawn {
+  display: grid;
+  place-items: center;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: #fff;
+  font-size: clamp(10px, 2.6vw, 18px);
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.quoridor-room__pawn--seat0 { background: var(--quoridor-seat-0); }
+.quoridor-room__pawn--seat1 { background: var(--quoridor-seat-1); }
+.quoridor-room__pawn--seat2 { background: var(--quoridor-seat-2); }
+.quoridor-room__pawn--seat3 { background: var(--quoridor-seat-3); }
+
+.quoridor-room__pawn--left {
+  opacity: 0.4;
+}
+
+.quoridor-room__dot {
+  width: 28%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 107, 53, 0.8);
+}
+
+.quoridor-room__wall {
+  z-index: 1;
+  border-radius: 2px;
+  background: var(--quoridor-wall);
+  pointer-events: none;
+}
+
+.quoridor-room__wall--hover {
+  background: rgba(255, 107, 53, 0.35);
+}
+
+.quoridor-room__wall--preview {
+  background: rgba(255, 107, 53, 0.75);
+}
+
+.quoridor-room__wall--invalid {
+  background: rgba(220, 38, 38, 0.75);
+}
+
+.quoridor-room__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quoridor-room__toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.quoridor-room__toggle .rummy__chip {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.quoridor-room__reason {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.quoridor-room__reason--bad {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.quoridor-room__log {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.quoridor-room__log ol {
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 6px 0 0;
+  padding-left: 1.6em;
+}
