@@ -8,7 +8,7 @@ export async function GET() {
   return NextResponse.json({ rooms });
 }
 
-// body: { roomName?, mode: 2 | 4, turnLimitSec? }
+// body: { roomName?, mode: 2 | 4, turnLimitSec?, anonymous? }
 export async function POST(request: NextRequest) {
   const user = await getSession();
   if (!user) {
@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
   const roomName = typeof body?.roomName === "string" ? body.roomName : undefined;
   const turnLimitSec = Number(body?.turnLimitSec);
 
-  const room = await createRoom(user.id, user.name, roomName, mode, Number.isFinite(turnLimitSec) ? turnLimitSec : DEFAULT_TURN_LIMIT_SEC);
+  const anonymous = body?.anonymous === true;
+
+  const room = await createRoom(user.id, user.name, roomName, mode, Number.isFinite(turnLimitSec) ? turnLimitSec : DEFAULT_TURN_LIMIT_SEC, anonymous);
   if (!room) {
     return NextResponse.json({ error: "방을 만들지 못했어요. 잠시 뒤 다시 시도해주세요." }, { status: 503 });
   }

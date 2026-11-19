@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { cellName, checkWall, formatMove, legalPawnMoves, type Cell, type Wall } from '../../lib/quoridorMatch';
-import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, isRacing, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
+import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, isRacing, playerLabel, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
 import { goalSideToView, lastOpponentMove, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
 import { useQuoridorRoom } from '../../hooks/useQuoridorRoom';
 import { useAuth } from './AuthProvider';
@@ -66,7 +66,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const board = room && started ? boardOf(room) : null;
   const previewAbs = previewWall ? wallFromView(previewWall, rotation) : null;
   const check = board && previewAbs && mySeat !== null ? checkWall(board, mySeat, previewAbs) : null;
-  const reason = check ? wallReasonLabel(check, (seat) => room?.players[seat]?.name ?? `${seat + 1}번`) : null;
+  const reason = check ? wallReasonLabel(check, (seat) => (room ? playerLabel(room, seat) : `${seat + 1}번`)) : null;
   const canConfirm = Boolean(isMyTurn && !busy && check?.ok);
   const moveTargets = board && isMyTurn && !busy && mode === 'move' && mySeat !== null ? legalPawnMoves(board, mySeat) : [];
 
@@ -257,20 +257,20 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const lastMove = room.moves.at(-1);
   const opponentLast = started ? lastOpponentMove(room.moves, mySeat) : null;
   const opponentLastText = opponentLast
-    ? `마지막 수: ${SEAT_SHAPES[opponentLast.seat]} ${room.players[opponentLast.seat]?.name ?? ''} — ${
+    ? `마지막 수: ${SEAT_SHAPES[opponentLast.seat]} ${playerLabel(room, opponentLast.seat)} — ${
         opponentLast.move.kind === 'pawn' ? `${cellName(opponentLast.move.to)}로 이동` : `${cellName(opponentLast.move.wall)}${opponentLast.move.wall.o}에 벽`
       }`
     : null;
   const notice = room.status === 'playing' && lastMove && (lastMove.move === 'pass' || lastMove.move === 'timeout')
     ? lastMove.move === 'pass'
-      ? `${room.players[lastMove.seat]?.name}: 둘 수 있는 수가 없어 넘김`
-      : `${room.players[lastMove.seat]?.name}: 시간 초과 ${room.players[lastMove.seat]?.timeouts ?? 0}/${MAX_TIMEOUT_STRIKES}`
+      ? `${playerLabel(room, lastMove.seat)}: 둘 수 있는 수가 없어 넘김`
+      : `${playerLabel(room, lastMove.seat)}: 시간 초과 ${room.players[lastMove.seat]?.timeouts ?? 0}/${MAX_TIMEOUT_STRIKES}`
     : null;
   const ranked = room.players.filter((p) => typeof p.rank === 'number').sort((a, b) => (a.rank ?? 9) - (b.rank ?? 9));
   const arrived = room.status === 'playing' ? ranked.filter((p) => !p.left) : [];
-  const arrivedText = arrived.length > 0 ? `🏁 도착: ${arrived.map((p) => `${p.rank}위 ${p.name}`).join(' · ')}` : null;
+  const arrivedText = arrived.length > 0 ? `🏁 도착: ${arrived.map((p) => `${p.rank}위 ${playerLabel(room, room.players.indexOf(p))}`).join(' · ')}` : null;
   const standingsText = room.status === 'finished' && room.mode === 4 && ranked.length > 0
-    ? ranked.map((p) => `${p.rank}위 ${p.name}${p.left ? '(나감)' : ''}`).join(' · ')
+    ? ranked.map((p) => `${p.rank}위 ${playerLabel(room, room.players.indexOf(p))}${p.left ? ' 나감' : ''}`).join(' · ')
     : null;
 
   let statusText: string;
@@ -285,13 +285,13 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
           ? '관전 중이에요. 자리가 남아 있으니 앉아서 함께 할 수도 있어요.'
           : '관전 중이에요 (자리가 다 찼어요).';
   } else if (room.status === 'finished') {
-    statusText = winner ? `🏁 ${winner.name} 승리 — ${room.endReason ? END_REASON_LABEL[room.endReason] : ''}` : '게임이 끝났어요.';
+    statusText = winner ? `🏁 ${playerLabel(room, room.players.indexOf(winner))} 승리 — ${room.endReason ? END_REASON_LABEL[room.endReason] : ''}` : '게임이 끝났어요.';
   } else if (me && !amRacing) {
     statusText = `🏁 ${me.rank}위로 도착했어요. 남은 사람들의 순위가 정해질 때까지 지켜볼 수 있어요.`;
   } else if (isMyTurn) {
     statusText = mode === 'wall' ? '🟢 내 차례 — 벽 놓을 자리를 고르고 확정하세요.' : '🟢 내 차례 — 점 찍힌 칸으로 움직이거나 벽을 세우세요.';
   } else {
-    statusText = `${current?.name ?? '…'} 차례예요.`;
+    statusText = current ? `${playerLabel(room, room.turnIndex)} 차례예요.` : '…';
   }
 
   return (
@@ -301,7 +301,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
             <span className="chess-room__tc">
-              {room.mode}인전 · ⏱ 턴당 {room.turnLimitSec}초
+              {room.mode}인전 · ⏱ 턴당 {room.turnLimitSec}초{room.anonymous ? ' · 🎭 익명' : ''}
             </span>
             <Spectators names={spectators} />
           </div>
@@ -344,7 +344,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                     <span className="quoridor-room__chip-shape" aria-hidden="true">{SEAT_SHAPES[seat]}</span>
                     <span className="quoridor-room__chip-name">
                       {onlineIds.has(p.id) ? '' : '⚪ '}
-                      {p.name}
+                      {playerLabel(room, seat)}
                       {p.id === currentUser?.id ? ' (나)' : ''}
                     </span>
                     <span className="quoridor-room__chip-meta">
@@ -496,7 +496,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                   <ol>
                     {room.moves.map((m, i) => (
                       <li key={i}>
-                        {SEAT_SHAPES[m.seat]} {room.players[m.seat]?.name}: {moveLabel(m)}
+                        {SEAT_SHAPES[m.seat]} {playerLabel(room, m.seat)}: {moveLabel(m)}
                       </li>
                     ))}
                   </ol>

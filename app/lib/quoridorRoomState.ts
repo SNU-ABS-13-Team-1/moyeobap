@@ -23,6 +23,7 @@ export function parseQuoridorRoomEvent(value: unknown, roomId: string): Quoridor
     typeof row.host_id === 'string' &&
     ['waiting', 'playing', 'finished'].includes(String(row.status)) &&
     (row.mode === 2 || row.mode === 4) &&
+    (row.anonymous === undefined || typeof row.anonymous === 'boolean') &&
     Array.isArray(row.players) && row.players.every((p) => !!p && typeof (p as { id?: unknown }).id === 'string') &&
     Number.isInteger(row.turn_index) &&
     Array.isArray(row.pawns) && row.pawns.every(isCell) &&

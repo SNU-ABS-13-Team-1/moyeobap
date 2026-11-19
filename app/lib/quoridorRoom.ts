@@ -44,6 +44,8 @@ export type QuoridorRoom = {
   status: RoomStatus;
   hostId: string;
   mode: Mode;
+  /** 익명전: 게임 중에는 이름 대신 자리 색으로만 보입니다(끝나면 공개). */
+  anonymous: boolean;
   players: RoomPlayer[];
   turnIndex: number;
   pawns: Cell[];
@@ -66,6 +68,7 @@ export type QuoridorRoomRow = {
   status: RoomStatus;
   host_id: string;
   mode: Mode;
+  anonymous?: boolean;
   players: RoomPlayer[];
   turn_index: number;
   pawns: Cell[];
@@ -95,6 +98,7 @@ export function mapRoomRow(row: QuoridorRoomRow): QuoridorRoom {
     status: row.status,
     hostId: row.host_id,
     mode: row.mode === 4 ? 4 : 2,
+    anonymous: row.anonymous === true,
     players: list<RoomPlayer>(row.players),
     turnIndex: row.turn_index ?? 0,
     pawns: list<Cell>(row.pawns),
@@ -110,6 +114,21 @@ export function mapRoomRow(row: QuoridorRoomRow): QuoridorRoom {
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
   };
+}
+
+/** 자리 색 이름(0~3번). 화면 CSS의 --quoridor-seat-N 색과 같은 순서입니다. */
+export const SEAT_COLOR_NAMES = ['빨강', '파랑', '노랑', '초록'] as const;
+
+/**
+ * 화면·채팅에 쓸 이름. 익명전은 게임 중 색 이름만, 끝나면 "색(이름)"으로 공개합니다.
+ * 대기실(자리 배정 전)과 일반 방은 실제 이름입니다.
+ */
+export function playerLabel(room: Pick<QuoridorRoom, 'anonymous' | 'status' | 'players'>, seat: number): string {
+  const player = room.players[seat];
+  const name = player?.name ?? `${seat + 1}번`;
+  if (!room.anonymous || room.status === 'waiting') return name;
+  const color = SEAT_COLOR_NAMES[seat] ?? `${seat + 1}번`;
+  return room.status === 'finished' ? `${color}(${name})` : color;
 }
 
 /** 도착한 4인전 말을 보드에서 뺄 때 쓰는 자리(어떤 칸과도 겹치지 않음). */

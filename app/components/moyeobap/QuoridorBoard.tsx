@@ -2,7 +2,7 @@
 
 import { useRef, type PointerEvent } from 'react';
 import { isGoal, type Cell, type Move, type Wall } from '../../lib/quoridorMatch';
-import { isRacing, type QuoridorRoom } from '../../lib/quoridorRoom';
+import { isRacing, playerLabel, type QuoridorRoom } from '../../lib/quoridorRoom';
 import { cellFromView, goalSideToView, nearestIntersection, wallToView, type Rotation, type Side } from '../../lib/quoridorView';
 
 export const SEAT_SHAPES = ['●', '▲', '■', '◆'] as const;
@@ -89,7 +89,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
         <>
           {player && (
             <span
-              aria-label={`${player.name}의 말`}
+              aria-label={`${playerLabel(room, seat)}의 말`}
               className={`quoridor-room__pawn quoridor-room__pawn--seat${seat} ${player.left ? 'quoridor-room__pawn--left' : ''}`}
             >
               {SEAT_SHAPES[seat]}
