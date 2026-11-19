@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { cellName, checkWall, formatMove, legalPawnMoves, type Cell, type Wall } from '../../lib/quoridorMatch';
-import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, isRacing, playerLabel, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
+import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, chatAuthorName, isRacing, playerLabel, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
 import { goalSideToView, lastOpponentMove, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
 import { useQuoridorRoom } from '../../hooks/useQuoridorRoom';
 import { useAuth } from './AuthProvider';
@@ -510,7 +510,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
       </div>
 
       <div className="omok-room-page__chat">
-        <GameChat config={CHAT_CONFIG} myRole={isPlayer ? 'player' : 'spectator'} roomId={roomId} />
+        <GameChat
+          config={CHAT_CONFIG}
+          myDisplayName={currentUser ? chatAuthorName(room, currentUser.id, currentUser.name) : undefined}
+          myRole={isPlayer ? 'player' : 'spectator'}
+          roomId={roomId}
+        />
       </div>
     </div>
   );

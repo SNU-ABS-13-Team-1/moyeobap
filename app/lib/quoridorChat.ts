@@ -1,6 +1,6 @@
 import { getSupabase } from "./supabase";
 import { getRoom } from "./quoridorOnline";
-import { playerLabel } from "./quoridorRoom";
+import { chatAuthorName } from "./quoridorRoom";
 
 export type QuoridorChatAuthorRole = "player" | "spectator";
 export type QuoridorChatKind = "text" | "image";
@@ -43,8 +43,7 @@ export async function postRoomChat(roomId: string, userId: string, userName: str
   if (!room) return { error: "존재하지 않는 방이에요." };
   const authorRole: QuoridorChatAuthorRole = room.players.some((p) => p.id === userId && !p.left) ? "player" : "spectator";
   // 익명전 진행 중에는 자리에 앉은 사람의 이름을 색 이름으로 저장합니다(채팅 기록에도 실명이 남지 않게).
-  const seat = room.players.findIndex((p) => p.id === userId && p.seat !== null);
-  const authorName = room.anonymous && room.status === "playing" && seat >= 0 ? playerLabel(room, seat) : userName;
+  const authorName = chatAuthorName(room, userId, userName);
 
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
