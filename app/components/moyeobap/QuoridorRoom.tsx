@@ -7,7 +7,7 @@ import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { cellName, checkWall, formatMove, legalPawnMoves, type Cell, type Wall } from '../../lib/quoridorMatch';
 import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
-import { goalSideToView, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
+import { goalSideToView, lastOpponentMove, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
 import { useQuoridorRoom } from '../../hooks/useQuoridorRoom';
 import { useAuth } from './AuthProvider';
 import { Spectators } from './Spectators';
@@ -253,6 +253,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const hasOpenSeat = room.status === 'waiting' && staying.length < room.mode;
   const remainingSec = remainingMs === null ? null : Math.ceil(remainingMs / 1000);
   const lastMove = room.moves.at(-1);
+  const opponentLast = started ? lastOpponentMove(room.moves, mySeat) : null;
+  const opponentLastText = opponentLast
+    ? `마지막 수: ${SEAT_SHAPES[opponentLast.seat]} ${room.players[opponentLast.seat]?.name ?? ''} — ${
+        opponentLast.move.kind === 'pawn' ? `${cellName(opponentLast.move.to)}로 이동` : `${cellName(opponentLast.move.wall)}${opponentLast.move.wall.o}에 벽`
+      }`
+    : null;
   const notice = room.status === 'playing' && lastMove && (lastMove.move === 'pass' || lastMove.move === 'timeout')
     ? lastMove.move === 'pass'
       ? `${room.players[lastMove.seat]?.name}: 둘 수 있는 수가 없어 넘김`
@@ -352,6 +358,9 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
             <p className="quoridor-room__notice">관전 화면은 최대 20초 늦을 수 있어요.</p>
           )}
           {notice && <p className="quoridor-room__notice">{notice}</p>}
+          {opponentLastText && room.status !== 'waiting' && (
+            <p className={`quoridor-room__last-text quoridor-room__last--seat${opponentLast!.seat}`}>{opponentLastText}</p>
+          )}
 
           {room.status === 'waiting' ? (
             <div className="rummy__waiting">
@@ -385,6 +394,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
             <>
               <QuoridorBoard
                 hover={mode === 'wall' && isPlayer ? hover : null}
+                lastMove={opponentLast}
                 inputMode={isPlayer && room.status === 'playing' ? mode : 'move'}
                 moveTargets={moveTargets}
                 onMove={(cell: Cell) => act('turn', { move: cellName(cell) }, '움직이지 못했어요.')}

@@ -1,4 +1,4 @@
-import type { Cell, Mode, Wall, WallCheck } from './quoridorMatch';
+import { parseNotation, type Cell, type Mode, type Move, type Wall, type WallCheck } from './quoridorMatch';
 
 // 쿼리도 보드 화면용 순수 헬퍼. 내 출발 변이 항상 아래에 오도록 보드를 회전해서 그리고,
 // 서버로 보내는 표기는 항상 절대 좌표입니다. 변환은 이 파일에서만 합니다.
@@ -79,4 +79,18 @@ export function goalSideToView(mode: Mode, seat: number, rot: Rotation): Side {
   const v = SIDE_VECTOR[GOAL_SIDE[mode][seat] ?? 'up'];
   const turned = rotate(v.r, v.c, 0, rot); // 방향 벡터는 평행이동 없이 돌립니다
   return (Object.keys(SIDE_VECTOR) as Side[]).find((s) => SIDE_VECTOR[s].r === turned.r && SIDE_VECTOR[s].c === turned.c) ?? 'up';
+}
+
+/**
+ * 화면에 강조할 "상대의 마지막 수". 넘김·시간 초과와 내 수는 건너뜁니다.
+ * 관전자(mySeat=null)에게는 누구의 것이든 가장 최근 수를 돌려줍니다.
+ */
+export function lastOpponentMove(moves: { seat: number; move: string }[], mySeat: number | null): { seat: number; move: Move } | null {
+  for (let i = moves.length - 1; i >= 0; i -= 1) {
+    const record = moves[i];
+    if (record.seat === mySeat) continue;
+    const move = parseNotation(record.move);
+    if (move) return { seat: record.seat, move };
+  }
+  return null;
 }
