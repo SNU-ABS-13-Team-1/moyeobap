@@ -151,6 +151,7 @@ ON CONFLICT DO NOTHING;
   - `turn_index`, `pawns JSONB`, `walls JSONB`, `walls_left JSONB`, `moves JSONB`
   - `winner_id`, `end_reason`
   - `turn_started_at`, `turn_limit_sec INTEGER DEFAULT 60 CHECK (BETWEEN 30 AND 600)`
+    (새 방 기본값은 코드에서 30초, 2026-11-19 변경. 방마다 저장되므로 진행 중인 방은 그대로)
   - `version INTEGER`, `created_at`, `updated_at`
   - RLS는 참여자만 SELECT(루미와 같은 `players @>` 정책), `supabase_realtime` publication에 추가
 - `quoridor_chat_messages`: `kind ('text'|'image')` 포함, 원나잇 마이그레이션과 같은 형태

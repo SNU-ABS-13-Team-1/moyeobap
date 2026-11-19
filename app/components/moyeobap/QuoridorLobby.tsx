@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { GameLobby, type GameLobbyConfig, type LobbyRoomBase } from './GameLobby';
+import { DEFAULT_TURN_LIMIT_SEC } from '../../lib/quoridorRoom';
 
 type QuoridorLobbyRoom = LobbyRoomBase & {
   hostId: string;
@@ -16,7 +17,7 @@ const TURN_LIMITS = [30, 60, 90, 120] as const;
 // 쿼리도 로비. 방마다 2인전·4인전을 고르고, 대기 중인 방에만 참여할 수 있습니다(시작된 방은 관전).
 export function QuoridorLobby() {
   const [mode, setMode] = useState<2 | 4>(2);
-  const [turnLimit, setTurnLimit] = useState<number>(60);
+  const [turnLimit, setTurnLimit] = useState<number>(DEFAULT_TURN_LIMIT_SEC);
   const [anonymous, setAnonymous] = useState(false);
 
   const config: GameLobbyConfig<QuoridorLobbyRoom> = {
