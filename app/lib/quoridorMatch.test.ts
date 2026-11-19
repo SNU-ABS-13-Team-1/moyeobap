@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { START, WALLS_PER_PLAYER, checkWall, formatMove, initialBoard, isGoal, isStepBlocked, legalPawnMoves, parseNotation, type BoardState, type Wall } from './quoridorMatch.ts';
+import { START, WALLS_PER_PLAYER, applyMove, checkWall, formatMove, hasAnyLegalMove, hasPath, initialBoard, isGoal, isStepBlocked, legalPawnMoves, parseNotation, type BoardState, type Wall } from './quoridorMatch.ts';
 
 const withWalls = (walls: Wall[], mode: 2 | 4 = 2): BoardState => ({ ...initialBoard(mode), walls });
 
@@ -129,4 +129,70 @@ test('좌우·아래 방향 점프와 비껴가기', () => {
   const down = key(legalPawnMoves(at(2, [{ r: 4, c: 4 }, { r: 3, c: 4 }]), 0));
   assert.ok(down.includes('2,4'));
   assert.equal(down.includes('3,3') || down.includes('3,5'), false);
+});
+
+// 0행↔1행 사이 a~h열을 막아 i열 하나만 열어 둔 상태
+const fence: Wall[] = [0, 2, 4, 6].map((c) => ({ r: 0, c, o: 'h' as const }));
+const sealer: Wall = { r: 0, c: 7, o: 'v' }; // h1↔i1, h2↔i2 를 막아 0번을 가둠
+
+test('길 막힘: 2인, 자기 길만 막는 벽도 거부', () => {
+  const b = { ...initialBoard(2), walls: fence };
+  assert.equal(hasPath(b, 0), true);
+  assert.deepEqual(checkWall(b, 0, sealer), { ok: false, reason: 'blocks_path', blockedSeats: [0] });
+  assert.deepEqual(checkWall(b, 1, sealer), { ok: false, reason: 'blocks_path', blockedSeats: [0] });
+});
+
+test('길 막힘: 4인', () => {
+  const b = { ...initialBoard(4), walls: fence };
+  assert.deepEqual(checkWall(b, 2, sealer), { ok: false, reason: 'blocks_path', blockedSeats: [0] });
+});
+
+test('길 막힘: 열이 목표인 1·3번, 여러 자리가 함께 막히면 오름차순', () => {
+  // c=3|4 사이를 2~9행에서 막고, 1행의 틈 뒤 e1·f1을 위와 오른쪽에서 막는다
+  const colFence: Wall[] = [1, 3, 5, 7].map((r) => ({ r, c: 3, o: 'v' as const }));
+  const b = { ...initialBoard(4), walls: [...colFence, { r: 0, c: 4, o: 'h' as const }] };
+  assert.deepEqual(checkWall(b, 0, { r: 0, c: 5, o: 'v' }), { ok: false, reason: 'blocks_path', blockedSeats: [1, 3] });
+});
+
+test('다른 말이 유일한 길 위에 있어도 벽은 허용', () => {
+  const b = { ...initialBoard(2), walls: fence, pawns: [{ r: 0, c: 4 }, { r: 1, c: 8 }] };
+  assert.deepEqual(checkWall(b, 1, { r: 5, c: 0, o: 'h' }), { ok: true });
+});
+
+test('나간 플레이어는 길 검사에서 제외', () => {
+  const b = { ...initialBoard(4), walls: fence, active: [false, true, true, true] };
+  assert.deepEqual(checkWall(b, 1, sealer), { ok: true });
+});
+
+test('applyMove: 벽은 개수 차감, 말은 이동, 목표 도착은 won', () => {
+  const w = applyMove(initialBoard(2), 0, { kind: 'wall', wall: { r: 2, c: 4, o: 'h' } });
+  assert.ok(w.ok && w.board.wallsLeft[0] === 9 && w.board.walls.length === 1 && !w.won);
+  const near = { ...initialBoard(2), pawns: [{ r: 7, c: 4 }, { r: 8, c: 0 }] };
+  const win = applyMove(near, 0, { kind: 'pawn', to: { r: 8, c: 4 } });
+  assert.ok(win.ok && win.won);
+  assert.deepEqual(applyMove(initialBoard(2), 0, { kind: 'pawn', to: { r: 2, c: 4 } }), { ok: false, reason: 'illegal_pawn' });
+  assert.deepEqual(initialBoard(2).walls, []); // 입력 불변
+  const side = { ...initialBoard(4), pawns: [{ r: 0, c: 4 }, { r: 4, c: 7 }, { r: 8, c: 4 }, { r: 0, c: 0 }] };
+  const colWin = applyMove(side, 1, { kind: 'pawn', to: { r: 4, c: 8 } });
+  assert.ok(colWin.ok && colWin.won);
+  const jump = { ...initialBoard(2), pawns: [{ r: 6, c: 4 }, { r: 7, c: 4 }] };
+  const jumpWin = applyMove(jump, 0, { kind: 'pawn', to: { r: 8, c: 4 } });
+  assert.ok(jumpWin.ok && jumpWin.won);
+});
+
+// 0번(a1): 오른쪽은 벽, 위는 1번 말, 그 뒤는 2번 말, 비껴갈 칸 b2는 같은 벽에 막힘.
+// 말은 무시하는 길 검사로는 a열을 따라 길이 열려 있다.
+const stuck: BoardState = {
+  mode: 4,
+  pawns: [{ r: 0, c: 0 }, { r: 1, c: 0 }, { r: 2, c: 0 }, { r: 8, c: 8 }],
+  walls: [{ r: 0, c: 0, o: 'v' }],
+  wallsLeft: [0, 5, 5, 5],
+  active: [true, true, true, true],
+};
+
+test('hasAnyLegalMove: 말 이동도 벽도 없으면 false, 벽이 남았으면 true', () => {
+  assert.deepEqual(legalPawnMoves(stuck, 0), []);
+  assert.equal(hasAnyLegalMove(stuck, 0), false);
+  assert.equal(hasAnyLegalMove({ ...stuck, wallsLeft: [5, 5, 5, 5] }, 0), true);
+  assert.equal(hasAnyLegalMove({ ...initialBoard(2), wallsLeft: [0, 10] }, 0), true);
 });

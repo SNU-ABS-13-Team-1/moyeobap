@@ -86,6 +86,10 @@ export function checkWall(board: BoardState, seat: number, wall: Wall): WallChec
   );
   if (overlaps) return { ok: false, reason: 'overlap' };
   if (board.walls.some((w) => w.o !== wall.o && w.r === wall.r && w.c === wall.c)) return { ok: false, reason: 'cross' };
+  // 벽을 놓은 뒤에도 아직 게임 중인 모든 사람이 목표 변까지 갈 길이 있어야 합니다(다른 말은 무시).
+  const after = { ...board, walls: [...board.walls, wall] };
+  const blockedSeats = board.active.flatMap((active, s) => (active && !hasPath(after, s) ? [s] : []));
+  if (blockedSeats.length > 0) return { ok: false, reason: 'blocks_path', blockedSeats };
   return { ok: true };
 }
 
@@ -131,4 +135,61 @@ export function legalPawnMoves(board: BoardState, seat: number): Cell[] {
     }
   }
   return result;
+}
+
+/** 벽만 보고(말 무시) seat의 현재 위치에서 목표 변까지 길이 있는지. 칸이 81개뿐이라 BFS 그대로. */
+export function hasPath(board: BoardState, seat: number): boolean {
+  const start = board.pawns[seat];
+  if (!start) return false;
+  const seen = new Set<number>([start.r * BOARD_SIZE + start.c]);
+  const queue: Cell[] = [start];
+  while (queue.length > 0) {
+    const cell = queue.shift()!;
+    if (isGoal(board.mode, seat, cell)) return true;
+    for (const d of DIRS) {
+      const next = { r: cell.r + d.r, c: cell.c + d.c };
+      const id = next.r * BOARD_SIZE + next.c;
+      if (!onBoard(next) || seen.has(id) || isStepBlocked(board.walls, cell, next)) continue;
+      seen.add(id);
+      queue.push(next);
+    }
+  }
+  return false;
+}
+
+export type ApplyResult = { ok: true; board: BoardState; won: boolean } | { ok: false; reason: string };
+
+/** 수를 검증하고 적용한 새 보드를 돌려줍니다(입력은 바꾸지 않음). */
+export function applyMove(board: BoardState, seat: number, move: Move): ApplyResult {
+  if (move.kind === 'pawn') {
+    const legal = legalPawnMoves(board, seat).some((c) => c.r === move.to.r && c.c === move.to.c);
+    if (!legal) return { ok: false, reason: 'illegal_pawn' };
+    const pawns = board.pawns.map((p, i) => (i === seat ? { ...move.to } : p));
+    return { ok: true, board: { ...board, pawns }, won: isGoal(board.mode, seat, move.to) };
+  }
+  const check = checkWall(board, seat, move.wall);
+  if (!check.ok) return { ok: false, reason: check.reason };
+  return {
+    ok: true,
+    board: {
+      ...board,
+      walls: [...board.walls, { ...move.wall }],
+      wallsLeft: board.wallsLeft.map((n, i) => (i === seat ? n - 1 : n)),
+    },
+    won: false,
+  };
+}
+
+/** 말 이동이 하나라도 있거나, 남은 벽으로 놓을 수 있는 자리가 하나라도 있는지. */
+export function hasAnyLegalMove(board: BoardState, seat: number): boolean {
+  if (legalPawnMoves(board, seat).length > 0) return true;
+  if ((board.wallsLeft[seat] ?? 0) <= 0) return false;
+  for (const o of ['h', 'v'] as const) {
+    for (let r = 0; r < LAST; r += 1) {
+      for (let c = 0; c < LAST; c += 1) {
+        if (checkWall(board, seat, { r, c, o }).ok) return true;
+      }
+    }
+  }
+  return false;
 }
