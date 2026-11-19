@@ -4,6 +4,7 @@ import {
   MAX_OPEN_ROOMS,
   ONENIGHT_MAX_PLAYERS,
   PHONE_MAX_PLAYERS,
+  QUORIDOR_MAX_PLAYERS,
   RUMMY_MAX_PLAYERS,
   fromAlkkagi,
   fromBaduk,
@@ -11,18 +12,21 @@ import {
   fromOmok,
   fromOneNight,
   fromPhone,
+  fromQuoridor,
   fromRummy,
   mergeOpenRooms,
 } from "./openRooms.ts";
 import { MAX_PLAYERS as RUMMY_ORIGINAL } from "./rummyMatch.ts";
 import { MAX_PLAYERS as PHONE_ORIGINAL } from "./phoneMatch.ts";
 import { MAX_PLAYERS as ONENIGHT_ORIGINAL } from "./onenightMatch.ts";
+import { MAX_PLAYERS as QUORIDOR_ORIGINAL } from "./quoridorRoom.ts";
 
 test("정원을 원본 모듈과 똑같이 적어뒀는지 확인한다", () => {
   // openRooms.ts는 순수 모듈이라 정원을 다시 적어둡니다. 원본이 바뀌면 여기서 걸립니다.
   assert.equal(RUMMY_MAX_PLAYERS, RUMMY_ORIGINAL);
   assert.equal(PHONE_MAX_PLAYERS, PHONE_ORIGINAL);
   assert.equal(ONENIGHT_MAX_PLAYERS, ONENIGHT_ORIGINAL);
+  assert.equal(QUORIDOR_MAX_PLAYERS, QUORIDOR_ORIGINAL);
 });
 
 const at = (day: string) => `2026-08-2${day}T00:00:00.000Z`;
@@ -207,6 +211,7 @@ test("갈틱폰은 끝난 방까지 내려오므로 목록에서 걸러낸다", 
     rummy: [],
     phone: [phoneRoom({ id: "done", status: "finished" }), phoneRoom({ id: "live" })],
     onenight: [],
+    quoridor: [],
   });
   assert.deepEqual(
     merged.map((room) => room.id),
@@ -223,6 +228,7 @@ test("앨범 공개 중인 갈틱폰 방은 남긴다", () => {
     rummy: [],
     phone: [phoneRoom({ id: "show", status: "presenting" })],
     onenight: [],
+    quoridor: [],
   });
   assert.deepEqual(
     merged.map((room) => room.id),
@@ -239,6 +245,7 @@ test("게임을 섞어 최신순으로 정렬한다", () => {
     rummy: [rummyRoom()],
     phone: [phoneRoom()],
     onenight: [onenightRoom()],
+    quoridor: [],
   });
   assert.deepEqual(
     merged.map((room) => room.game),
@@ -251,7 +258,7 @@ test("목록은 최대 개수까지만 내려간다", () => {
     omokRoom({ id: `o${i}`, createdAt: new Date(Date.parse(at("1")) + i * 1000).toISOString() }),
   );
   assert.equal(
-    mergeOpenRooms({ omok: rooms, alkkagi: [], baduk: [], chess: [], rummy: [], phone: [], onenight: [] }).length,
+    mergeOpenRooms({ omok: rooms, alkkagi: [], baduk: [], chess: [], rummy: [], phone: [], onenight: [], quoridor: [] }).length,
     MAX_OPEN_ROOMS,
   );
 });
@@ -268,7 +275,7 @@ test("체스 시간제 라벨은 넘겨받아 붙인다", () => {
   assert.equal(fromChess(chessRoom()).meta, null);
   assert.equal(fromChess(chessRoom(), "한 수 60초").meta, "한 수 60초");
   const merged = mergeOpenRooms(
-    { omok: [], alkkagi: [], baduk: [], chess: [chessRoom()], rummy: [], phone: [], onenight: [] },
+    { omok: [], alkkagi: [], baduk: [], chess: [chessRoom()], rummy: [], phone: [], onenight: [], quoridor: [] },
     { chessTimeLabel: (timeControl) => `[${timeControl}]` },
   );
   assert.equal(merged[0].meta, "[move60]");
@@ -302,4 +309,16 @@ test("알까기 방은 빈 자리가 있을 때만 참여 가능으로 표시된
   });
   assert.equal(playing.playerCount, 2);
   assert.equal(playing.hasOpenSeat, false);
+});
+
+test("쿼리도 방은 mode가 정원이고 나간 사람은 빼고 센다", () => {
+  const r = fromQuoridor({
+    id: "q1", roomName: "벽 쌓기", status: "waiting", hostId: "a", mode: 2,
+    players: [{ id: "a", name: "A", left: false }, { id: "b", name: "B", left: true }], turnLimitSec: 60, createdAt: at("1"),
+  });
+  assert.equal(r.maxPlayers, 2);
+  assert.equal(r.playerCount, 1);
+  assert.equal(r.hasOpenSeat, true);
+  assert.equal(r.href, "/games/quoridor/q1");
+  assert.equal(r.meta, "2인전 · 턴당 60초");
 });
