@@ -9600,8 +9600,8 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 .quoridor-room__pawn--seat0 { background: var(--quoridor-seat-0); }
 .quoridor-room__pawn--seat1 { background: var(--quoridor-seat-1); }
 .quoridor-room__pawn--seat2 { background: var(--quoridor-seat-2); }
-/* 노랑 말은 흰 모양이 묻히므로 모양을 진하게, 테두리로 칸과 구분합니다. */
-.quoridor-room__pawn--seat2 { color: #3b2a00; box-shadow: 0 0 0 1px #8a6d00, 0 1px 2px rgba(0, 0, 0, 0.35); }
+/* 노랑 말도 다른 말처럼 흰 모양. 노랑 위 흰색이 묻히지 않게 모양에 진한 외곽선을, 말에는 테두리를 둡니다. */
+.quoridor-room__pawn--seat2 { -webkit-text-stroke: 1px #8a6d00; box-shadow: 0 0 0 1px #8a6d00, 0 1px 2px rgba(0, 0, 0, 0.35); }
 .quoridor-room__pawn--seat3 { background: var(--quoridor-seat-3); }
 
 .quoridor-room__pawn--left {
