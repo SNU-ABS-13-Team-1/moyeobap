@@ -34,8 +34,8 @@ export type GameLobbyConfig<Room extends LobbyRoomBase> = {
   hasOpenSeat: (room: Room) => boolean;
   /** 현재 참여 인원(기본: 빈 자리가 있으면 1명, 없으면 2명). */
   playerCount?: (room: Room) => number;
-  /** 최대 인원(기본 2). */
-  maxPlayers?: number;
+  /** 최대 인원(기본 2). 방마다 다르면(쿼리도 2·4인전) 함수로 넘깁니다. */
+  maxPlayers?: number | ((room: Room) => number);
   /** 이미 참여한 방인지(다인 게임에서 "입장하기" 표시용). */
   isMember?: (room: Room, userId: string) => boolean;
   /** 목록의 "플레이어" 칸에 보여줄 추가 정보(예: 시간제). */
@@ -150,7 +150,7 @@ export function GameLobby<Room extends LobbyRoomBase>({ config }: { config: Game
             <tbody>
               {rooms.map((room) => {
                 const hasOpenSeat = config.hasOpenSeat(room);
-                const maxPlayers = config.maxPlayers ?? 2;
+                const maxPlayers = typeof config.maxPlayers === 'function' ? config.maxPlayers(room) : (config.maxPlayers ?? 2);
                 const playerCount = config.playerCount ? config.playerCount(room) : hasOpenSeat ? 1 : 2;
                 const isMine = currentUser?.id === config.hostId(room) || Boolean(currentUser && config.isMember?.(room, currentUser.id));
                 const meta = config.roomMeta?.(room);
