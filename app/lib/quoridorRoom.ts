@@ -212,8 +212,26 @@ function withActive(board: BoardState, players: RoomPlayer[]): BoardState {
   return { ...board, active: players.map(isRacing) };
 }
 
+/**
+ * 자리(=색) 순서를 정합니다. 익명전을 다시 할 때는 지난 판에서 공개된 "색(이름)"으로 누가 누군지
+ * 알 수 없도록 모든 사람이 지난 판과 다른 자리를 받게 합니다. 그냥 섞으면 4인전에서 누군가 같은 색을
+ * 다시 받을 확률이 약 62%입니다. 무작위로 몇 번 섞어 보고, 그래도 안 되면 한 칸씩 밉니다.
+ */
+function seatOrder(room: QuoridorRoom, shuffle: <T>(xs: T[]) => T[]): RoomPlayer[] {
+  const staying = room.players.filter((p) => !p.left);
+  const mustChange = room.anonymous && room.status === 'finished' && staying.length > 1 && staying.every((p) => p.seat !== null);
+  if (!mustChange) return shuffle(staying);
+  const changed = (order: RoomPlayer[]) => order.every((p, seat) => p.seat !== seat);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const order = shuffle(staying);
+    if (changed(order)) return order;
+  }
+  const bySeat = [...staying].sort((a, b) => (a.seat ?? 0) - (b.seat ?? 0));
+  return bySeat.map((_, i) => bySeat[(i + 1) % bySeat.length]);
+}
+
 function startPatch(room: QuoridorRoom, shuffle: <T>(xs: T[]) => T[], nowIso: string): Plan {
-  const seated = shuffle(room.players.filter((p) => !p.left)).map((p, seat) => ({
+  const seated = seatOrder(room, shuffle).map((p, seat) => ({
     id: p.id,
     name: p.name,
     seat,

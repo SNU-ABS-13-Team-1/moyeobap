@@ -277,3 +277,21 @@ test('2인: 승리는 1·2위, 기권은 나간 사람 2위', () => {
   assert.ok('patch' in resign);
   assert.deepEqual(ranks(resign.patch.players), [['a', 2, true], ['b', 1, false]]);
 });
+
+test('익명전 다시 하기: 모든 사람이 지난 판과 다른 색(자리)을 받는다', () => {
+  const finished4 = room4({ status: 'finished', anonymous: true });
+  // 섞기가 원래 순서를 그대로 돌려줘도(최악의 경우) 아무도 같은 자리에 남지 않아야 함
+  const t = planRestart(finished4, 'a', (x) => x, T0);
+  assert.ok('patch' in t && t.patch.status === 'playing');
+  const before = new Map(finished4.players.map((q) => [q.id, q.seat]));
+  for (const q of t.patch.players!) assert.notEqual(q.seat, before.get(q.id), q.id);
+  const t2 = planRestart(room({ status: 'finished', anonymous: true }), 'a', (x) => x, T0);
+  assert.ok('patch' in t2);
+  assert.deepEqual(t2.patch.players!.map((q) => [q.id, q.seat]), [['b', 0], ['a', 1]]);
+});
+
+test('일반 방 다시 하기는 섞인 순서 그대로(같은 자리도 가능)', () => {
+  const t = planRestart(room4({ status: 'finished' }), 'a', (x) => x, T0);
+  assert.ok('patch' in t);
+  assert.deepEqual(t.patch.players!.map((q) => [q.id, q.seat]), [['a', 0], ['b', 1], ['c', 2], ['d', 3]]);
+});

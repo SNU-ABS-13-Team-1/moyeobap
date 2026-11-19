@@ -235,6 +235,22 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
+  // 기권: 서버에서는 나가기(leave)와 같은 처리(자리 비움·순위)지만, 화면은 로비로 보내지 않고
+  // 같은 방에 관전자로 남깁니다. 남은 판과 채팅을 계속 볼 수 있습니다.
+  async function resign() {
+    setBusy(true);
+    try {
+      await requestJson(`/api/games/quoridor/rooms/${roomId}/leave`, { method: 'POST' });
+      setConfirmingResign(false);
+      setPreview(null);
+      await synchronize().catch(() => undefined);
+    } catch (err) {
+      setMessage(getErrorMessage(err, '기권하지 못했어요.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function leave(path: string) {
     setBusy(true);
     try {
@@ -471,8 +487,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                 )}
                 {room.status === 'playing' && amRacing && confirmingResign ? (
                   <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
-                    기권하면 이 판에서 지고 로비로 나가요.
-                    <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={() => leave('/games/quoridor')} type="button">
+                    기권하면 이 판에서 지고, 방에 남아 관전할 수 있어요.
+                    <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={() => void resign()} type="button">
                       기권
                     </button>
                     <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingResign(false)} type="button">
