@@ -131,6 +131,16 @@ export function playerLabel(room: Pick<QuoridorRoom, 'anonymous' | 'status' | 'p
   return room.status === 'finished' ? `${color}(${name})` : color;
 }
 
+/**
+ * 채팅 작성자 이름. 익명전 진행 중 자리에 앉은 사람은 색 이름, 그 밖(관전자·대기실·끝난 판·일반 방)은 실명.
+ * 서버 저장(quoridorChat)과 화면의 낙관적 표시(QuoridorRoom → GameChat)가 같이 써서, 보내는 순간부터 색 이름만 보이게 합니다.
+ */
+export function chatAuthorName(room: Pick<QuoridorRoom, 'anonymous' | 'status' | 'players'>, userId: string, userName: string): string {
+  if (!room.anonymous || room.status !== 'playing') return userName;
+  const seat = room.players.findIndex((p) => p.id === userId && p.seat !== null);
+  return seat >= 0 ? playerLabel(room, seat) : userName;
+}
+
 /** 도착한 4인전 말을 보드에서 뺄 때 쓰는 자리(어떤 칸과도 겹치지 않음). */
 export const OFF_BOARD: Cell = { r: -1, c: -1 };
 

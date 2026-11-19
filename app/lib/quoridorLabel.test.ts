@@ -42,3 +42,12 @@ test('새 방의 기본 턴 제한은 30초', async () => {
   const { DEFAULT_TURN_LIMIT_SEC } = await import('./quoridorRoom.ts');
   assert.equal(DEFAULT_TURN_LIMIT_SEC, 30);
 });
+
+test('채팅 작성자 이름: 익명전 진행 중 자리에 앉은 사람은 색 이름, 그 밖에는 실명', async () => {
+  const { chatAuthorName } = await import('./quoridorRoom.ts');
+  assert.equal(chatAuthorName(base(), 'b', '철수'), '파랑');
+  assert.equal(chatAuthorName(base(), 'x', '관전자'), '관전자');
+  assert.equal(chatAuthorName(base({ status: 'waiting' }), 'b', '철수'), '철수');
+  assert.equal(chatAuthorName(base({ status: 'finished' }), 'b', '철수'), '철수');
+  assert.equal(chatAuthorName(base({ anonymous: false }), 'b', '철수'), '철수');
+});

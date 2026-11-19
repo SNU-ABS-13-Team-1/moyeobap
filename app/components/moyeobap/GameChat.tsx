@@ -51,11 +51,14 @@ function formatTime(iso: string): string {
 export function GameChat<Role extends string>({
   roomId,
   myRole,
+  myDisplayName,
   config,
 }: {
   roomId: string;
   /** 낙관적으로 먼저 그리는 내 메시지에 붙일 역할(서버 저장값과 같음). */
   myRole: Role;
+  /** 낙관적으로 먼저 그리는 내 메시지에 붙일 이름(서버 저장값과 같아야 함). 없으면 프로필 이름. 쿼리도 익명전에서 씁니다. */
+  myDisplayName?: string;
   config: GameChatConfig<Role>;
 }) {
   const { currentUser } = useAuth();
@@ -132,7 +135,7 @@ export function GameChat<Role extends string>({
     const optimisticMsg: GameChatMessage<Role> = {
       id: `temp-${Date.now()}`,
       authorId: currentUser.id,
-      authorName: currentUser.name,
+      authorName: myDisplayName ?? currentUser.name,
       authorRole: myRole,
       text: trimmed,
       kind: 'text',
@@ -167,7 +170,7 @@ export function GameChat<Role extends string>({
     const optimisticMsg: GameChatMessage<Role> = {
       id: `temp-emoji-${crypto.randomUUID()}`,
       authorId: currentUser.id,
-      authorName: currentUser.name,
+      authorName: myDisplayName ?? currentUser.name,
       authorRole: myRole,
       text: emoji.src,
       kind: 'image',
