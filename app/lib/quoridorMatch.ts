@@ -88,3 +88,47 @@ export function checkWall(board: BoardState, seat: number, wall: Wall): WallChec
   if (board.walls.some((w) => w.o !== wall.o && w.r === wall.r && w.c === wall.c)) return { ok: false, reason: 'cross' };
   return { ok: true };
 }
+
+const DIRS: Cell[] = [{ r: 1, c: 0 }, { r: -1, c: 0 }, { r: 0, c: 1 }, { r: 0, c: -1 }];
+
+function onBoard(cell: Cell): boolean {
+  return cell.r >= 0 && cell.r < BOARD_SIZE && cell.c >= 0 && cell.c < BOARD_SIZE;
+}
+
+function occupied(board: BoardState, cell: Cell): boolean {
+  // 나간 사람의 말도 보드에 남아 장애물이 됩니다.
+  return board.pawns.some((p) => p.r === cell.r && p.c === cell.c);
+}
+
+/** seat의 말이 이번 턴에 갈 수 있는 칸. 점프는 말 하나만, 뒤가 막혔을 때만 좌우로 비껴갑니다. */
+export function legalPawnMoves(board: BoardState, seat: number): Cell[] {
+  const from = board.pawns[seat];
+  if (!from) return [];
+  const result: Cell[] = [];
+  const add = (cell: Cell) => {
+    if (!result.some((x) => x.r === cell.r && x.c === cell.c)) result.push(cell);
+  };
+  // 그 칸이 보드 안이고, 비어 있고, 벽 없이 갈 수 있는지
+  const open = (a: Cell, b: Cell) => onBoard(b) && !occupied(board, b) && !isStepBlocked(board.walls, a, b);
+
+  for (const d of DIRS) {
+    const next = { r: from.r + d.r, c: from.c + d.c };
+    if (!onBoard(next) || isStepBlocked(board.walls, from, next)) continue;
+    if (!occupied(board, next)) {
+      add(next);
+      continue;
+    }
+    const behind = { r: next.r + d.r, c: next.c + d.c };
+    if (open(next, behind)) {
+      add(behind);
+      continue;
+    }
+    // 뒤가 벽·다른 말·보드 밖이면 넘을 말의 좌우(진행 방향에 직각)로 비껴갑니다.
+    const sides: Cell[] = d.r !== 0 ? [{ r: 0, c: -1 }, { r: 0, c: 1 }] : [{ r: -1, c: 0 }, { r: 1, c: 0 }];
+    for (const s of sides) {
+      const side = { r: next.r + s.r, c: next.c + s.c };
+      if (open(next, side)) add(side);
+    }
+  }
+  return result;
+}
