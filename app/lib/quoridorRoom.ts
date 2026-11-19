@@ -19,7 +19,7 @@ import {
 export const MAX_PLAYERS = 4;
 export const MAX_TIMEOUT_STRIKES = 3;
 export const TURN_GRACE_MS = 3_000;
-export const DEFAULT_TURN_LIMIT_SEC = 60;
+export const DEFAULT_TURN_LIMIT_SEC = 30;
 
 export type RoomStatus = 'waiting' | 'playing' | 'finished';
 export type EndReason = 'goal' | 'others_left' | null;

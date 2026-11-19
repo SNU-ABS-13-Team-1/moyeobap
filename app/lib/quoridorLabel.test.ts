@@ -37,3 +37,8 @@ test('anonymous 컬럼이 없던 옛 행은 일반 방', () => {
   assert.equal(mapRoomRow(row).anonymous, false);
   assert.equal(mapRoomRow({ ...row, anonymous: true }).anonymous, true);
 });
+
+test('새 방의 기본 턴 제한은 30초', async () => {
+  const { DEFAULT_TURN_LIMIT_SEC } = await import('./quoridorRoom.ts');
+  assert.equal(DEFAULT_TURN_LIMIT_SEC, 30);
+});
