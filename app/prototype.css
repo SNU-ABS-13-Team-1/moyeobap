@@ -9445,11 +9445,11 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 /* ===== Quoridor ===== */
 /* 쿼리도 대전 방. 바깥 레이아웃은 omok-room-page__*, 버튼·상태 줄은 rummy__* 를 재사용합니다. */
 .quoridor-room {
-  /* 색각 이상에도 구분되는 조합(Okabe-Ito 계열) + 모양(●▲■◆)을 함께 씁니다. */
-  --quoridor-seat-0: #0072b2; /* 파랑 */
-  --quoridor-seat-1: #d55e00; /* 주홍 */
-  --quoridor-seat-2: #1f1f1f; /* 검정 */
-  --quoridor-seat-3: #cc79a7; /* 분홍 */
+  /* 자리 색: 빨강·파랑·노랑·초록. 색만으로 헷갈리지 않게 모양(●▲■◆)을 함께 씁니다. */
+  --quoridor-seat-0: #e03131; /* 빨강 */
+  --quoridor-seat-1: #1c64f2; /* 파랑 */
+  --quoridor-seat-2: #f5c400; /* 노랑 */
+  --quoridor-seat-3: #2f9e44; /* 초록 */
   /* 벽이 홈에 묻히지 않도록 칸·홈은 밝게, 벽은 거의 검정으로 둡니다. */
   --quoridor-cell: #f4e6c6;
   --quoridor-groove: #c9a675;
@@ -9496,7 +9496,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 
 .quoridor-room__chip--seat0 .quoridor-room__chip-shape { color: var(--quoridor-seat-0); }
 .quoridor-room__chip--seat1 .quoridor-room__chip-shape { color: var(--quoridor-seat-1); }
-.quoridor-room__chip--seat2 .quoridor-room__chip-shape { color: var(--quoridor-seat-2); }
+.quoridor-room__chip--seat2 .quoridor-room__chip-shape { color: var(--quoridor-seat-2); -webkit-text-stroke: 1px #8a6d00; }
 .quoridor-room__chip--seat3 .quoridor-room__chip-shape { color: var(--quoridor-seat-3); }
 
 .quoridor-room__chip-name {
@@ -9600,6 +9600,8 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 .quoridor-room__pawn--seat0 { background: var(--quoridor-seat-0); }
 .quoridor-room__pawn--seat1 { background: var(--quoridor-seat-1); }
 .quoridor-room__pawn--seat2 { background: var(--quoridor-seat-2); }
+/* 노랑 말은 흰 모양이 묻히므로 모양을 진하게, 테두리로 칸과 구분합니다. */
+.quoridor-room__pawn--seat2 { color: #3b2a00; box-shadow: 0 0 0 1px #8a6d00, 0 1px 2px rgba(0, 0, 0, 0.35); }
 .quoridor-room__pawn--seat3 { background: var(--quoridor-seat-3); }
 
 .quoridor-room__pawn--left {
