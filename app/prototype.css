@@ -9523,7 +9523,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   position: relative;
   width: min(100%, 70vh);
   margin: 0 auto;
-  padding: 8px;
+  padding: 12px;
   border-radius: var(--radius-md);
   background: #8a5a33;
   box-sizing: border-box;
@@ -9535,10 +9535,10 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
-.quoridor-room__band--up { top: 2px; left: 8px; right: 8px; height: 4px; }
-.quoridor-room__band--down { bottom: 2px; left: 8px; right: 8px; height: 4px; }
-.quoridor-room__band--left { left: 2px; top: 8px; bottom: 8px; width: 4px; }
-.quoridor-room__band--right { right: 2px; top: 8px; bottom: 8px; width: 4px; }
+.quoridor-room__band--up { top: 2px; left: 12px; right: 12px; height: 8px; }
+.quoridor-room__band--down { bottom: 2px; left: 12px; right: 12px; height: 8px; }
+.quoridor-room__band--left { left: 2px; top: 12px; bottom: 12px; width: 8px; }
+.quoridor-room__band--right { right: 2px; top: 12px; bottom: 12px; width: 8px; }
 .quoridor-room__band--seat0 { background: var(--quoridor-seat-0); }
 .quoridor-room__band--seat1 { background: var(--quoridor-seat-1); }
 .quoridor-room__band--seat2 { background: var(--quoridor-seat-2); }
@@ -9620,6 +9620,19 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
   pointer-events: none;
 }
+
+/* 내 목표 줄: 내 색으로 칠하고 바깥 가장자리에 굵은 선(도착할 곳이 한눈에 보이게). */
+.quoridor-room__goal--seat0 { --quoridor-goal: var(--quoridor-seat-0); }
+.quoridor-room__goal--seat1 { --quoridor-goal: var(--quoridor-seat-1); }
+.quoridor-room__goal--seat2 { --quoridor-goal: var(--quoridor-seat-2); }
+.quoridor-room__goal--seat3 { --quoridor-goal: var(--quoridor-seat-3); }
+.quoridor-room__cell--goal {
+  background: color-mix(in srgb, var(--quoridor-goal) 30%, var(--quoridor-cell));
+}
+.quoridor-room__cell--goal-up { box-shadow: inset 0 4px 0 var(--quoridor-goal); }
+.quoridor-room__cell--goal-down { box-shadow: inset 0 -4px 0 var(--quoridor-goal); }
+.quoridor-room__cell--goal-left { box-shadow: inset 4px 0 0 var(--quoridor-goal); }
+.quoridor-room__cell--goal-right { box-shadow: inset -4px 0 0 var(--quoridor-goal); }
 
 /* 상대의 마지막 수: 도착 칸에는 그 사람 색 테두리, 벽은 그 사람 색 테두리로 감쌉니다. */
 .quoridor-room__last--seat0 { --quoridor-last: var(--quoridor-seat-0); }

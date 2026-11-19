@@ -411,6 +411,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
               <QuoridorBoard
                 hover={mode === 'wall' && isPlayer ? hover : null}
                 lastMove={opponentLast}
+                goalSeat={amRacing ? mySeat : null}
                 inputMode={isPlayer && room.status === 'playing' ? mode : 'move'}
                 moveTargets={moveTargets}
                 onMove={(cell: Cell) => act('turn', { move: cellName(cell) }, '움직이지 못했어요.')}
