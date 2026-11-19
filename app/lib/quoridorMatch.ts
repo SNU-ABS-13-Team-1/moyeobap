@@ -1,0 +1,90 @@
+// 쿼리도의 "순수 규칙" 모듈입니다. DB·렌더링과 무관한 것만 두어 서버(quoridorRoom/quoridorOnline)와
+// 클라이언트(보드 화면)가 같은 규칙을 씁니다. 다른 모듈을 import하지 않습니다.
+//
+// 좌표: 칸 {r: 0..8, c: 0..8}, 열 a~i(왼→오), 행 1~9(아래→위). "e1" = {r:0, c:4}.
+// 벽:  교차점 {r, c ∈ 0..7}과 방향.
+//   o:'h' → 행 r과 r+1 사이 홈 중 c열·c+1열 부분을 막음
+//   o:'v' → 열 c와 c+1 사이 홈 중 r행·r+1행 부분을 막음
+//   표기는 교차점의 왼쪽 아래 칸 + 방향("e3h" = {r:2, c:4, o:'h'}).
+
+export type Cell = { r: number; c: number };
+export type Wall = { r: number; c: number; o: 'h' | 'v' };
+export type Mode = 2 | 4;
+export type Move = { kind: 'pawn'; to: Cell } | { kind: 'wall'; wall: Wall };
+/** 자리 번호(seat)로 인덱스. active[seat] === false 면 나간 사람(말은 보드에 남음). */
+export type BoardState = { mode: Mode; pawns: Cell[]; walls: Wall[]; wallsLeft: number[]; active: boolean[] };
+export type WallCheck =
+  | { ok: true }
+  | { ok: false; reason: 'no_walls' | 'out_of_range' | 'overlap' | 'cross' }
+  | { ok: false; reason: 'blocks_path'; blockedSeats: number[] };
+
+export const BOARD_SIZE = 9;
+export const WALLS_PER_PLAYER: Record<Mode, number> = { 2: 10, 4: 5 };
+/** 자리 순서(아래 → 왼 → 위 → 오른)가 곧 시계 방향 턴 순서입니다. */
+export const START: Record<Mode, Cell[]> = {
+  2: [{ r: 0, c: 4 }, { r: 8, c: 4 }],
+  4: [{ r: 0, c: 4 }, { r: 4, c: 0 }, { r: 8, c: 4 }, { r: 4, c: 8 }],
+};
+
+const COLS = 'abcdefghi';
+const LAST = BOARD_SIZE - 1;
+
+export function isGoal(mode: Mode, seat: number, cell: Cell): boolean {
+  if (mode === 2) return seat === 0 ? cell.r === LAST : cell.r === 0;
+  switch (seat) {
+    case 0: return cell.r === LAST;
+    case 1: return cell.c === LAST;
+    case 2: return cell.r === 0;
+    default: return cell.c === 0;
+  }
+}
+
+export function cellName(cell: Cell): string {
+  return `${COLS[cell.c]}${cell.r + 1}`;
+}
+
+/** 문법만 봅니다. 벽 교차점 범위(0..7)는 checkWall이 판정합니다. */
+export function parseNotation(text: string): Move | null {
+  const m = /^([a-i])([1-9])([hv])?$/.exec(text);
+  if (!m) return null;
+  const c = COLS.indexOf(m[1]);
+  const r = Number(m[2]) - 1;
+  if (m[3]) return { kind: 'wall', wall: { r, c, o: m[3] as 'h' | 'v' } };
+  return { kind: 'pawn', to: { r, c } };
+}
+
+export function formatMove(move: Move): string {
+  return move.kind === 'pawn' ? cellName(move.to) : `${cellName(move.wall)}${move.wall.o}`;
+}
+
+export function initialBoard(mode: Mode): BoardState {
+  return {
+    mode,
+    pawns: START[mode].map((cell) => ({ ...cell })),
+    walls: [],
+    wallsLeft: START[mode].map(() => WALLS_PER_PLAYER[mode]),
+    active: START[mode].map(() => true),
+  };
+}
+
+/** 인접한 두 칸 사이가 벽으로 막혔는지. 두 칸의 순서는 상관없습니다. */
+export function isStepBlocked(walls: Wall[], from: Cell, to: Cell): boolean {
+  const [a, b] = from.r < to.r || (from.r === to.r && from.c < to.c) ? [from, to] : [to, from];
+  if (a.c === b.c) {
+    // 위아래 한 칸: (r,c)↔(r+1,c)
+    return walls.some((w) => w.o === 'h' && w.r === a.r && (w.c === a.c || w.c === a.c - 1));
+  }
+  // 좌우 한 칸: (r,c)↔(r,c+1)
+  return walls.some((w) => w.o === 'v' && w.c === a.c && (w.r === a.r || w.r === a.r - 1));
+}
+
+export function checkWall(board: BoardState, seat: number, wall: Wall): WallCheck {
+  if ((board.wallsLeft[seat] ?? 0) <= 0) return { ok: false, reason: 'no_walls' };
+  if (!(wall.r >= 0 && wall.r < LAST && wall.c >= 0 && wall.c < LAST)) return { ok: false, reason: 'out_of_range' };
+  const overlaps = board.walls.some((w) =>
+    w.o === wall.o && (wall.o === 'h' ? w.r === wall.r && Math.abs(w.c - wall.c) <= 1 : w.c === wall.c && Math.abs(w.r - wall.r) <= 1),
+  );
+  if (overlaps) return { ok: false, reason: 'overlap' };
+  if (board.walls.some((w) => w.o !== wall.o && w.r === wall.r && w.c === wall.c)) return { ok: false, reason: 'cross' };
+  return { ok: true };
+}
