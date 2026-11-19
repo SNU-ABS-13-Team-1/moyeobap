@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type PointerEvent } from 'react';
-import type { Cell, Wall } from '../../lib/quoridorMatch';
+import type { Cell, Move, Wall } from '../../lib/quoridorMatch';
 import type { QuoridorRoom } from '../../lib/quoridorRoom';
 import { cellFromView, goalSideToView, nearestIntersection, wallToView, type Rotation, type Side } from '../../lib/quoridorView';
 
@@ -21,6 +21,8 @@ type Props = {
   previewInvalid: boolean;
   hover: Wall | null;
   onWallPointer: (kind: WallPointerKind, point: { r: number; c: number }, pointerType: string) => void;
+  /** 강조할 상대의 마지막 수(절대 좌표). */
+  lastMove: { seat: number; move: Move } | null;
 };
 
 const sameCell = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
@@ -33,7 +35,10 @@ const wallArea = (w: Wall) =>
     : { gridRow: `${15 - 2 * w.r} / span 3`, gridColumn: 2 * w.c + 2 };
 
 // 쿼리도 보드. 그리기와 입력 해석만 하고, 미리보기 상태·확정은 QuoridorRoom이 갖습니다.
-export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, preview, previewInvalid, hover, onWallPointer }: Props) {
+export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, preview, previewInvalid, hover, onWallPointer, lastMove }: Props) {
+  const lastCell = lastMove?.move.kind === 'pawn' ? lastMove.move.to : null;
+  const lastWall = lastMove?.move.kind === 'wall' ? lastMove.move.wall : null;
+  const lastClass = lastMove ? ` quoridor-room__last--seat${lastMove.seat}` : '';
   const gridRef = useRef<HTMLDivElement>(null);
 
   // 목표 변 색 띠: 나가지 않은 사람마다 그 사람 목표 변 쪽에 색을 칠합니다.
@@ -74,6 +79,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
       const seat = room.status === 'waiting' ? -1 : room.pawns.findIndex((p) => sameCell(p, abs));
       const player = seat >= 0 ? room.players[seat] : null;
       const target = moveTargets.some((t) => sameCell(t, abs));
+      const last = lastCell && sameCell(lastCell, abs) ? ` quoridor-room__cell--last${lastClass}` : '';
       const content = (
         <>
           {player && (
@@ -91,7 +97,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
         target && inputMode === 'move' ? (
           <button
             aria-label={`${'abcdefghi'[abs.c]}${abs.r + 1}로 이동`}
-            className="quoridor-room__cell quoridor-room__cell--target"
+            className={`quoridor-room__cell quoridor-room__cell--target${last}`}
             key={`${vr}-${vc}`}
             onClick={() => onMove(abs)}
             style={cellArea(view)}
@@ -100,7 +106,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
             {content}
           </button>
         ) : (
-          <div className="quoridor-room__cell" key={`${vr}-${vc}`} style={cellArea(view)}>
+          <div className={`quoridor-room__cell${last}`} key={`${vr}-${vc}`} style={cellArea(view)}>
             {content}
           </div>
         ),
@@ -121,7 +127,15 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
         {cells}
         {room.walls.map((w) => {
           const v = wallToView(w, rotation);
-          return <span aria-hidden="true" className="quoridor-room__wall" key={`${w.r}-${w.c}-${w.o}`} style={wallArea(v)} />;
+          const isLast = lastWall && lastWall.r === w.r && lastWall.c === w.c && lastWall.o === w.o;
+          return (
+            <span
+              aria-hidden="true"
+              className={`quoridor-room__wall${isLast ? ` quoridor-room__wall--last${lastClass}` : ''}`}
+              key={`${w.r}-${w.c}-${w.o}`}
+              style={wallArea(v)}
+            />
+          );
         })}
         {hover && !(preview && hover.r === preview.r && hover.c === preview.c) && (
           <span aria-hidden="true" className="quoridor-room__wall quoridor-room__wall--hover" style={wallArea(hover)} />

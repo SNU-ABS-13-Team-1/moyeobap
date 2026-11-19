@@ -5,6 +5,7 @@ import {
   cellFromView,
   cellToView,
   goalSideToView,
+  lastOpponentMove,
   nearestIntersection,
   rotationFor,
   wallFromView,
@@ -57,4 +58,19 @@ test('목표 방향 화살표: 내 목표는 항상 위, 관전자 기준 2인 1
   assert.equal(goalSideToView(2, 1, 0), 'down');
   assert.equal(goalSideToView(4, 1, 0), 'right');
   assert.equal(goalSideToView(4, 3, 0), 'left');
+});
+
+test('상대의 마지막 수: 내 수·넘김·시간 초과는 건너뛰고, 관전자는 누구 것이든 가장 최근 수', () => {
+  const moves = [
+    { seat: 0, move: 'e2' },
+    { seat: 1, move: 'e8' },
+    { seat: 1, move: 'pass' },
+    { seat: 0, move: 'e3h' },
+    { seat: 1, move: 'timeout' },
+  ];
+  assert.deepEqual(lastOpponentMove(moves, 0), { seat: 1, move: { kind: 'pawn', to: { r: 7, c: 4 } } });
+  assert.deepEqual(lastOpponentMove(moves, null), { seat: 0, move: { kind: 'wall', wall: { r: 2, c: 4, o: 'h' } } });
+  assert.deepEqual(lastOpponentMove(moves, 1), { seat: 0, move: { kind: 'wall', wall: { r: 2, c: 4, o: 'h' } } });
+  assert.equal(lastOpponentMove([], 0), null);
+  assert.equal(lastOpponentMove([{ seat: 0, move: 'e2' }], 0), null);
 });
