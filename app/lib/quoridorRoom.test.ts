@@ -24,6 +24,7 @@ const room = (over: Partial<QuoridorRoom> = {}): QuoridorRoom => ({
   status: 'playing',
   hostId: 'a',
   mode: 2,
+  anonymous: false,
   players: [p('a', 0), p('b', 1)],
   turnIndex: 0,
   pawns: START[2].map((c) => ({ ...c })),

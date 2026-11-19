@@ -9719,3 +9719,16 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   background: #ecfdf5;
   font-weight: 700;
 }
+
+.quoridor-lobby__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  cursor: pointer;
+}

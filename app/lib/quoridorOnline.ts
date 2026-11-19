@@ -104,6 +104,7 @@ export async function createRoom(
   roomName: string | undefined,
   mode: Mode,
   turnLimitSec = DEFAULT_TURN_LIMIT_SEC,
+  anonymous = false,
 ): Promise<QuoridorRoom | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -115,6 +116,7 @@ export async function createRoom(
       room_name: trimmedName || `${userName}님의 방`,
       host_id: userId,
       mode,
+      anonymous,
       players: [{ id: userId, name: userName, seat: null, left: false, timeouts: 0 }],
       turn_limit_sec: limit,
     })
