@@ -213,3 +213,66 @@ test('updateRoomCas: DB 오류는 충돌(null)과 구분해 예외로 알린다'
   state.fail = true;
   await assert.rejects(updateRoomCas(db, room({ version: 3 }), { turn_index: 1 }, T0));
 });
+
+const OFF = { r: -1, c: -1 };
+const ranks = (players: RoomPlayer[] | undefined) => (players ?? []).map((q) => [q.id, q.rank ?? null, q.left]);
+
+test('4인: 첫 도착은 1위, 말은 보드에서 빠지고 남은 사람끼리 계속', () => {
+  const r = room4({ pawns: [{ r: 7, c: 4 }, { r: 4, c: 0 }, { r: 8, c: 2 }, { r: 4, c: 8 }] });
+  const t = planTurn(r, 'a', 'e9', T0);
+  assert.ok('patch' in t);
+  assert.equal(t.finished, null);
+  assert.equal(t.patch.status, undefined);
+  assert.deepEqual(t.patch.pawns![0], OFF);
+  assert.equal(t.patch.turn_index, 1);
+  assert.deepEqual(ranks(t.patch.players), [['a', 1, false], ['b', null, false], ['c', null, false], ['d', null, false]]);
+});
+
+test('4인: 3위가 도착하면 마지막 사람이 4위, 1위가 승자로 끝', () => {
+  const players = [{ ...p('a', 0), rank: 1 }, { ...p('b', 1), rank: 2 }, p('c', 2), p('d', 3)];
+  const r = room4({ players, turnIndex: 2, pawns: [OFF, OFF, { r: 1, c: 4 }, { r: 4, c: 8 }] });
+  const t = planTurn(r, 'c', 'e1', T0);
+  assert.ok('patch' in t);
+  assert.deepEqual(t.finished, { winnerId: 'a', reason: 'goal' });
+  assert.equal(t.patch.status, 'finished');
+  assert.deepEqual(ranks(t.patch.players), [['a', 1, false], ['b', 2, false], ['c', 3, false], ['d', 4, false]]);
+});
+
+test('4인: 나간 사람은 아래부터(먼저 나간 사람이 4위), 끝까지 남은 사람이 남은 최고 순위', () => {
+  const first = planResign(room4(), 'b', T0);
+  assert.ok('patch' in first && first.finished === null);
+  assert.deepEqual(ranks(first.patch.players), [['a', null, false], ['b', 4, true], ['c', null, false], ['d', null, false]]);
+  const afterB = room4({ players: first.patch.players });
+  const second = planResign(afterB, 'c', T0);
+  assert.ok('patch' in second && second.finished === null);
+  const afterC = room4({ players: second.patch.players });
+  const last = planResign(afterC, 'a', T0);
+  assert.ok('patch' in last);
+  assert.deepEqual(last.finished, { winnerId: 'd', reason: 'others_left' });
+  assert.deepEqual(ranks(last.patch.players), [['a', 2, true], ['b', 4, true], ['c', 3, true], ['d', 1, false]]);
+});
+
+test('4인: 1위가 이미 나온 뒤 나머지가 다 나가면 남은 사람은 2위, 승자는 1위', () => {
+  const players = [{ ...p('a', 0), rank: 1 }, { ...p('b', 1), left: true, rank: 4 }, p('c', 2), p('d', 3)];
+  const t = planResign(room4({ players, turnIndex: 2, pawns: [OFF, START[4][1], START[4][2], START[4][3]] }), 'c', T0);
+  assert.ok('patch' in t);
+  assert.deepEqual(t.finished, { winnerId: 'a', reason: 'goal' });
+  assert.deepEqual(ranks(t.patch.players), [['a', 1, false], ['b', 4, true], ['c', 3, true], ['d', 2, false]]);
+});
+
+test('도착한 사람이 방을 나가도 순위는 그대로이고 판은 계속', () => {
+  const players = [{ ...p('a', 0), rank: 1 }, p('b', 1), p('c', 2), p('d', 3)];
+  const t = planResign(room4({ players, turnIndex: 1, pawns: [OFF, START[4][1], START[4][2], START[4][3]] }), 'a', T0);
+  assert.ok('patch' in t && t.finished === null);
+  assert.deepEqual(ranks(t.patch.players)[0], ['a', 1, true]);
+  assert.equal(t.patch.turn_index, undefined); // 차례는 그대로(b)
+});
+
+test('2인: 승리는 1·2위, 기권은 나간 사람 2위', () => {
+  const win = planTurn(room({ pawns: [{ r: 7, c: 4 }, { r: 8, c: 0 }] }), 'a', 'e9', T0);
+  assert.ok('patch' in win);
+  assert.deepEqual(ranks(win.patch.players), [['a', 1, false], ['b', 2, false]]);
+  const resign = planResign(room(), 'a', T0);
+  assert.ok('patch' in resign);
+  assert.deepEqual(ranks(resign.patch.players), [['a', 2, true], ['b', 1, false]]);
+});

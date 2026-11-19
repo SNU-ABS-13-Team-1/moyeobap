@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getErrorMessage, requestJson } from '../../lib/api-client';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { cellName, checkWall, formatMove, legalPawnMoves, type Cell, type Wall } from '../../lib/quoridorMatch';
-import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
+import { END_REASON_LABEL, MAX_TIMEOUT_STRIKES, TURN_GRACE_MS, boardOf, isRacing, timeoutRetryDelay, type MoveRecord } from '../../lib/quoridorRoom';
 import { goalSideToView, lastOpponentMove, rotationFor, wallFromView, wallReasonLabel, type Side } from '../../lib/quoridorView';
 import { useQuoridorRoom } from '../../hooks/useQuoridorRoom';
 import { useAuth } from './AuthProvider';
@@ -56,6 +56,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const mySeat = started && me && me.seat !== null ? me.seat : null;
   const rotation = room ? rotationFor(room.mode, mySeat) : 0;
   const isMyTurn = Boolean(room && room.status === 'playing' && mySeat !== null && room.turnIndex === mySeat);
+  // 4인전에서 먼저 도착한 사람은 순위가 정해져 경기에서 빠집니다(방에는 남아서 지켜볼 수 있음).
+  const amRacing = Boolean(me && isRacing(me));
   const myWallsLeft = room && mySeat !== null ? (room.wallsLeft[mySeat] ?? 0) : 0;
   const mode = myWallsLeft > 0 ? inputMode : 'move';
 
@@ -264,6 +266,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
       ? `${room.players[lastMove.seat]?.name}: 둘 수 있는 수가 없어 넘김`
       : `${room.players[lastMove.seat]?.name}: 시간 초과 ${room.players[lastMove.seat]?.timeouts ?? 0}/${MAX_TIMEOUT_STRIKES}`
     : null;
+  const ranked = room.players.filter((p) => typeof p.rank === 'number').sort((a, b) => (a.rank ?? 9) - (b.rank ?? 9));
+  const arrived = room.status === 'playing' ? ranked.filter((p) => !p.left) : [];
+  const arrivedText = arrived.length > 0 ? `🏁 도착: ${arrived.map((p) => `${p.rank}위 ${p.name}`).join(' · ')}` : null;
+  const standingsText = room.status === 'finished' && room.mode === 4 && ranked.length > 0
+    ? ranked.map((p) => `${p.rank}위 ${p.name}${p.left ? '(나감)' : ''}`).join(' · ')
+    : null;
 
   let statusText: string;
   if (room.status === 'waiting') {
@@ -278,6 +286,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
           : '관전 중이에요 (자리가 다 찼어요).';
   } else if (room.status === 'finished') {
     statusText = winner ? `🏁 ${winner.name} 승리 — ${room.endReason ? END_REASON_LABEL[room.endReason] : ''}` : '게임이 끝났어요.';
+  } else if (me && !amRacing) {
+    statusText = `🏁 ${me.rank}위로 도착했어요. 남은 사람들의 순위가 정해질 때까지 지켜볼 수 있어요.`;
   } else if (isMyTurn) {
     statusText = mode === 'wall' ? '🟢 내 차례 — 벽 놓을 자리를 고르고 확정하세요.' : '🟢 내 차례 — 점 찍힌 칸으로 움직이거나 벽을 세우세요.';
   } else {
@@ -338,8 +348,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                       {p.id === currentUser?.id ? ' (나)' : ''}
                     </span>
                     <span className="quoridor-room__chip-meta">
-                      {p.left ? '나감' : `벽 ${room.wallsLeft[seat] ?? 0} · ${ARROW[goalSideToView(room.mode, seat, rotation)]}`}
-                      {!p.left && p.timeouts > 0 ? ` · ⏰${p.timeouts}/${MAX_TIMEOUT_STRIKES}` : ''}
+                      {typeof p.rank === 'number'
+                        ? `🏁 ${p.rank}위${p.left ? ' · 나감' : ''}`
+                        : p.left
+                          ? '나감'
+                          : `벽 ${room.wallsLeft[seat] ?? 0} · ${ARROW[goalSideToView(room.mode, seat, rotation)]}`}
+                      {isRacing(p) && p.timeouts > 0 ? ` · ⏰${p.timeouts}/${MAX_TIMEOUT_STRIKES}` : ''}
                       {active && mySeat !== null && remainingSec !== null ? ` · ${remainingSec}초` : ''}
                     </span>
                   </div>
@@ -358,6 +372,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
             <p className="quoridor-room__notice">관전 화면은 최대 20초 늦을 수 있어요.</p>
           )}
           {notice && <p className="quoridor-room__notice">{notice}</p>}
+          {arrivedText && <p className="quoridor-room__notice">{arrivedText}</p>}
+          {standingsText && <p className="quoridor-room__standings">{standingsText}</p>}
           {opponentLastText && room.status !== 'waiting' && (
             <p className={`quoridor-room__last-text quoridor-room__last--seat${opponentLast!.seat}`}>{opponentLastText}</p>
           )}
@@ -395,6 +411,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
               <QuoridorBoard
                 hover={mode === 'wall' && isPlayer ? hover : null}
                 lastMove={opponentLast}
+                goalSeat={amRacing ? mySeat : null}
                 inputMode={isPlayer && room.status === 'playing' ? mode : 'move'}
                 moveTargets={moveTargets}
                 onMove={(cell: Cell) => act('turn', { move: cellName(cell) }, '움직이지 못했어요.')}
@@ -405,7 +422,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                 rotation={rotation}
               />
 
-              {isPlayer && room.status === 'playing' && (
+              {amRacing && room.status === 'playing' && (
                 <div className="quoridor-room__controls">
                   <div className="quoridor-room__toggle" role="group" aria-label="조작 모드">
                     <button className={`rummy__chip ${mode === 'move' ? 'rummy__chip--active' : ''}`} onClick={() => setInputMode('move')} type="button">
@@ -452,7 +469,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                     {staying.length === room.mode ? '같은 멤버로 다시 하기' : '다시 모집하기'}
                   </button>
                 )}
-                {room.status === 'playing' && isPlayer && confirmingResign ? (
+                {room.status === 'playing' && amRacing && confirmingResign ? (
                   <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
                     기권하면 이 판에서 지고 로비로 나가요.
                     <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={() => leave('/games/quoridor')} type="button">
@@ -462,7 +479,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                       취소
                     </button>
                   </span>
-                ) : room.status === 'playing' && isPlayer ? (
+                ) : room.status === 'playing' && amRacing ? (
                   <button className="rummy__btn rummy__btn--ghost" disabled={busy} onClick={() => setConfirmingResign(true)} type="button">
                     기권하기
                   </button>

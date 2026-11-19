@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, type PointerEvent } from 'react';
-import type { Cell, Move, Wall } from '../../lib/quoridorMatch';
-import type { QuoridorRoom } from '../../lib/quoridorRoom';
+import { isGoal, type Cell, type Move, type Wall } from '../../lib/quoridorMatch';
+import { isRacing, type QuoridorRoom } from '../../lib/quoridorRoom';
 import { cellFromView, goalSideToView, nearestIntersection, wallToView, type Rotation, type Side } from '../../lib/quoridorView';
 
 export const SEAT_SHAPES = ['●', '▲', '■', '◆'] as const;
@@ -23,6 +23,8 @@ type Props = {
   onWallPointer: (kind: WallPointerKind, point: { r: number; c: number }, pointerType: string) => void;
   /** 강조할 상대의 마지막 수(절대 좌표). */
   lastMove: { seat: number; move: Move } | null;
+  /** 내 목표 줄을 칠할 자리(아직 경기 중인 내 자리). 관전자·도착 후에는 null. */
+  goalSeat: number | null;
 };
 
 const sameCell = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
@@ -35,16 +37,16 @@ const wallArea = (w: Wall) =>
     : { gridRow: `${15 - 2 * w.r} / span 3`, gridColumn: 2 * w.c + 2 };
 
 // 쿼리도 보드. 그리기와 입력 해석만 하고, 미리보기 상태·확정은 QuoridorRoom이 갖습니다.
-export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, preview, previewInvalid, hover, onWallPointer, lastMove }: Props) {
+export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, preview, previewInvalid, hover, onWallPointer, lastMove, goalSeat }: Props) {
   const lastCell = lastMove?.move.kind === 'pawn' ? lastMove.move.to : null;
   const lastWall = lastMove?.move.kind === 'wall' ? lastMove.move.wall : null;
   const lastClass = lastMove ? ` quoridor-room__last--seat${lastMove.seat}` : '';
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // 목표 변 색 띠: 나가지 않은 사람마다 그 사람 목표 변 쪽에 색을 칠합니다.
+  // 목표 변 색 띠: 아직 경기 중인 사람마다 그 사람 목표 변 쪽에 색을 칠합니다.
   const bands: { side: Side; seat: number }[] = room.status === 'waiting'
     ? []
-    : room.players.flatMap((p, seat) => (p.left ? [] : [{ side: goalSideToView(room.mode, seat, rotation), seat }]));
+    : room.players.flatMap((p, seat) => (isRacing(p) ? [{ side: goalSideToView(room.mode, seat, rotation), seat }] : []));
 
   function pointFrom(event: PointerEvent<HTMLDivElement>) {
     const rect = gridRef.current?.getBoundingClientRect();
@@ -80,6 +82,9 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
       const player = seat >= 0 ? room.players[seat] : null;
       const target = moveTargets.some((t) => sameCell(t, abs));
       const last = lastCell && sameCell(lastCell, abs) ? ` quoridor-room__cell--last${lastClass}` : '';
+      const goal = goalSeat !== null && room.status === 'playing' && isGoal(room.mode, goalSeat, abs)
+        ? ` quoridor-room__cell--goal quoridor-room__cell--goal-${vr === 8 ? 'up' : vr === 0 ? 'down' : vc === 0 ? 'left' : 'right'} quoridor-room__goal--seat${goalSeat}`
+        : '';
       const content = (
         <>
           {player && (
@@ -97,7 +102,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
         target && inputMode === 'move' ? (
           <button
             aria-label={`${'abcdefghi'[abs.c]}${abs.r + 1}로 이동`}
-            className={`quoridor-room__cell quoridor-room__cell--target${last}`}
+            className={`quoridor-room__cell quoridor-room__cell--target${goal}${last}`}
             key={`${vr}-${vc}`}
             onClick={() => onMove(abs)}
             style={cellArea(view)}
@@ -106,7 +111,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
             {content}
           </button>
         ) : (
-          <div className={`quoridor-room__cell${last}`} key={`${vr}-${vc}`} style={cellArea(view)}>
+          <div className={`quoridor-room__cell${goal}${last}`} key={`${vr}-${vc}`} style={cellArea(view)}>
             {content}
           </div>
         ),

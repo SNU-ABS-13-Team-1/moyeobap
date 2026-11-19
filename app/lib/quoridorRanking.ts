@@ -3,7 +3,8 @@ import { currentWeekKey } from "./gameWeek";
 import { DEFAULT_RATING, computeEloDeltas } from "./quoridorElo";
 import type { QuoridorRoom } from "./quoridorRoom";
 
-// 쿼리도 주간 Elo 랭킹(알까기와 같은 구조). 계산은 quoridorElo.ts의 순수 함수가 합니다.
+// 쿼리도 주간 Elo 랭킹(알까기와 같은 구조). 계산은 quoridorElo.ts의 순수 함수가 등수로 합니다.
+// 승수(wins)는 1위만, 그 밖의 등수는 패(losses)로 셉니다.
 
 export type RankingEntry = {
   userId: string;
@@ -40,7 +41,9 @@ export async function recordMatchResult(room: QuoridorRoom): Promise<void> {
   }
   const byId = new Map(((rows ?? []) as RatingRow[]).map((r) => [r.user_id, r]));
   const before = Object.fromEntries(seated.map((p) => [p.id, byId.get(p.id)?.rating ?? DEFAULT_RATING]));
-  const deltas = computeEloDeltas(before, winnerId, room.mode);
+  // 등수가 없는 사람(옛 행 등)은 꼴찌로 봅니다. 승자는 1위입니다.
+  const ranks = Object.fromEntries(seated.map((p) => [p.id, p.id === winnerId ? 1 : (p.rank ?? room.mode)]));
+  const deltas = computeEloDeltas(before, ranks);
 
   const { error: matchError } = await supabase.from("quoridor_matches").insert({
     room_id: room.id,
@@ -50,6 +53,7 @@ export async function recordMatchResult(room: QuoridorRoom): Promise<void> {
       name: p.name,
       seat: p.seat,
       left: p.left,
+      rank: ranks[p.id],
       ratingBefore: before[p.id],
       ratingAfter: before[p.id] + (deltas[p.id] ?? 0),
     })),
