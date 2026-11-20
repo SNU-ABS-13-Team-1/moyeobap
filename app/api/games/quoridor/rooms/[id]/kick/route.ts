@@ -19,5 +19,5 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  return NextResponse.json({ room: result.room });
+  return NextResponse.json({ room: result.room, serverTime: new Date().toISOString() });
 }

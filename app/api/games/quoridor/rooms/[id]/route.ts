@@ -14,5 +14,5 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   if (!room) {
     return NextResponse.json({ error: "존재하지 않는 방이에요." }, { status: 404 });
   }
-  return NextResponse.json({ room });
+  return NextResponse.json({ room, serverTime: new Date().toISOString() });
 }

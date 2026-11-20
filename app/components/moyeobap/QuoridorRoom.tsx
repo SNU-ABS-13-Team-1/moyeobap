@@ -39,7 +39,7 @@ function moveLabel(record: MoveRecord): string {
 export function QuoridorRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { room, error, reconnecting, synchronize, sendAction } = useQuoridorRoom(roomId, currentUser?.id);
+  const { room, error, reconnecting, synchronize, sendAction, clockOffsetMs } = useQuoridorRoom(roomId, currentUser?.id);
 
   const [inputMode, setInputMode] = useState<'move' | 'wall'>('move');
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -116,8 +116,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
     return () => window.clearInterval(timer);
   }, [roomStatus]);
 
+  // 턴 시작 시각은 서버 시계로 찍히므로 내 시계를 서버 시계로 맞춰서 잽니다(컴퓨터마다 다른 초가 보이지 않게).
+  const serverNow = now + clockOffsetMs;
   const turnStarted = room?.turnStartedAt ? Date.parse(room.turnStartedAt) : null;
-  const remainingMs = room && turnStarted !== null ? Math.max(0, room.turnLimitSec * 1000 - (now - turnStarted)) : null;
+  const remainingMs = room && turnStarted !== null
+    ? Math.min(room.turnLimitSec * 1000, Math.max(0, room.turnLimitSec * 1000 - (serverNow - turnStarted)))
+    : null;
 
   // 시간 초과 신고: 나가지 않은 참여자만, 자리 순서대로 0.4초씩 시차를 둡니다.
   // 같은 턴에는 한 번 보내고, 실패하면(시계 차이·네트워크·서버 오류 모두) 간격을 늘려 몇 번만 다시 보냅니다.
@@ -126,7 +130,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const failuresRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   useEffect(() => {
     if (!room || room.status !== 'playing' || mySeat === null || !room.turnStartedAt || turnStarted === null) return undefined;
-    if (now - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeat * 400) return undefined;
+    if (serverNow - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeat * 400) return undefined;
     const key = room.turnStartedAt;
     if (reportedRef.current === key) return undefined;
     reportedRef.current = key;
@@ -140,7 +144,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
       }, delay);
     });
     return undefined;
-  }, [room, now, mySeat, turnStarted, sendAction]);
+  }, [room, serverNow, mySeat, turnStarted, sendAction]);
 
   // 차례 알림: 차례가 실제로 나에게 넘어온 순간에만(첫 로드 제외). 맥북·iOS에는 진동이 없어 탭 제목이 유일한 신호입니다.
   const wasMyTurnRef = useRef<boolean | null>(null);
@@ -372,7 +376,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                           ? '나감'
                           : `벽 ${room.wallsLeft[seat] ?? 0} · ${ARROW[goalSideToView(room.mode, seat, rotation)]}`}
                       {isRacing(p) && p.timeouts > 0 ? ` · ⏰${p.timeouts}/${MAX_TIMEOUT_STRIKES}` : ''}
-                      {active && mySeat !== null && remainingSec !== null ? ` · ${remainingSec}초` : ''}
+                      {active && remainingSec !== null ? ` · ⏱ ${remainingSec}초` : ''}
                     </span>
                   </div>
                 );
@@ -382,7 +386,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
 
           <p className={`rummy__status ${room.status === 'finished' ? 'rummy__status--over' : ''}`}>
             {statusText}
-            {room.status === 'playing' && mySeat !== null && remainingSec !== null && (
+            {room.status === 'playing' && remainingSec !== null && (
               <span className={`chess-room__clock ${remainingSec <= 10 ? 'chess-room__clock--urgent' : ''}`}>⏱ {remainingSec}초</span>
             )}
           </p>
