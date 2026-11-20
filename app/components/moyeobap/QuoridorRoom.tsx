@@ -274,6 +274,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const winner = room.winnerId ? room.players.find((p) => p.id === room.winnerId) : null;
   const hasOpenSeat = room.status === 'waiting' && staying.length < room.mode;
   const remainingSec = remainingMs === null ? null : Math.ceil(remainingMs / 1000);
+  // 내 차례가 5초 이하로 남으면 화면 가운데에 크게 띄워 시간 초과를 막습니다(클릭은 막지 않음).
+  const finalCountdown = isMyTurn && remainingSec !== null && remainingSec > 0 && remainingSec <= 5 ? remainingSec : null;
   const lastMove = room.moves.at(-1);
   const opponentLast = started ? lastOpponentMove(room.moves, mySeat) : null;
   const opponentLastText = opponentLast
@@ -320,6 +322,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
     <div className="omok-room-page__layout">
       <div className="omok-room-page__main">
         <div className="rummy rummy--room quoridor-room">
+          {finalCountdown !== null && (
+            <div className="quoridor-room__countdown" role="timer" aria-live="assertive">
+              <span className="quoridor-room__countdown-num" key={finalCountdown}>{finalCountdown}</span>
+              <span className="quoridor-room__countdown-label">초 남았어요</span>
+            </div>
+          )}
           <div className="omok-room__header">
             <h2 className="omok-room__name">{room.roomName}</h2>
             <span className="chess-room__tc">
