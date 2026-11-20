@@ -9450,10 +9450,13 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   --quoridor-seat-1: #1c64f2; /* 파랑 */
   --quoridor-seat-2: #f5c400; /* 노랑 */
   --quoridor-seat-3: #2f9e44; /* 초록 */
-  /* 벽이 홈에 묻히지 않도록 칸·홈은 밝게, 벽은 거의 검정으로 둡니다. */
-  --quoridor-cell: #f4e6c6;
-  --quoridor-groove: #c9a675;
-  --quoridor-wall: #1b120b;
+  /* 차분한 회갈색 판. 홈(판 바탕)은 밝게, 칸은 한 톤 어둡게, 벽은 진한 갈색 막대로 두어
+     벽이 칸 사이 줄과 섞이지 않게 합니다. 그라데이션 없이 평면으로 그립니다. */
+  --quoridor-board: #ada093;
+  --quoridor-cell: #9e8f81;
+  --quoridor-cell-hover: #b4a698;
+  --quoridor-wall: #4f453d;
+  --quoridor-coord: #5f554c;
 }
 
 .quoridor-room__chips {
@@ -9558,16 +9561,49 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   .quoridor-room__countdown-num { animation: none; }
 }
 
-/* 보드: 목표 변 색 띠는 바깥 래퍼의 여백에 그리고, 그리드에는 패딩·테두리를 주지 않습니다
-   (탭 좌표를 그리드 크기 기준 53단위로 계산하기 때문). */
+/* 보드: 목표 변 색 띠와 좌표(a~i, 1~9)는 바깥 래퍼의 여백에 그리고, 그리드에는 패딩·테두리를 주지 않습니다
+   (탭 좌표를 그리드 크기 기준 53단위로 계산하기 때문). 왼쪽·아래 여백은 좌표 자리라 더 넓습니다. */
 .quoridor-room__board-wrap {
+  --qb-pad: 16px;
+  --qb-coord: 30px;
   position: relative;
   width: min(100%, 70vh);
   margin: 0 auto;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: #8a5a33;
+  padding: var(--qb-pad) var(--qb-pad) var(--qb-coord) var(--qb-coord);
+  border-radius: 24px;
+  background: var(--quoridor-board);
   box-sizing: border-box;
+}
+
+.quoridor-room__coords {
+  position: absolute;
+  display: grid;
+  color: var(--quoridor-coord);
+  font-size: clamp(10px, 1.6vw, 14px);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.quoridor-room__coords span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quoridor-room__coords--files {
+  left: var(--qb-coord);
+  right: var(--qb-pad);
+  bottom: 9px;
+  height: calc(var(--qb-coord) - 9px);
+  grid-template-columns: repeat(8, minmax(0, 5fr) minmax(0, 1fr)) minmax(0, 5fr);
+}
+
+.quoridor-room__coords--ranks {
+  top: var(--qb-pad);
+  bottom: var(--qb-coord);
+  left: 9px;
+  width: calc(var(--qb-coord) - 9px);
+  grid-template-rows: repeat(8, minmax(0, 5fr) minmax(0, 1fr)) minmax(0, 5fr);
 }
 
 .quoridor-room__band {
@@ -9576,10 +9612,10 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
-.quoridor-room__band--up { top: 2px; left: 12px; right: 12px; height: 8px; }
-.quoridor-room__band--down { bottom: 2px; left: 12px; right: 12px; height: 8px; }
-.quoridor-room__band--left { left: 2px; top: 12px; bottom: 12px; width: 8px; }
-.quoridor-room__band--right { right: 2px; top: 12px; bottom: 12px; width: 8px; }
+.quoridor-room__band--up { top: 5px; left: var(--qb-coord); right: var(--qb-pad); height: 6px; }
+.quoridor-room__band--down { bottom: 2px; left: var(--qb-coord); right: var(--qb-pad); height: 5px; }
+.quoridor-room__band--left { left: 2px; top: var(--qb-pad); bottom: var(--qb-coord); width: 5px; }
+.quoridor-room__band--right { right: 5px; top: var(--qb-pad); bottom: var(--qb-coord); width: 6px; }
 .quoridor-room__band--seat0 { background: var(--quoridor-seat-0); }
 .quoridor-room__band--seat1 { background: var(--quoridor-seat-1); }
 .quoridor-room__band--seat2 { background: var(--quoridor-seat-2); }
@@ -9592,8 +9628,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   gap: 0;
   aspect-ratio: 1;
   width: 100%;
-  border-radius: 4px;
-  background: var(--quoridor-groove);
+  background: var(--quoridor-board);
   touch-action: manipulation;
   user-select: none;
 }
@@ -9611,7 +9646,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   min-height: 0;
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--quoridor-cell);
   font: inherit;
 }
@@ -9622,7 +9657,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 
 .quoridor-room__cell--target:hover,
 .quoridor-room__cell--target:focus-visible {
-  background: #f6e7c8;
+  background: var(--quoridor-cell-hover);
   outline: none;
 }
 
@@ -9653,16 +9688,20 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   width: 28%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(255, 107, 53, 0.8);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .quoridor-room__wall {
   z-index: 1;
-  border-radius: 2px;
+  border-radius: 999px;
   background: var(--quoridor-wall);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   pointer-events: none;
 }
+
+/* 홈을 꽉 채우고 살짝 넘치는 굵은 막대. 끝은 조금 줄여 이어 놓은 벽 두 개가 구분되게 합니다. */
+.quoridor-room__wall--h { margin: -2px 3px; }
+.quoridor-room__wall--v { margin: 3px -2px; }
 
 /* 내 목표 줄: 내 색으로 칠하고 바깥 가장자리에 굵은 선(도착할 곳이 한눈에 보이게). */
 .quoridor-room__goal--seat0 { --quoridor-goal: var(--quoridor-seat-0); }
@@ -9670,7 +9709,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 .quoridor-room__goal--seat2 { --quoridor-goal: var(--quoridor-seat-2); }
 .quoridor-room__goal--seat3 { --quoridor-goal: var(--quoridor-seat-3); }
 .quoridor-room__cell--goal {
-  background: color-mix(in srgb, var(--quoridor-goal) 30%, var(--quoridor-cell));
+  background: color-mix(in srgb, var(--quoridor-goal) 35%, var(--quoridor-cell));
 }
 .quoridor-room__cell--goal-up { box-shadow: inset 0 4px 0 var(--quoridor-goal); }
 .quoridor-room__cell--goal-down { box-shadow: inset 0 -4px 0 var(--quoridor-goal); }
@@ -9691,7 +9730,7 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 .quoridor-room__wall--last {
   z-index: 2;
   background: var(--quoridor-last, var(--primary));
-  box-shadow: 0 0 0 2px #fff, 0 0 8px 3px var(--quoridor-last, var(--primary));
+  box-shadow: 0 0 0 2px #fff, 0 0 6px 2px var(--quoridor-last, var(--primary));
 }
 
 .quoridor-room__last-text {
@@ -9702,11 +9741,13 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
 }
 
 .quoridor-room__wall--hover {
-  background: rgba(255, 107, 53, 0.35);
+  background: rgba(79, 69, 61, 0.35);
+  box-shadow: none;
 }
 
 .quoridor-room__wall--preview {
-  background: rgba(255, 107, 53, 0.75);
+  background: rgba(255, 107, 53, 0.85);
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .quoridor-room__wall--invalid {

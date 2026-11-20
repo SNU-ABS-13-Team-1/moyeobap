@@ -29,6 +29,11 @@ type Props = {
 
 const sameCell = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
 
+const FILES = 'abcdefghi';
+// 화면의 한 줄(가로줄 또는 세로줄)이 절대 좌표로 같은 열이면 a~i, 같은 행이면 1~9를 붙입니다.
+// 보드가 돌아가 있어도(4인전 90·270도) 기보 표기와 같은 이름이 보이게 하려는 것입니다.
+const lineLabel = (a: Cell, b: Cell) => (a.c === b.c ? FILES[a.c] : String(a.r + 1));
+
 // 그리드는 칸(5) + 홈(1)을 번갈아 둔 17x17 트랙입니다. 화면 좌표(행은 아래→위)로 배치합니다.
 const cellArea = (v: Cell) => ({ gridRow: 17 - 2 * v.r, gridColumn: 2 * v.c + 1 });
 const wallArea = (w: Wall) =>
@@ -72,6 +77,15 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
         onPointerLeave: (event: PointerEvent<HTMLDivElement>) => onWallPointer('leave', { r: 0, c: 0 }, event.pointerType),
       }
     : {};
+
+  // 아래쪽 좌표: 화면 세로줄 vc, 왼쪽 좌표: 화면 가로줄 vr(위가 8).
+  const fileLabels = Array.from({ length: 9 }, (_, vc) => lineLabel(cellFromView({ r: 0, c: vc }, rotation), cellFromView({ r: 1, c: vc }, rotation)));
+  const rankLabels = Array.from({ length: 9 }, (_, i) => {
+    const vr = 8 - i;
+    const a = cellFromView({ r: vr, c: 0 }, rotation);
+    const b = cellFromView({ r: vr, c: 1 }, rotation);
+    return a.r === b.r ? String(a.r + 1) : FILES[a.c];
+  });
 
   const cells = [];
   for (let vr = 8; vr >= 0; vr -= 1) {
@@ -124,6 +138,12 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
       {bands.map(({ side, seat }) => (
         <span aria-hidden="true" className={`quoridor-room__band quoridor-room__band--${side} quoridor-room__band--seat${seat}`} key={`${side}-${seat}`} />
       ))}
+      <div aria-hidden="true" className="quoridor-room__coords quoridor-room__coords--files">
+        {fileLabels.map((label, vc) => <span key={vc} style={{ gridColumn: 2 * vc + 1 }}>{label}</span>)}
+      </div>
+      <div aria-hidden="true" className="quoridor-room__coords quoridor-room__coords--ranks">
+        {rankLabels.map((label, i) => <span key={i} style={{ gridRow: 2 * i + 1 }}>{label}</span>)}
+      </div>
       <div
         className={`quoridor-room__board ${inputMode === 'wall' ? 'quoridor-room__board--wall' : ''}`}
         ref={gridRef}
@@ -136,19 +156,19 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
           return (
             <span
               aria-hidden="true"
-              className={`quoridor-room__wall${isLast ? ` quoridor-room__wall--last${lastClass}` : ''}`}
+              className={`quoridor-room__wall quoridor-room__wall--${v.o}${isLast ? ` quoridor-room__wall--last${lastClass}` : ''}`}
               key={`${w.r}-${w.c}-${w.o}`}
               style={wallArea(v)}
             />
           );
         })}
         {hover && !(preview && hover.r === preview.r && hover.c === preview.c) && (
-          <span aria-hidden="true" className="quoridor-room__wall quoridor-room__wall--hover" style={wallArea(hover)} />
+          <span aria-hidden="true" className={`quoridor-room__wall quoridor-room__wall--${hover.o} quoridor-room__wall--hover`} style={wallArea(hover)} />
         )}
         {preview && (
           <span
             aria-hidden="true"
-            className={`quoridor-room__wall quoridor-room__wall--preview ${previewInvalid ? 'quoridor-room__wall--invalid' : ''}`}
+            className={`quoridor-room__wall quoridor-room__wall--${preview.o} quoridor-room__wall--preview ${previewInvalid ? 'quoridor-room__wall--invalid' : ''}`}
             style={wallArea(preview)}
           />
         )}
