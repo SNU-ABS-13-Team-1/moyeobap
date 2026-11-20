@@ -9517,6 +9517,47 @@ li.rank-row--3 { box-shadow: inset 3px 0 0 #f97316; }
   color: var(--text-secondary);
 }
 
+/* 내 차례 마지막 5초: 화면 가운데 반투명 카운트다운. 클릭은 그대로 보드로 통과합니다. */
+.quoridor-room__countdown {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 36px;
+  border-radius: 24px;
+  background: rgba(17, 24, 39, 0.55);
+  color: #fff;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.quoridor-room__countdown-num {
+  font-size: 7rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fecaca;
+  font-variant-numeric: tabular-nums;
+  animation: quoridor-countdown-pop 0.4s ease-out;
+}
+
+.quoridor-room__countdown-label {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+@keyframes quoridor-countdown-pop {
+  from { transform: scale(1.35); opacity: 0.4; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quoridor-room__countdown-num { animation: none; }
+}
+
 /* 보드: 목표 변 색 띠는 바깥 래퍼의 여백에 그리고, 그리드에는 패딩·테두리를 주지 않습니다
    (탭 좌표를 그리드 크기 기준 53단위로 계산하기 때문). */
 .quoridor-room__board-wrap {
