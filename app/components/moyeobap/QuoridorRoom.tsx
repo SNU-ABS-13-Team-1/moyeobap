@@ -35,7 +35,7 @@ function moveLabel(record: MoveRecord): string {
   return record.move;
 }
 
-// 쿼리도 온라인 방. 방 상태는 Realtime + 20초 폴링(useQuoridorRoom), 수는 표기 하나만 POST합니다.
+// 쿼리도 온라인 방. 방 상태는 참여자·관전자 모두 Realtime + 20초 비상 폴링(useQuoridorRoom), 수는 표기 하나만 POST합니다.
 export function QuoridorRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
@@ -398,9 +398,6 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
               <span className={`chess-room__clock ${remainingSec <= 10 ? 'chess-room__clock--urgent' : ''}`}>⏱ {remainingSec}초</span>
             )}
           </p>
-          {room.status === 'playing' && mySeat === null && (
-            <p className="quoridor-room__notice">관전 화면은 최대 20초 늦을 수 있어요.</p>
-          )}
           {notice && <p className="quoridor-room__notice">{notice}</p>}
           {arrivedText && <p className="quoridor-room__notice">{arrivedText}</p>}
           {standingsText && <p className="quoridor-room__standings">{standingsText}</p>}
