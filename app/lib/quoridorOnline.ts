@@ -179,6 +179,11 @@ export async function timeoutTurn(roomId: string, userId: string): Promise<Outco
  * 나가기로 판이 끝나면 랭킹이 반영됩니다. 방이 지워졌거나 이미 나간 상태면 room은 null.
  * 갱신에 실패하면 error를 돌려줘 화면이 "나간 줄 아는데 서버엔 앉아 있는" 상태를 만들지 않습니다.
  */
+/** 기권: 이 판에서만 지고 방에는 참여자로 남습니다(다시 하기에 낌). 나가기는 leaveRoom. */
+export async function resignGame(roomId: string, userId: string): Promise<Outcome> {
+  return runPlan(roomId, (room, nowIso) => planResign(room, userId, nowIso, { stay: true }));
+}
+
 export async function leaveRoom(roomId: string, userId: string): Promise<{ room: QuoridorRoom | null } | { error: string }> {
   const supabase = getSupabase();
   if (!supabase) return { error: "서버 오류예요." };
