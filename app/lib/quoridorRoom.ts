@@ -34,7 +34,8 @@ export const END_REASON_LABEL: Record<NonNullable<EndReason>, string> = {
  * rank는 등수(1이 최고). 목표 변에 도착한 사람은 위에서부터, 나간 사람은 아래에서부터 채우고,
  * 마지막까지 남은 한 명이 남은 최고 등수를 받습니다. 아직 경기 중이면 null(없던 옛 행도 null 취급).
  */
-export type RoomPlayer = { id: string; name: string; seat: number | null; left: boolean; timeouts: number; rank?: number | null };
+/** resigned: 기권해 이 판에서 졌지만 방에는 남아 있음(left와 달리 다시 하기에 낌). */
+export type RoomPlayer = { id: string; name: string; seat: number | null; left: boolean; timeouts: number; rank?: number | null; resigned?: boolean };
 /** move: 표기("e2", "e3h") | 'pass'(수가 없어 자동 넘김) | 'timeout'. 매 수마다 행 전체가 실시간으로 나가므로 시각은 넣지 않습니다. */
 export type MoveRecord = { seat: number; move: string };
 
@@ -327,16 +328,21 @@ export function planTurn(room: QuoridorRoom, userId: string, notation: unknown, 
   };
 }
 
-export function planResign(room: QuoridorRoom, userId: string, nowIso: string): Plan {
+/**
+ * 진행 중인 판에서 빠집니다. stay가 false(나가기·시간 초과)면 자리를 비우고(left),
+ * true(기권 버튼)면 이 판에서만 지고 방에는 참여자로 남아 다시 하기에 낍니다.
+ */
+export function planResign(room: QuoridorRoom, userId: string, nowIso: string, { stay = false }: { stay?: boolean } = {}): Plan {
   if (room.status !== 'playing') return { error: '진행 중인 게임이 아니에요.' };
   const leaver = room.players.find((p) => p.id === userId && !p.left);
   if (!leaver) return { error: '이미 나간 사람이에요.' };
+  if (stay && !isRacing(leaver)) return { error: '이미 경기에서 빠졌어요.' };
 
   // 이미 도착해 순위가 있는 사람은 자리만 비웁니다. 경기 중이던 사람은 아래에서부터 등수를 받습니다.
   const rank = isRacing(leaver) ? (unusedRanks(room.players, room.mode).at(-1) ?? room.mode) : leaver.rank;
-  const marked = room.players.map((p) => (p.id === userId ? { ...p, left: true, rank } : p));
+  const marked = room.players.map((p) => (p.id !== userId ? p : stay ? { ...p, resigned: true, rank } : { ...p, left: true, rank }));
   const stayingIds = marked.filter((p) => !p.left);
-  const hostId = room.hostId === userId ? (stayingIds[0]?.id ?? room.hostId) : room.hostId;
+  const hostId = room.hostId === userId && !stay ? (stayingIds[0]?.id ?? room.hostId) : room.hostId;
 
   if (!isRacing(leaver)) return { patch: { players: marked, host_id: hostId }, finished: null };
 

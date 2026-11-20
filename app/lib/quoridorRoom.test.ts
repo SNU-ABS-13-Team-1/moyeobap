@@ -295,3 +295,25 @@ test('일반 방 다시 하기는 섞인 순서 그대로(같은 자리도 가�
   assert.ok('patch' in t);
   assert.deepEqual(t.patch.players!.map((q) => [q.id, q.seat]), [['a', 0], ['b', 1], ['c', 2], ['d', 3]]);
 });
+
+test('기권(방에 남기): 2인은 판이 끝나도 기권한 사람이 방에 남고 다시 하기에 낀다', () => {
+  const r = planResign(room(), 'a', T0, { stay: true });
+  assert.ok('patch' in r);
+  assert.deepEqual(r.finished, { winnerId: 'b', reason: 'others_left' });
+  const a = r.patch.players!.find((q) => q.id === 'a')!;
+  assert.equal(a.left, false);
+  assert.equal(a.resigned, true);
+  assert.equal(a.rank, 2);
+  assert.equal(r.patch.host_id, 'a'); // 방장도 그대로
+  const after = room({ status: 'finished', players: r.patch.players!, winnerId: 'b' });
+  const again = planRestart(after, 'a', (x) => x, T0);
+  assert.ok('patch' in again && again.patch.status === 'playing'); // 같은 멤버로 바로 다시 시작
+  assert.ok(again.patch.players!.every((q) => !q.resigned && q.rank === null));
+});
+
+test('기권(방에 남기): 4인은 경기에서만 빠지고 차례가 넘어간다. 다시 기권은 거절', () => {
+  const r = planResign(room4(), 'a', T0, { stay: true });
+  assert.ok('patch' in r && r.finished === null && r.patch.turn_index === 1 && r.patch.host_id === 'a');
+  assert.deepEqual(ranks(r.patch.players), [['a', 4, false], ['b', null, false], ['c', null, false], ['d', null, false]]);
+  assert.deepEqual(planResign(room4({ players: r.patch.players }), 'a', T0, { stay: true }), { error: '이미 경기에서 빠졌어요.' });
+});

@@ -39,7 +39,7 @@ function moveLabel(record: MoveRecord): string {
 export function QuoridorRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { room, error, reconnecting, synchronize, sendAction } = useQuoridorRoom(roomId, currentUser?.id);
+  const { room, error, reconnecting, synchronize, sendAction, clockOffsetMs } = useQuoridorRoom(roomId, currentUser?.id);
 
   const [inputMode, setInputMode] = useState<'move' | 'wall'>('move');
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -116,8 +116,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
     return () => window.clearInterval(timer);
   }, [roomStatus]);
 
+  // 턴 시작 시각은 서버 시계로 찍히므로 내 시계를 서버 시계로 맞춰서 잽니다(컴퓨터마다 다른 초가 보이지 않게).
+  const serverNow = now + clockOffsetMs;
   const turnStarted = room?.turnStartedAt ? Date.parse(room.turnStartedAt) : null;
-  const remainingMs = room && turnStarted !== null ? Math.max(0, room.turnLimitSec * 1000 - (now - turnStarted)) : null;
+  const remainingMs = room && turnStarted !== null
+    ? Math.min(room.turnLimitSec * 1000, Math.max(0, room.turnLimitSec * 1000 - (serverNow - turnStarted)))
+    : null;
 
   // 시간 초과 신고: 나가지 않은 참여자만, 자리 순서대로 0.4초씩 시차를 둡니다.
   // 같은 턴에는 한 번 보내고, 실패하면(시계 차이·네트워크·서버 오류 모두) 간격을 늘려 몇 번만 다시 보냅니다.
@@ -126,7 +130,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
   const failuresRef = useRef<{ key: string; count: number }>({ key: '', count: 0 });
   useEffect(() => {
     if (!room || room.status !== 'playing' || mySeat === null || !room.turnStartedAt || turnStarted === null) return undefined;
-    if (now - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeat * 400) return undefined;
+    if (serverNow - turnStarted < room.turnLimitSec * 1000 + TURN_GRACE_MS + mySeat * 400) return undefined;
     const key = room.turnStartedAt;
     if (reportedRef.current === key) return undefined;
     reportedRef.current = key;
@@ -140,7 +144,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
       }, delay);
     });
     return undefined;
-  }, [room, now, mySeat, turnStarted, sendAction]);
+  }, [room, serverNow, mySeat, turnStarted, sendAction]);
 
   // 차례 알림: 차례가 실제로 나에게 넘어온 순간에만(첫 로드 제외). 맥북·iOS에는 진동이 없어 탭 제목이 유일한 신호입니다.
   const wasMyTurnRef = useRef<boolean | null>(null);
@@ -235,12 +239,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
 
-  // 기권: 서버에서는 나가기(leave)와 같은 처리(자리 비움·순위)지만, 화면은 로비로 보내지 않고
-  // 같은 방에 관전자로 남깁니다. 남은 판과 채팅을 계속 볼 수 있습니다.
+  // 기권: 이 판에서만 지고 방에는 참여자로 남습니다(나가기와 별개). 2인전이면 판이 끝나도
+  // 그대로 방에 있어서 같은 멤버로 다시 할 수 있습니다.
   async function resign() {
     setBusy(true);
     try {
-      await requestJson(`/api/games/quoridor/rooms/${roomId}/leave`, { method: 'POST' });
+      await requestJson(`/api/games/quoridor/rooms/${roomId}/resign`, { method: 'POST' });
       setConfirmingResign(false);
       setPreview(null);
       await synchronize().catch(() => undefined);
@@ -283,10 +287,10 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
       : `${playerLabel(room, lastMove.seat)}: 시간 초과 ${room.players[lastMove.seat]?.timeouts ?? 0}/${MAX_TIMEOUT_STRIKES}`
     : null;
   const ranked = room.players.filter((p) => typeof p.rank === 'number').sort((a, b) => (a.rank ?? 9) - (b.rank ?? 9));
-  const arrived = room.status === 'playing' ? ranked.filter((p) => !p.left) : [];
+  const arrived = room.status === 'playing' ? ranked.filter((p) => !p.left && !p.resigned) : [];
   const arrivedText = arrived.length > 0 ? `🏁 도착: ${arrived.map((p) => `${p.rank}위 ${playerLabel(room, room.players.indexOf(p))}`).join(' · ')}` : null;
   const standingsText = room.status === 'finished' && room.mode === 4 && ranked.length > 0
-    ? ranked.map((p) => `${p.rank}위 ${playerLabel(room, room.players.indexOf(p))}${p.left ? ' 나감' : ''}`).join(' · ')
+    ? ranked.map((p) => `${p.rank}위 ${playerLabel(room, room.players.indexOf(p))}${p.left ? ' 나감' : p.resigned ? ' 기권' : ''}`).join(' · ')
     : null;
 
   let statusText: string;
@@ -302,6 +306,8 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
           : '관전 중이에요 (자리가 다 찼어요).';
   } else if (room.status === 'finished') {
     statusText = winner ? `🏁 ${playerLabel(room, room.players.indexOf(winner))} 승리 — ${room.endReason ? END_REASON_LABEL[room.endReason] : ''}` : '게임이 끝났어요.';
+  } else if (me && me.resigned) {
+    statusText = `기권했어요(${me.rank}위). 남은 사람들의 판을 지켜볼 수 있어요.`;
   } else if (me && !amRacing) {
     statusText = `🏁 ${me.rank}위로 도착했어요. 남은 사람들의 순위가 정해질 때까지 지켜볼 수 있어요.`;
   } else if (isMyTurn) {
@@ -365,12 +371,12 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                     </span>
                     <span className="quoridor-room__chip-meta">
                       {typeof p.rank === 'number'
-                        ? `🏁 ${p.rank}위${p.left ? ' · 나감' : ''}`
+                        ? `${p.resigned ? '🏳️ 기권' : '🏁'} ${p.rank}위${p.left ? ' · 나감' : ''}`
                         : p.left
                           ? '나감'
                           : `벽 ${room.wallsLeft[seat] ?? 0} · ${ARROW[goalSideToView(room.mode, seat, rotation)]}`}
                       {isRacing(p) && p.timeouts > 0 ? ` · ⏰${p.timeouts}/${MAX_TIMEOUT_STRIKES}` : ''}
-                      {active && mySeat !== null && remainingSec !== null ? ` · ${remainingSec}초` : ''}
+                      {active && remainingSec !== null ? ` · ⏱ ${remainingSec}초` : ''}
                     </span>
                   </div>
                 );
@@ -380,7 +386,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
 
           <p className={`rummy__status ${room.status === 'finished' ? 'rummy__status--over' : ''}`}>
             {statusText}
-            {room.status === 'playing' && mySeat !== null && remainingSec !== null && (
+            {room.status === 'playing' && remainingSec !== null && (
               <span className={`chess-room__clock ${remainingSec <= 10 ? 'chess-room__clock--urgent' : ''}`}>⏱ {remainingSec}초</span>
             )}
           </p>
@@ -487,7 +493,7 @@ export function QuoridorRoom({ roomId }: { roomId: string }) {
                 )}
                 {room.status === 'playing' && amRacing && confirmingResign ? (
                   <span className="rummy__confirm" role="alertdialog" aria-label="기권 확인">
-                    기권하면 이 판에서 지고, 방에 남아 관전할 수 있어요.
+                    기권하면 이 판에서 지지만 방에는 남아요.
                     <button className="rummy__btn rummy__btn--danger" disabled={busy} onClick={() => void resign()} type="button">
                       기권
                     </button>

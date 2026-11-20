@@ -90,7 +90,7 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
           {player && (
             <span
               aria-label={`${playerLabel(room, seat)}의 말`}
-              className={`quoridor-room__pawn quoridor-room__pawn--seat${seat} ${player.left ? 'quoridor-room__pawn--left' : ''}`}
+              className={`quoridor-room__pawn quoridor-room__pawn--seat${seat} ${player.left || player.resigned ? 'quoridor-room__pawn--left' : ''}`}
             >
               {SEAT_SHAPES[seat]}
             </span>

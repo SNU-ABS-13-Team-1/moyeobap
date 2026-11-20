@@ -3,7 +3,8 @@ import { mapRoomRow, type QuoridorRoom, type QuoridorRoomRow } from './quoridorR
 // API 응답·실시간 이벤트·폴링이 하나의 최신 방 상태를 공유합니다(omokRoomState.ts와 같은 역할).
 // 쿼리도 방은 모든 갱신이 version을 1씩 올리고 재시작해도 계속 오르므로 version만 비교합니다.
 
-export type QuoridorRoomResponse = { room: QuoridorRoom };
+/** serverTime: 응답 시점의 서버 시각(내 시계와의 차이 보정용, serverClock.ts). */
+export type QuoridorRoomResponse = { room: QuoridorRoom; serverTime?: string };
 
 const isCell = (v: unknown) => {
   const c = v as { r?: unknown; c?: unknown } | null;

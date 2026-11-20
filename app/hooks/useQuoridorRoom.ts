@@ -8,6 +8,7 @@ import { requestJson } from '../lib/api-client';
 import { createSupabaseBrowserClient } from '../lib/supabase/client';
 import { GAME_ROOM_RECOVERY_DELAYS, POLLING_PRESETS } from '../lib/swrConfig';
 import type { QuoridorRoom } from '../lib/quoridorRoom';
+import { betterSample, clockSample, type ClockSample } from '../lib/serverClock';
 import { createQuoridorRoomState, parseQuoridorRoomEvent, type QuoridorRoomResponse } from '../lib/quoridorRoomState';
 
 type Action = 'join' | 'start' | 'kick' | 'turn' | 'timeout' | 'restart';
@@ -23,10 +24,22 @@ export function useQuoridorRoom(
     readRetry.current = undefined;
   }, []);
   const state = useMemo(() => createQuoridorRoomState(roomId), [roomId]);
+  // 내 시계와 서버 시계의 차이(ms). 턴 남은 시간을 모든 사람이 같은 초로 보게 합니다.
+  const clockRef = useRef<ClockSample | null>(null);
+  const [clockOffsetMs, setClockOffsetMs] = useState(0);
+  const measureClock = useCallback((sentAt: number, serverTime: unknown) => {
+    const next = betterSample(clockRef.current, clockSample(sentAt, Date.now(), serverTime));
+    if (next && next !== clockRef.current) {
+      clockRef.current = next;
+      setClockOffsetMs(Math.round(next.offsetMs));
+    }
+  }, []);
   const readRoom = useCallback(async (url: string) => {
+    const sentAt = Date.now();
     const response = await fetcher<QuoridorRoomResponse>(url);
+    measureClock(sentAt, response.serverTime);
     return state.accept(response.room);
-  }, [state]);
+  }, [state, measureClock]);
   const { data, error, mutate } = useSWR<QuoridorRoomResponse>(
     `/api/games/quoridor/rooms/${roomId}`, readRoom,
     {
@@ -51,13 +64,15 @@ export function useQuoridorRoom(
     return mutate(state.accept(room), { revalidate: false });
   }, [mutate, state, cancelReadRetry]);
   const sendAction = useCallback(async (action: Action, body?: Record<string, unknown>) => {
+    const sentAt = Date.now();
     const response = await requestJson<QuoridorRoomResponse>(`/api/games/quoridor/rooms/${roomId}/${action}`, {
       method: 'POST',
       ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
     });
+    measureClock(sentAt, response.serverTime);
     // 이미 서버가 확정한 판을 받았으므로 성공 뒤 GET을 다시 하지 않습니다.
     await applyRoom(response.room);
-  }, [roomId, applyRoom]);
+  }, [roomId, applyRoom, measureClock]);
   const [reconnecting, setReconnecting] = useState(false);
 
   useEffect(() => {
@@ -169,5 +184,5 @@ export function useQuoridorRoom(
     // 인증이 완료되거나 사용자가 바뀌면 해당 세션으로 다시 구독합니다.
   }, [roomId, userId, createClient, applyRoom, synchronize, cancelReadRetry]);
 
-  return { room: data?.room, error, reconnecting, synchronize, sendAction };
+  return { room: data?.room, error, reconnecting, synchronize, sendAction, clockOffsetMs };
 }
