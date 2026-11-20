@@ -136,19 +136,19 @@ export function QuoridorBoard({ room, rotation, inputMode, moveTargets, onMove, 
           return (
             <span
               aria-hidden="true"
-              className={`quoridor-room__wall${isLast ? ` quoridor-room__wall--last${lastClass}` : ''}`}
+              className={`quoridor-room__wall quoridor-room__wall--${v.o}${isLast ? ` quoridor-room__wall--last${lastClass}` : ''}`}
               key={`${w.r}-${w.c}-${w.o}`}
               style={wallArea(v)}
             />
           );
         })}
         {hover && !(preview && hover.r === preview.r && hover.c === preview.c) && (
-          <span aria-hidden="true" className="quoridor-room__wall quoridor-room__wall--hover" style={wallArea(hover)} />
+          <span aria-hidden="true" className={`quoridor-room__wall quoridor-room__wall--${hover.o} quoridor-room__wall--hover`} style={wallArea(hover)} />
         )}
         {preview && (
           <span
             aria-hidden="true"
-            className={`quoridor-room__wall quoridor-room__wall--preview ${previewInvalid ? 'quoridor-room__wall--invalid' : ''}`}
+            className={`quoridor-room__wall quoridor-room__wall--${preview.o} quoridor-room__wall--preview ${previewInvalid ? 'quoridor-room__wall--invalid' : ''}`}
             style={wallArea(preview)}
           />
         )}
